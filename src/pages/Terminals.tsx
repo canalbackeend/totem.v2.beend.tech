@@ -47,7 +47,7 @@ export default function Terminals() {
   const [campaignsList, setCampaignsList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [maxTerminals, setMaxTerminals] = useState(1);
+  const [maxTerminals, setMaxTerminals] = useState(-1);
 
   const [modalType, setModalType] = useState<'qrcode' | 'credentials' | 'create' | 'edit' | 'delete' | 'reset-password' | null>(null);
   const [selectedTerminal, setSelectedTerminal] = useState<Terminal | null>(null);
@@ -67,20 +67,8 @@ export default function Terminals() {
       const campaignsData = await api.get('/campaigns');
       setCampaignsList(campaignsData || []);
 
-      if (profile?.empresa) {
-        // This might need a proper endpoint if it's not in the profile
-        // but for now let's assume it's part of the profile or we fetch it
-        try {
-          const companies = await api.get('/companies');
-          const myCompany = companies.find((c: any) => c.empresa === profile.empresa);
-          if (myCompany) {
-            setMaxTerminals(myCompany.max_terminals || 1);
-          }
-        } catch (e) {
-          // If companies endpoint is restricted, we use profile fallback if available
-          setMaxTerminals(profile.max_terminals || 1);
-        }
-      }
+      const isMaster = isMasterAdmin || isAdmin;
+      setMaxTerminals(isMaster ? -1 : (profile?.max_terminals || 1));
 
     } catch (err: any) {
       console.error(err);
@@ -165,7 +153,7 @@ export default function Terminals() {
       return;
     }
 
-    if (!isMasterAdmin && terminals.length >= maxTerminals) {
+    if (!isMasterAdmin && maxTerminals > 0 && terminals.length >= maxTerminals) {
       toast.error('Limite de terminais atingido.', {
         description: `Seu plano atual permite apenas ${maxTerminals} terminal(is). Entre em contato com o suporte para aumentar seu limite.`
       });

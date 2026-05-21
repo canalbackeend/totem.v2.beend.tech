@@ -457,7 +457,7 @@ app.get("/api/dashboard/stats", authenticateToken, async (req: any, res) => {
       prisma.user.findUnique({ where: { id: userId } })
     ]);
 
-    const maxTerminals = user?.max_terminals || 10;
+    const maxTerminals = isMasterAdmin ? -1 : (user?.max_terminals || 10);
     
     let totalQuestions = 0;
     let totalCollaborators = 0;
@@ -491,6 +491,7 @@ app.get("/api/dashboard/stats", authenticateToken, async (req: any, res) => {
     res.json({
       terminals: termCount,
       maxTerminals,
+      userStatus: user?.status || "Ativo",
       campaigns: campaigns.length,
       questions: totalQuestions,
       collaborators: totalCollaborators,
@@ -1182,6 +1183,23 @@ app.get("/api/terminals", authenticateToken, async (req: any, res) => {
 app.post("/api/terminals", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
+
+    const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+    if (!user) return res.status(404).json({ error: "Usuário não encontrado" });
+
+    if (user.status !== "Ativo") {
+      return res.status(403).json({ error: "Empresa bloqueada. Entre em contato com o suporte." });
+    }
+
+    const isMasterAdmin = req.user.email === ADMIN_EMAIL;
+
+    if (!isMasterAdmin && user.max_terminals > 0) {
+      const termCount = await prisma.terminal.count({ where: { user_id: req.user.id } });
+      if (termCount >= user.max_terminals) {
+        return res.status(403).json({ error: `Limite de terminais atingido (${user.max_terminals}). Entre em contato com o suporte para aumentar seu limite.` });
+      }
+    }
+
     const { password, ...rest } = req.body;
     const plainPassword = password || "term123";
     const hashedPassword = await bcrypt.hash(plainPassword, 10);

@@ -38,10 +38,14 @@ export const MenuCards = () => {
 
         setMenuCards(newCards.map(card => {
           if (card.label === 'TERMINAIS') {
+            const limitText = stats.maxTerminals === -1
+              ? 'Ilimitado'
+              : `${stats.terminals} / ${stats.maxTerminals} terminais`;
             return {
               ...card,
               value: stats.terminals,
-              limit: `${stats.terminals} / ${stats.maxTerminals} terminais`
+              limit: limitText,
+              isBlocked: stats.userStatus !== 'Ativo'
             };
           }
           if (card.label === 'CAMPANHAS') {
