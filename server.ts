@@ -1147,7 +1147,7 @@ app.delete("/api/terminals/:id", authenticateToken, async (req: any, res) => {
 
 // Responses
 app.get("/api/responses", authenticateToken, async (req: any, res) => {
-  const { campaign_id } = req.query;
+  const { campaign_id, startDate, endDate, terminal_id } = req.query;
   const userId = req.user.id;
   const isMasterAdmin = req.user.email === ADMIN_EMAIL && !req.user.terminal_id;
   
@@ -1159,11 +1159,27 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
     if (campaign_id) {
       where.campaign_id = campaign_id as string;
     }
+
+    if (startDate) {
+      const start = new Date(startDate as string);
+      if (!isNaN(start.getTime())) {
+        where.created_at = { ...where.created_at, gte: start };
+      }
+    }
+    if (endDate) {
+      const end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+      if (!isNaN(end.getTime())) {
+        where.created_at = { ...where.created_at, lte: end };
+      }
+    }
     
     // Authorization filter
     if (!isMasterAdmin && !isAdmin) {
       if (req.user.terminal_id) {
         where.terminal_id = req.user.terminal_id;
+      } else if (terminal_id && terminal_id !== 'all') {
+        where.terminal_id = terminal_id as string;
       }
       
       if (profile?.empresa) {
