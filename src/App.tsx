@@ -38,6 +38,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 
 import SurveyWeb from './pages/SurveyWeb';
 import SecureReport from './pages/SecureReport';
+import ApkDownload from './pages/ApkDownload';
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="/survey-offline" element={<SurveyOffline />} />
           <Route path="/survey-web/:terminalId/:campaignId" element={<SurveyWeb />} />
           <Route path="/relatorio-seguro/:token?" element={<SecureReport />} />
+          <Route path="/download" element={<ApkDownload />} />
           
           <Route element={<ProtectedRoute />}>
             <Route path="/" element={<Layout />}>
