@@ -376,12 +376,26 @@ export default function SecureReport() {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8.5);
       doc.setTextColor(120, 120, 120);
-      const referenceLabel = `Referência: Hoje   |   Emissão Segura: ${dateStr}`;
+      const refDate = reportData?.reference_date ? new Date(reportData.reference_date) : now;
+      const refDateStr = refDate.toLocaleDateString('pt-BR');
+      const referenceLabel = `Referência: ${refDateStr}   |   Emissão Segura: ${dateStr}`;
       doc.text(referenceLabel, pageWidth / 2, 53, { align: 'center' });
 
       doc.line(15, 57, pageWidth - 15, 57);
 
       let currentY = 65;
+
+      if (reportData?.metrics?.totalResponses === 0) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(239, 68, 68);
+        doc.text('Nenhum registro encontrado para o dia de referência.', pageWidth / 2, currentY, { align: 'center' });
+        currentY += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(120, 120, 120);
+        doc.text('Possíveis causas: terminal offline, loja fechada ou campanha inativa.', pageWidth / 2, currentY, { align: 'center' });
+        currentY += 20;
+      }
 
       // 3. Questions Loop - Ordered exactly as the Dashboard (all non-NPS first, then NPS at the end)
       const primaryQ = campaign?.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4'].includes(q.type));

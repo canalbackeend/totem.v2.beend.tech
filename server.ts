@@ -589,20 +589,6 @@ app.get("/api/reports/check-token/:token", async (req, res) => {
       }
     });
 
-    // Fallback logic if yesterday is empty
-    if (!responses || responses.length === 0) {
-      responses = await prisma.response.findMany({
-        where: { campaign_id: campaignId },
-        include: {
-          terminal: {
-            select: { name: true }
-          }
-        },
-        orderBy: { created_at: 'desc' },
-        take: 101
-      });
-    }
-
     // Fetch Evolution Data (Last 7 days)
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -632,7 +618,8 @@ app.get("/api/reports/check-token/:token", async (req, res) => {
       profile,
       responses,
       metrics,
-      evolution: evolutionData || []
+      evolution: evolutionData || [],
+      reference_date: reportDate.toISOString()
     });
   } catch (err: any) {
     console.error("Erro na API check-token:", err);
