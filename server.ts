@@ -794,11 +794,14 @@ app.post("/api/upload", authenticateToken, async (req: any, res: any) => {
   }
 });
 
-// Proxy endpoint to download and serve images with CORS headers
-app.get("/api/proxy-image", authenticateToken, async (req: any, res: any) => {
+// Proxy endpoint to download and serve images with CORS headers (public for PDF logos)
+app.get("/api/proxy-image", async (req: any, res: any) => {
   const { url } = req.query;
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: "Parâmetro url é obrigatório" });
+  }
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    return res.status(400).json({ error: "URL inválida" });
   }
   try {
     const response = await fetch(url);
