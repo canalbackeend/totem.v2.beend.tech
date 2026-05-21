@@ -107,6 +107,8 @@ export default function Dashboard() {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
   const [responses, setResponses] = useState<any[]>([]);
   const [responsesLoading, setResponsesLoading] = useState(false);
+  const [evolutionData, setEvolutionData] = useState<any[]>([]);
+  const [evolutionLoading, setEvolutionLoading] = useState(false);
 
   // Helper to get stats for a specific question
   const getQuestionStats = (qText: string, qType: string) => {
@@ -304,6 +306,28 @@ export default function Dashboard() {
 
     fetchResponses();
   }, [selectedCampaignId, startDate, endDate, selectedTerminalId]);
+
+  useEffect(() => {
+    if (!selectedCampaignId) {
+      setEvolutionData([]);
+      return;
+    }
+    
+    const fetchEvolution = async () => {
+      setEvolutionLoading(true);
+      try {
+        const data = await api.get(`/campaigns/${selectedCampaignId}/evolution?days=7`);
+        setEvolutionData(data.evolution || []);
+      } catch (err) {
+        console.error('Error fetching evolution:', err);
+        setEvolutionData([]);
+      } finally {
+        setEvolutionLoading(false);
+      }
+    };
+
+    fetchEvolution();
+  }, [selectedCampaignId, startDate, endDate]);
 
   const handleExportConsolidado = () => {
     toast.success('Exportando CSV Consolidado...', {
@@ -1062,13 +1086,6 @@ export default function Dashboard() {
   }, []);
 
 
-  const evolutionData = selectedCampaign ? [
-    { name: new Date(selectedCampaign.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }), satisfaction: currentSatisfaction, prevSatisfaction: 0 },
-    { name: 'Hoje', satisfaction: currentSatisfaction, prevSatisfaction: 0 }
-  ] : [
-    { name: 'Início', satisfaction: 0, prevSatisfaction: 0 },
-    { name: 'Hoje', satisfaction: 0, prevSatisfaction: 0 }
-  ];
 
   return (
     <>

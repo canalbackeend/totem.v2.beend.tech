@@ -949,6 +949,87 @@ app.delete("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
   }
 });
 
+app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res) => {
+  try {
+    const days = parseInt(req.query.days as string) || 7;
+    const where: any = { id: req.params.id };
+    if (req.user.email !== ADMIN_EMAIL) {
+      where.user_id = req.user.id;
+    }
+    const campaign = await prisma.campaign.findFirst({ where });
+    if (!campaign) {
+      return res.status(404).json({ error: "Campanha não encontrada" });
+    }
+
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - days + 1);
+    startDate.setHours(0, 0, 0, 0);
+
+    const responses = await prisma.response.findMany({
+      where: {
+        campaign_id: req.params.id,
+        created_at: {
+          gte: startDate,
+          lte: today
+        }
+      },
+      select: {
+        created_at: true,
+        answers: true
+      },
+      orderBy: { created_at: "asc" }
+    });
+
+    const dailyData: Record<string, { total: number; positive: number; dates: Date }> = {};
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().split("T")[0];
+      dailyData[key] = { total: 0, positive: 0, dates: d };
+    }
+
+    for (const r of responses) {
+      const key = r.created_at.toISOString().split("T")[0];
+      if (!dailyData[key]) continue;
+      dailyData[key].total++;
+
+      try {
+        const answers = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
+        if (Array.isArray(answers)) {
+          for (const a of answers) {
+            if (a.type === "satisfaction" && (a.value === "Satisfeito" || a.value === "Muito Satisfeito")) {
+              dailyData[key].positive++;
+            }
+            if (a.type === "rating" && typeof a.value === "number" && a.value >= 4) {
+              dailyData[key].positive++;
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const evolution = Object.keys(dailyData)
+      .sort()
+      .map((key) => {
+        const d = dailyData[key];
+        const satisfaction = d.total > 0 ? Math.round((d.positive / d.total) * 100) : 0;
+        return {
+          name: d.dates.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+          satisfaction,
+          prevSatisfaction: 0,
+          responses: d.total
+        };
+      });
+
+    res.json({ evolution, days, campaign_id: req.params.id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/campaigns/:id/clone", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
