@@ -982,29 +982,38 @@ app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res)
       orderBy: { created_at: "asc" }
     });
 
-    const dailyData: Record<string, { total: number; positive: number; dates: Date }> = {};
+    const dailyData: Record<string, { scoreSum: number; answerCount: number; dates: Date; responseCount: number }> = {};
 
     for (let i = 0; i < days; i++) {
       const d = new Date(startDate);
       d.setDate(d.getDate() + i);
       const key = d.toISOString().split("T")[0];
-      dailyData[key] = { total: 0, positive: 0, dates: d };
+      dailyData[key] = { scoreSum: 0, answerCount: 0, dates: d, responseCount: 0 };
     }
 
     for (const r of responses) {
       const key = r.created_at.toISOString().split("T")[0];
       if (!dailyData[key]) continue;
-      dailyData[key].total++;
+      dailyData[key].responseCount++;
 
       try {
         const answers = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
         if (Array.isArray(answers)) {
           for (const a of answers) {
-            if (a.type === "satisfaction" && (a.value === "Satisfeito" || a.value === "Muito Satisfeito")) {
-              dailyData[key].positive++;
+            const val = String(a.answer || a.value || "").toUpperCase();
+            let score = 0;
+            if (["MUITO SATISFEITO", "EXCELENTE", "MUITO BOM"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) >= 9)) {
+              score = 100;
+            } else if (["SATISFEITO", "BOM"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) >= 7 && (a.answer || a.value) <= 8)) {
+              score = 75;
+            } else if (["REGULAR"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) >= 5 && (a.answer || a.value) <= 6)) {
+              score = 50;
+            } else if (["RUIM", "PÉSSIMO", "INSATISFEITO", "MUITO INSATISFEITO"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) <= 4)) {
+              score = 25;
             }
-            if (a.type === "rating" && typeof a.value === "number" && a.value >= 4) {
-              dailyData[key].positive++;
+            if (score > 0) {
+              dailyData[key].scoreSum += score;
+              dailyData[key].answerCount++;
             }
           }
         }
@@ -1015,12 +1024,12 @@ app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res)
       .sort()
       .map((key) => {
         const d = dailyData[key];
-        const satisfaction = d.total > 0 ? Math.round((d.positive / d.total) * 100) : 0;
+        const satisfaction = d.answerCount > 0 ? Math.round((d.scoreSum / d.answerCount) * 100) / 100 : 0;
         return {
           name: d.dates.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
           satisfaction,
           prevSatisfaction: 0,
-          responses: d.total
+          responses: d.responseCount
         };
       });
 
