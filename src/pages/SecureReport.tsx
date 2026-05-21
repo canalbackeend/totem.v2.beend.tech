@@ -279,7 +279,11 @@ export default function SecureReport() {
   };
 
   const handleGerarRelatorio = async () => {
-    if (!campaign) return;
+    if (!campaign) {
+      console.error('handleGerarRelatorio: campaign is null/undefined');
+      toast.error('Dados do relatório não disponíveis. Recarregue a página.');
+      return;
+    }
 
     toast.info('Gerando relatório PDF de alta qualidade...');
 
