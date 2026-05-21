@@ -27,17 +27,25 @@ export interface OfflineResponse {
   synced: number; // 0 or 1
 }
 
+export interface OfflineImage {
+  url: string;
+  base64: string;
+  cached_at: number;
+}
+
 export class MyDatabase extends Dexie {
   campaigns!: Table<OfflineCampaign>;
   terminal!: Table<OfflineTerminal>;
   responses!: Table<OfflineResponse>;
+  images!: Table<OfflineImage>;
 
   constructor() {
     super('SurveyOfflineDB');
-    this.version(1).stores({
+    this.version(2).stores({
       campaigns: 'id, name',
       terminal: 'id',
-      responses: '++id, campaign_id, synced'
+      responses: '++id, campaign_id, synced',
+      images: 'url'
     });
   }
 }

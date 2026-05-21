@@ -28,6 +28,66 @@ import {
 import { toast } from 'sonner';
 import { db } from '../lib/db';
 
+const cacheImage = async (url: string): Promise<string | null> => {
+  if (!url) return null;
+  try {
+    const cached = await db.images.get(url);
+    if (cached) return cached.base64;
+
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    const base64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+
+    await db.images.put({ url, base64, cached_at: Date.now() });
+    return base64;
+  } catch {
+    return null;
+  }
+};
+
+const getCachedImage = async (url: string): Promise<string | null> => {
+  if (!url) return null;
+  try {
+    const cached = await db.images.get(url);
+    return cached?.base64 || null;
+  } catch {
+    return null;
+  }
+};
+
+const OfflineImage: React.FC<{ src: string; alt: string; className?: string; fallback?: React.ReactNode }> = ({ src, alt, className, fallback }) => {
+  const [imgSrc, setImgSrc] = useState(src);
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      const cached = await getCachedImage(src);
+      if (cached && mounted) setImgSrc(cached);
+    };
+    load();
+    return () => { mounted = false; };
+  }, [src]);
+
+  return (
+    <img
+      src={imgSrc}
+      alt={alt}
+      className={className}
+      referrerPolicy="no-referrer"
+      onError={(e) => {
+        if (imgSrc !== src) {
+          setImgSrc(src);
+        }
+      }}
+    />
+  );
+};
+
 type SurveyStep = 'LOGIN' | 'DOWNLOAD' | 'SELECTION' | 'SURVEY' | 'THANK_YOU';
 
 interface Terminal {
@@ -239,6 +299,21 @@ export default function SurveyOffline() {
         await db.campaigns.clear();
         await db.campaigns.bulkAdd(data);
         setAvailableCampaigns(data);
+
+        if (terminal.logo_url) {
+          await cacheImage(terminal.logo_url);
+        }
+
+        for (const camp of data) {
+          for (const q of (camp.questions || [])) {
+            for (const opt of (q.options || [])) {
+              if (opt.image) {
+                await cacheImage(opt.image);
+              }
+            }
+          }
+        }
+
         if (data.length === 1) {
           setSelectedCampaign(data[0]);
           setStep('SURVEY');
@@ -855,7 +930,7 @@ export default function SurveyOffline() {
                   isSelected ? 'border-blue-500' : 'border-black'
                 }`}>
                   {opt.image ? (
-                    <img src={opt.image} alt={opt.text} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <OfflineImage src={opt.image} alt={opt.text} className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-black flex items-center justify-center">
                       <UserCircle2 size={64} className="text-zinc-700" />
@@ -1016,7 +1091,7 @@ export default function SurveyOffline() {
             transition={{ delay: 0.3 }}
             className="w-96 flex items-center justify-center overflow-hidden"
           >
-            <img src={terminal.logo_url} alt="Logo" className="w-full h-auto object-contain" referrerPolicy="no-referrer" />
+            <OfflineImage src={terminal.logo_url} alt="Logo" className="w-full h-auto object-contain" />
           </motion.div>
         )}
       </div>
