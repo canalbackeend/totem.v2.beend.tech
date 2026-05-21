@@ -1,0 +1,157 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String?   
+  nome          String?
+  responsavel   String?
+  empresa       String?
+  cnpj          String?
+  telefone      String?
+  cep           String?
+  endereco      String?
+  complemento   String?
+  cidade        String?
+  estado        String?
+  plano         String    @default("Teste 7 dias")
+  vencimento    String?
+  status        String    @default("Ativo")
+  logo_url      String?
+  max_terminals Int       @default(10)
+  role          String    @default("USER") 
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  terminals     Terminal[]
+  campaigns     Campaign[]
+  responses     Response[]
+}
+
+model Company {
+  id            String    @id @default(uuid())
+  empresa       String
+  responsavel   String
+  cnpj          String
+  email         String
+  telefone      String?
+  cep           String?
+  endereco      String?
+  complemento   String?
+  cidade        String?
+  estado        String?
+  plano         String?
+  vencimento    String?
+  status        String    @default("Ativo")
+  logo_url      String?
+  password      String?   
+  max_terminals Int       @default(5) 
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  @@map("companies")
+}
+
+model Terminal {
+  id            String    @id @default(uuid())
+  user_id       String
+  user          User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  name          String
+  campaigns     String?
+  redirect_url  String?
+  email         String?
+  password      String?
+  status        String    @default("offline")
+  last_ping     DateTime?
+  created_at    DateTime  @default(now())
+  updated_at    DateTime  @updatedAt
+
+  responses     Response[]
+
+  @@map("terminals")
+}
+
+model Campaign {
+  id                  String    @id @default(uuid())
+  user_id             String
+  user                User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  name                String
+  type                String
+  status              String    @default("Ativo")
+  description         String?
+  privacy_text        String?
+  questions           Json      @default("[]")
+  responses_count      Int       @default(0)
+  perception_excelente Int       @default(0)
+  perception_bom       Int       @default(0)
+  perception_regular   Int       @default(0)
+  perception_ruim      Int       @default(0)
+  is_global           Boolean   @default(false) 
+  report_email        String?   
+  report_time         String    @default("08:00") 
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  responses           Response[]
+  report_tokens       ReportToken[]
+
+  @@map("campaigns")
+}
+
+model Response {
+  id            String    @id @default(uuid())
+  campaign_id   String
+  campaign      Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  terminal_id   String?
+  terminal      Terminal? @relation(fields: [terminal_id], references: [id], onDelete: SetNull)
+  user_id       String?
+  user          User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  answers       Json      @default("[]")
+  created_at    DateTime  @default(now())
+
+  @@map("responses")
+}
+
+model PlatformSettings {
+  id            String    @id @default(uuid())
+  key           String    @unique
+  value         Json
+  updated_at    DateTime  @default(now()) @updatedAt
+
+  @@map("platform_settings")
+}
+
+model ShopProduct {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  price           String
+  featured_image  String?
+  images          Json      @default("[]")
+  features        Json      @default("[]")
+  color           String    @default("#0b82ff")
+  user_id         String?
+  created_at      DateTime  @default(now())
+  updated_at      DateTime  @updatedAt
+
+  @@map("shop_products")
+}
+
+model ReportToken {
+  id            String    @id @default(uuid())
+  token         String    @unique
+  campaign_id   String
+  campaign      Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  expires_at    DateTime
+  is_used       Boolean   @default(false)
+  created_at    DateTime  @default(now())
+
+  @@map("report_tokens")
+}
