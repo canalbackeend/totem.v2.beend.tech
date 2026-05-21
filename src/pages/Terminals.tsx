@@ -48,9 +48,10 @@ export default function Terminals() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [maxTerminals, setMaxTerminals] = useState(1);
 
-  const [modalType, setModalType] = useState<'qrcode' | 'credentials' | 'create' | 'edit' | 'delete' | null>(null);
+  const [modalType, setModalType] = useState<'qrcode' | 'credentials' | 'create' | 'edit' | 'delete' | 'reset-password' | null>(null);
   const [selectedTerminal, setSelectedTerminal] = useState<Terminal | null>(null);
   const [formData, setFormData] = useState<{name: string, campaigns: string[], redirect_url: string}>({ name: '', campaigns: [], redirect_url: '' });
+  const [terminalPassword, setTerminalPassword] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -146,7 +147,7 @@ export default function Terminals() {
       }),
       {
         loading: 'Atualizando terminal...',
-        success: () => {
+        success: (data: any) => {
           closeModal();
           fetchTerminalsAndCampaigns();
           return 'Terminal atualizado com sucesso!';
@@ -186,9 +187,11 @@ export default function Terminals() {
       }),
       {
         loading: 'Criando terminal...',
-        success: () => {
+        success: (data: any) => {
+          setTerminalPassword(data.password || autoPassword);
           closeModal();
           fetchTerminalsAndCampaigns();
+          setTimeout(() => openModal('credentials', { ...data, password: data.password } as Terminal), 300);
           return 'Terminal criado com sucesso!';
         },
         error: 'Erro ao criar terminal'
@@ -196,7 +199,7 @@ export default function Terminals() {
     );
   };
 
-  const openModal = (type: 'qrcode' | 'credentials' | 'create' | 'edit' | 'delete', terminal: Terminal | null = null) => {
+  const openModal = (type: 'qrcode' | 'credentials' | 'create' | 'edit' | 'delete' | 'reset-password', terminal: Terminal | null = null) => {
     if (type === 'create' && campaignsList.length === 0) {
       toast.error('É necessário ter pelo menos uma campanha para criar um terminal.');
       return;
@@ -206,6 +209,7 @@ export default function Terminals() {
     setModalType(type);
     if (type === 'create') {
       setFormData({ name: '', campaigns: [], redirect_url: '' });
+      setTerminalPassword(null);
     }
     if (type === 'edit' && terminal) {
       setFormData({ 
@@ -214,11 +218,31 @@ export default function Terminals() {
         redirect_url: terminal.redirect_url || '' 
       });
     }
+    if (type === 'reset-password' && terminal) {
+      setTerminalPassword(null);
+    }
   };
 
   const closeModal = () => {
     setModalType(null);
     setSelectedTerminal(null);
+    setTerminalPassword(null);
+  };
+
+  const resetPassword = async () => {
+    if (!selectedTerminal) return;
+    toast.promise(
+      api.post(`/terminals/${selectedTerminal.id}/reset-password`, {}),
+      {
+        loading: 'Gerando nova senha...',
+        success: (data: any) => {
+          setTerminalPassword(data.password);
+          fetchTerminalsAndCampaigns();
+          return 'Senha redefinida com sucesso!';
+        },
+        error: 'Erro ao redefinir senha'
+      }
+    );
   };
 
   const copyToClipboard = (text: string) => {
@@ -343,7 +367,7 @@ export default function Terminals() {
                         <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Senha Padrão</span>
                         <div className="flex items-center gap-2 mt-1">
                           <Key size={12} className={isDarkMode ? 'text-zinc-600' : 'text-slate-400'} />
-                          <span className={`text-sm font-mono font-bold transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>{term.password}</span>
+                          <span className={`text-sm font-mono font-bold transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>••••••••</span>
                         </div>
                       </div>
 
@@ -427,6 +451,16 @@ export default function Terminals() {
                       <motion.button 
                         whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.9 }}
+                        onClick={() => openModal('reset-password', term)}
+                        title="Redefinir Senha"
+                        className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-zinc-600 hover:text-purple-500 hover:bg-white/5' : 'text-slate-400 hover:text-purple-500 hover:bg-slate-50'}`}
+                      >
+                        <Key size={18} />
+                      </motion.button>
+
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
                         onClick={() => openModal('delete', term)}
                         title="Deletar"
                         className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-zinc-600 hover:text-red-500 hover:bg-white/5' : 'text-slate-400 hover:text-red-500 hover:bg-slate-50'}`}
@@ -466,11 +500,11 @@ export default function Terminals() {
                 isDarkMode ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-slate-100'
               }`}>
                 <div className="flex items-center gap-3">
-                  {modalType === 'qrcode' ? <QrCode size={20} className="text-blue-500" /> : modalType === 'create' ? <Monitor size={20} className="text-[#0b82ff]" /> : modalType === 'edit' ? <Pencil size={20} className="text-emerald-500" /> : modalType === 'delete' ? <Trash2 size={20} className="text-red-500" /> : <Key size={20} className="text-amber-500" />}
+                  {modalType === 'qrcode' ? <QrCode size={20} className="text-blue-500" /> : modalType === 'create' ? <Monitor size={20} className="text-[#0b82ff]" /> : modalType === 'edit' ? <Pencil size={20} className="text-emerald-500" /> : modalType === 'delete' ? <Trash2 size={20} className="text-red-500" /> : modalType === 'reset-password' ? <Key size={20} className="text-purple-500" /> : <Key size={20} className="text-amber-500" />}
                   <h3 className={`font-bold uppercase tracking-tight transition-colors ${
                     modalType === 'delete' ? 'text-red-500' : (isDarkMode ? 'text-white' : 'text-slate-800')
                   }`}>
-                    {modalType === 'qrcode' ? 'Acesso ao Terminal' : modalType === 'create' ? 'Novo Terminal' : modalType === 'edit' ? 'Editar Terminal' : modalType === 'delete' ? 'Confirmar Exclusão' : 'Credenciais do Terminal'}
+                    {modalType === 'qrcode' ? 'Acesso ao Terminal' : modalType === 'create' ? 'Novo Terminal' : modalType === 'edit' ? 'Editar Terminal' : modalType === 'delete' ? 'Confirmar Exclusão' : modalType === 'reset-password' ? 'Redefinir Senha' : 'Credenciais do Terminal'}
                   </h3>
                 </div>
                 <button 
@@ -725,6 +759,56 @@ export default function Terminals() {
                        })()}
                     </div>
                   </div>
+                ) : modalType === 'reset-password' && selectedTerminal ? (
+                  <div className="flex flex-col items-center text-center space-y-6">
+                    <div className="w-16 h-16 rounded-full flex items-center justify-center bg-purple-100">
+                      <Key size={32} className="text-purple-500" />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Redefinir Senha do Terminal</h4>
+                      <p className={`text-sm transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>
+                        Uma nova senha será gerada para o terminal <span className={`font-bold transition-colors ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>"{selectedTerminal.name}"</span>.
+                      </p>
+                    </div>
+
+                    {terminalPassword ? (
+                      <div className={`w-full p-4 rounded-xl border space-y-3 transition-colors ${
+                        isDarkMode ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-slate-100'
+                      }`}>
+                        <div className="flex flex-col">
+                          <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Nova Senha</span>
+                          <div className="flex justify-between items-center mt-1">
+                            <span className={`text-lg font-mono font-bold transition-colors ${isDarkMode ? 'text-amber-500' : 'text-[#f39c13]'}`}>{terminalPassword}</span>
+                            <button onClick={() => copyToClipboard(terminalPassword)} className={`transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-blue-400' : 'text-slate-400 hover:text-blue-500'}`}>
+                              <Copy size={16} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <button 
+                        onClick={resetPassword}
+                        className={`w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wider transition-all shadow-lg ${
+                          isDarkMode 
+                            ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-purple-500/20' 
+                            : 'bg-purple-500 text-white hover:bg-purple-600 shadow-purple-500/30'
+                        }`}
+                      >
+                        Gerar Nova Senha
+                      </button>
+                    )}
+
+                    <button 
+                      onClick={closeModal}
+                      className={`w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wider transition-all ${
+                        isDarkMode 
+                          ? 'text-zinc-500 hover:bg-white/5' 
+                          : 'text-slate-500 hover:bg-slate-100'
+                      }`}
+                    >
+                      Fechar
+                    </button>
+                  </div>
                 ) : selectedTerminal ? (
                   <div className="space-y-6">
                     <div className="space-y-4">
@@ -744,8 +828,8 @@ export default function Terminals() {
                         <div className="flex flex-col">
                           <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Senha de Acesso</span>
                           <div className="flex justify-between items-center mt-1">
-                            <span className={`text-sm font-mono font-bold transition-colors ${isDarkMode ? 'text-amber-500' : 'text-[#f39c13]'}`}>{selectedTerminal.password}</span>
-                            <button onClick={() => copyToClipboard(selectedTerminal?.password || '')} className={`transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-blue-400' : 'text-slate-400 hover:text-blue-500'}`}>
+                            <span className={`text-sm font-mono font-bold transition-colors ${isDarkMode ? 'text-amber-500' : 'text-[#f39c13]'}`}>{terminalPassword || selectedTerminal.password}</span>
+                            <button onClick={() => copyToClipboard(terminalPassword || selectedTerminal?.password || '')} className={`transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-blue-400' : 'text-slate-400 hover:text-blue-500'}`}>
                               <Copy size={14} />
                             </button>
                           </div>

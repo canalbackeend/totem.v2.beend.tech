@@ -1048,7 +1048,8 @@ app.get("/api/terminals", authenticateToken, async (req: any, res) => {
       where,
       orderBy: { created_at: "desc" }
     });
-    res.json(terminals);
+    const sanitized = terminals.map(({ password, ...rest }) => ({ ...rest, password: null }));
+    res.json(sanitized);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1058,11 +1059,13 @@ app.post("/api/terminals", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
     const { password, ...rest } = req.body;
-    const hashedPassword = password ? await bcrypt.hash(password, 10) : undefined;
+    const plainPassword = password || "term123";
+    const hashedPassword = await bcrypt.hash(plainPassword, 10);
     const terminal = await prisma.terminal.create({
       data: { ...rest, password: hashedPassword, user_id: req.user.id }
     });
-    res.json(terminal);
+    const { password: _, ...terminalWithoutHash } = terminal;
+    res.json({ ...terminalWithoutHash, password: plainPassword });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1080,7 +1083,24 @@ app.patch("/api/terminals/:id", authenticateToken, async (req: any, res) => {
       where: { id: req.params.id, user_id: req.user.id },
       data: updateData
     });
-    res.json(terminal);
+    const { password: _, ...terminalWithoutHash } = terminal;
+    res.json({ ...terminalWithoutHash, password: password || null });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/api/terminals/:id/reset-password", authenticateToken, async (req: any, res) => {
+  try {
+    if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
+    const newPassword = req.body.password || "term123";
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    const terminal = await prisma.terminal.update({
+      where: { id: req.params.id, user_id: req.user.id },
+      data: { password: hashedPassword }
+    });
+    const { password: _, ...terminalWithoutHash } = terminal;
+    res.json({ ...terminalWithoutHash, password: newPassword });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
