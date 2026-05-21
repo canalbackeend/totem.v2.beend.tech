@@ -15,7 +15,8 @@ import {
   Link as LinkIcon,
   X,
   ExternalLink,
-  Download
+  Download,
+  RefreshCw,
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
@@ -455,7 +456,7 @@ export default function Terminals() {
                         title="Redefinir Senha"
                         className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-zinc-600 hover:text-purple-500 hover:bg-white/5' : 'text-slate-400 hover:text-purple-500 hover:bg-slate-50'}`}
                       >
-                        <Key size={18} />
+                        <RefreshCw size={18} />
                       </motion.button>
 
                       <motion.button 
@@ -500,7 +501,7 @@ export default function Terminals() {
                 isDarkMode ? 'bg-black/40 border-white/5' : 'bg-slate-50 border-slate-100'
               }`}>
                 <div className="flex items-center gap-3">
-                  {modalType === 'qrcode' ? <QrCode size={20} className="text-blue-500" /> : modalType === 'create' ? <Monitor size={20} className="text-[#0b82ff]" /> : modalType === 'edit' ? <Pencil size={20} className="text-emerald-500" /> : modalType === 'delete' ? <Trash2 size={20} className="text-red-500" /> : modalType === 'reset-password' ? <Key size={20} className="text-purple-500" /> : <Key size={20} className="text-amber-500" />}
+                  {modalType === 'qrcode' ? <QrCode size={20} className="text-blue-500" /> : modalType === 'create' ? <Monitor size={20} className="text-[#0b82ff]" /> : modalType === 'edit' ? <Pencil size={20} className="text-emerald-500" /> : modalType === 'delete' ? <Trash2 size={20} className="text-red-500" /> : modalType === 'reset-password' ? <RefreshCw size={20} className="text-purple-500" /> : <Key size={20} className="text-amber-500" />}
                   <h3 className={`font-bold uppercase tracking-tight transition-colors ${
                     modalType === 'delete' ? 'text-red-500' : (isDarkMode ? 'text-white' : 'text-slate-800')
                   }`}>
@@ -762,7 +763,7 @@ export default function Terminals() {
                 ) : modalType === 'reset-password' && selectedTerminal ? (
                   <div className="flex flex-col items-center text-center space-y-6">
                     <div className="w-16 h-16 rounded-full flex items-center justify-center bg-purple-100">
-                      <Key size={32} className="text-purple-500" />
+                      <RefreshCw size={32} className="text-purple-500" />
                     </div>
                     <div className="space-y-2">
                       <h4 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Redefinir Senha do Terminal</h4>
