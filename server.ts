@@ -962,6 +962,43 @@ app.delete("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
   }
 });
 
+app.post("/api/campaigns/:id/clone", authenticateToken, async (req: any, res) => {
+  try {
+    if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
+    const where: any = { id: req.params.id };
+    if (req.user.email !== ADMIN_EMAIL) {
+      where.user_id = req.user.id;
+    }
+    const existing = await prisma.campaign.findFirst({ where });
+    if (!existing) {
+      return res.status(404).json({ error: "Campanha não encontrada ou sem permissão" });
+    }
+
+    const cloned = await prisma.campaign.create({
+      data: {
+        user_id: req.user.id,
+        name: `${existing.name} (Cópia)`,
+        type: existing.type,
+        status: "Inativo",
+        description: existing.description,
+        privacy_text: existing.privacy_text,
+        questions: existing.questions,
+        responses_count: 0,
+        perception_excelente: 0,
+        perception_bom: 0,
+        perception_regular: 0,
+        perception_ruim: 0,
+        is_global: false,
+        report_email: existing.report_email,
+        report_time: existing.report_time
+      }
+    });
+    res.json(cloned);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Shop Products
 app.get("/api/products", async (req, res) => {
   try {

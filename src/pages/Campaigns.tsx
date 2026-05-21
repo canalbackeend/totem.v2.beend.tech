@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Plus, Search, Filter, Calendar, Users, CheckCircle2, Pencil, RotateCcw, Trash2, XCircle, Smile, Meh, Frown } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Users, CheckCircle2, Pencil, RotateCcw, Trash2, XCircle, Smile, Meh, Frown, Copy } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { useState, useEffect } from 'react';
@@ -78,6 +78,7 @@ export default function Campaigns() {
 
   const [campaignToDelete, setCampaignToDelete] = useState<{id: string, name: string} | null>(null);
   const [campaignToReset, setCampaignToReset] = useState<{id: string, name: string} | null>(null);
+  const [campaignToClone, setCampaignToClone] = useState<{id: string, name: string} | null>(null);
 
   const confirmDeleteCampaign = async () => {
     if (!campaignToDelete) return;
@@ -104,6 +105,20 @@ export default function Campaigns() {
       toast.error('Erro ao zerar resultados');
     } finally {
       setCampaignToReset(null);
+    }
+  };
+
+  const confirmCloneCampaign = async () => {
+    if (!campaignToClone) return;
+    try {
+      const cloned = await api.post(`/campaigns/${campaignToClone.id}/clone`, {});
+      toast.success(`Campanha "${cloned.name}" clonada com sucesso`);
+      fetchCampaigns();
+    } catch (error) {
+      console.error(error);
+      toast.error('Erro ao clonar campanha');
+    } finally {
+      setCampaignToClone(null);
     }
   };
 
@@ -280,6 +295,16 @@ export default function Campaigns() {
                     >
                       <Pencil size={18} />
                     </motion.button>
+
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => setCampaignToClone({ id: camp.id, name: camp.name })}
+                      title="Clonar Campanha"
+                      className={`p-2 rounded-full transition-colors cursor-pointer ${isDarkMode ? 'text-zinc-500 hover:bg-white/5 hover:text-violet-500' : 'text-slate-400 hover:bg-slate-50 hover:text-violet-500'}`}
+                    >
+                      <Copy size={18} />
+                    </motion.button>
                     
                     <motion.button 
                       whileHover={{ scale: 1.1 }}
@@ -308,6 +333,37 @@ export default function Campaigns() {
           </div>
         </div>
       </main>
+
+      {/* Clone Modal */}
+      {campaignToClone && (
+        <div className={`fixed inset-0 backdrop-blur-sm z-50 flex items-center justify-center p-4 ${isDarkMode ? 'bg-black/70' : 'bg-slate-900/50'}`}>
+          <div className={`rounded-xl shadow-xl w-full max-w-md overflow-hidden transition-colors ${isDarkMode ? 'bg-zinc-900 border border-white/5 shadow-none' : 'bg-white'}`}>
+            <div className="p-6">
+              <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Clonar Campanha</h3>
+              <p className={isDarkMode ? 'text-zinc-400' : 'text-slate-600'}>
+                Deseja clonar a campanha <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>"{campaignToClone.name}"</span>? 
+                Uma cópia será criada com status inativo para você editar.
+              </p>
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  onClick={() => setCampaignToClone(null)}
+                  className={`px-4 py-2 font-medium rounded-lg transition-colors ${
+                    isDarkMode ? 'bg-black text-zinc-400 hover:bg-zinc-800' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmCloneCampaign}
+                  className="px-4 py-2 font-medium text-white bg-violet-600 hover:bg-violet-700 rounded-lg transition-colors"
+                >
+                  Clonar Campanha
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Modal */}
       {campaignToDelete && (
