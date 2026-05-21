@@ -3,16 +3,20 @@ import { motion } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { 
   HelpCircle, 
-  PlusCircle, 
   BarChart3, 
   FileText, 
   MessageSquare, 
   Target,
   ArrowRight,
-  ChevronRight,
   Terminal,
-  Settings,
-  ShieldCheck
+  WifiOff,
+  UserCircle,
+  CreditCard,
+  Monitor,
+  Smile,
+  Mail,
+  Lock,
+  Image
 } from 'lucide-react';
 
 const FAQ: React.FC = () => {
@@ -27,11 +31,46 @@ const FAQ: React.FC = () => {
       content: [
         {
           q: "Como criar uma campanha?",
-          a: "Vá para o menu 'Campanhas' e clique no botão '+ Nova Campanha'. Defina um nome, tipo (Interna ou Externa) e adicione as perguntas desejadas. Você pode escolher entre múltiplos formatos como SMILE (satisfação), NPS, Múltipla Escolha, Texto Aberto e mais."
+          a: "Vá para o menu 'Campanhas' e clique no botão '+ Nova Campanha'. Defina um nome, tipo (Interna ou Externa) e adicione as perguntas desejadas. Você pode escolher entre múltiplos formatos como SMILE 4, SMILE 5, NPS, Múltipla Escolha, Texto Aberto e mais."
         },
         {
-          q: "Como vincular terminais à campanha?",
-          a: "Na edição da campanha, você pode selecionar quais terminais estarão ativos para aquela pesquisa. No menu 'Gestão de Terminais', você também pode configurar as credenciais de acesso para cada ponto de coleta físico (totem/tablet)."
+          q: "O que é SMILE 4 vs SMILE 5?",
+          a: "São escalas de satisfação por emojis. SMILE 4 tem 4 opções: Excelente, Bom, Regular e Ruim. SMILE 5 adiciona a 5ª opção: Muito Insatisfeito. Escolha a que melhor se adapta ao seu público."
+        },
+        {
+          q: "Como personalizar a aparência dos surveys?",
+          a: "Acesse seu Perfil e faça upload da logomarca da empresa. A imagem aparecerá automaticamente nos surveys dos terminais, no PDF dos relatórios e no link seguro de compartilhamento."
+        },
+        {
+          q: "Como ativar ou desativar uma campanha?",
+          a: "No menu Campanhas, use o botão de status para alternar entre 'Ativo' e 'Inativo'. Campanhas inativas não aparecem nos terminais e não coletam respostas até serem reativadas."
+        }
+      ]
+    },
+    {
+      id: "terminais",
+      title: "Terminais",
+      icon: <Terminal className="w-5 h-5 text-blue-600" />,
+      content: [
+        {
+          q: "Como criar um terminal?",
+          a: "Vá ao menu 'Terminais' e clique em 'Criar Terminal'. Dê um nome (ex: 'Totem Recepção'), selecione as campanhas vinculadas e pronto. O sistema gera automaticamente um email e senha de acesso."
+        },
+        {
+          q: "O que são as credenciais do terminal?",
+          a: "São o email e senha que o totem ou tablet físico usa para se autenticar no sistema. Após criar o terminal, clique no ícone de chave para visualizar e copiar as credenciais. Cole-as no dispositivo físico para iniciar a coleta."
+        },
+        {
+          q: "Como gerar o QR Code para acesso rápido?",
+          a: "Na lista de terminais, clique no ícone de QR Code. Ele gera um código visual e um link direto para o survey daquela campanha no terminal selecionado. Ideal para imprimir e colar no ponto de coleta."
+        },
+        {
+          q: "Por que não consigo criar mais terminais?",
+          a: "Seu plano atual tem um limite de terminais. Você pode ver seu limite no card 'Terminais' do Dashboard (ex: '3 / 5 terminais'). Para aumentar, entre em contato com o suporte."
+        },
+        {
+          q: "O que é a URL de redirecionamento?",
+          a: "É uma página para onde o usuário é enviado após responder o survey. Pode ser o site da empresa, uma página de agradecimento ou qualquer link. É opcional."
         }
       ]
     },
@@ -42,11 +81,19 @@ const FAQ: React.FC = () => {
       content: [
         {
           q: "Como acompanhar os feedbacks em tempo real?",
-          a: "Acesse a página 'Monitoramento Online'. Lá você verá todos os terminais ativos, o status de conexão atual e a quantidade de registros coletados no período selecionado (Hoje, 7 dias, etc)."
+          a: "Acesse a página 'Monitoramento Online'. Lá você verá todos os terminais ativos, o status de conexão atual e a quantidade de registros coletados no período selecionado."
         },
         {
           q: "Como funcionam os filtros de data?",
-          a: "No Dashboard e no Relatório de Registros, você pode filtrar por períodos pré-definidos ou personalizados. O sistema recalcula automaticamente todas as médias e porcentagens com base nos dados dentro desse intervalo."
+          a: "No Dashboard e na página de Feedbacks, você pode filtrar por períodos pré-definidos (Hoje, 7 dias, 30 dias) ou personalizado. O sistema recalcula automaticamente todas as médias, porcentagens e gráficos com base no intervalo."
+        },
+        {
+          q: "Como filtrar por terminal específico?",
+          a: "No Dashboard, selecione o terminal desejado no filtro de terminais. Isso isola os dados daquele ponto de coleta, útil para comparar desempenho entre diferentes locais."
+        },
+        {
+          q: "O que significa o gráfico de evolução?",
+          a: "Mostra a tendência de satisfação ao longo dos últimos 7 dias. Cada ponto representa um dia e a porcentagem indica o nível de satisfação calculado com base nas respostas positivas (Muito Satisfeito/Satisfeito)."
         }
       ]
     },
@@ -61,7 +108,11 @@ const FAQ: React.FC = () => {
         },
         {
           q: "O que os gráficos de percepção mostram?",
-          a: "Eles consolidam as avaliações de 'Excelente', 'Bom', 'Regular' e 'Ruim' em um visual comparativo, permitindo identificar rapidamente o nível de satisfação geral sem precisar ler feedback por feedback."
+          a: "Eles consolidam as avaliações de satisfação (Excelente, Bom, Regular, Ruim) em barras visuais comparativas, permitindo identificar rapidamente o nível de satisfação geral sem precisar ler feedback por feedback."
+        },
+        {
+          q: "Como é calculada a porcentagem de satisfação?",
+          a: "Cada resposta recebe uma pontuação: Muito Satisfeito/Excelente = 100pts, Satisfeito/Bom = 75pts, Regular = 50pts, Ruim/Insatisfeito = 25pts. A satisfação final é a média ponderada de todas as respostas no período."
         }
       ]
     },
@@ -71,8 +122,62 @@ const FAQ: React.FC = () => {
       icon: <FileText className="w-5 h-5 text-blue-600" />,
       content: [
         {
-          q: "Como gerar um relatório profissional?",
-          a: "No Dashboard principal, após selecionar os filtros de campanha e data, clique em 'Gerar Relatório PDF'. O sistema criará um documento formatado com a sua logomarca, o resumo estatístico, gráficos e a lista detalhada de feedbacks."
+          q: "Como gerar um relatório profissional em PDF?",
+          a: "No Dashboard, selecione a campanha e os filtros de data desejados. Clique em 'Gerar Relatório PDF'. O sistema criará um documento formatado com sua logomarca, resumo estatístico, gráficos e lista detalhada de feedbacks."
+        },
+        {
+          q: "O que é o relatório automático por email?",
+          a: "Você pode configurar um email para receber relatórios diários automáticos. Vá em 'Editar Campanha' e defina o 'Email de Relatório' e o 'Horário'. O sistema envia todos os dias um PDF com os dados do dia anterior."
+        },
+        {
+          q: "Como compartilhar um relatório com alguém externo?",
+          a: "No Dashboard, clique em 'Gerar Link Seguro'. O sistema cria um token de acesso único e expirável que permite visualizar o relatório online sem precisar de login. Ideal para enviar a clientes ou diretoria."
+        },
+        {
+          q: "Como exportar os dados em planilha?",
+          a: "Na página de Feedbacks, use o botão 'Exportar CSV' para baixar todas as respostas em formato de planilha, compatível com Excel e Google Sheets."
+        }
+      ]
+    },
+    {
+      id: "modo-offline",
+      title: "Modo Offline",
+      icon: <WifiOff className="w-5 h-5 text-blue-600" />,
+      content: [
+        {
+          q: "O que acontece se a internet cair durante uma pesquisa?",
+          a: "O survey offline salva todas as respostas localmente no dispositivo. Quando a conexão é restabelecida, os dados são sincronizados automaticamente com o servidor. Nenhuma resposta é perdida."
+        },
+        {
+          q: "As imagens das perguntas funcionam offline?",
+          a: "Sim. Quando o terminal está online pela primeira vez, as imagens são cacheadas automaticamente. Se a internet cair, o survey continua exibindo as imagens do cache local."
+        },
+        {
+          q: "Como acessar o modo offline?",
+          a: "Basta acessar a URL /survey-offline no terminal. A interface é igual ao survey normal, mas com capacidade de armazenamento local para funcionar sem conexão."
+        }
+      ]
+    },
+    {
+      id: "conta-seguranca",
+      title: "Conta e Segurança",
+      icon: <UserCircle className="w-5 h-5 text-blue-600" />,
+      content: [
+        {
+          q: "Como alterar minha senha?",
+          a: "Acesse o menu Perfil e use a opção 'Alterar Senha'. Sua senha é criptografada no servidor para máxima segurança."
+        },
+        {
+          q: "Como atualizar minha foto ou logomarca?",
+          a: "No menu Perfil, clique na área de upload de imagem. Formatos aceitos: PNG e JPG, tamanho máximo 2MB. A imagem aparece nos surveys e relatórios."
+        },
+        {
+          q: "Como sei qual é meu plano atual?",
+          a: "No Dashboard, o card 'Terminais' mostra seu limite atual (ex: '3 / 5 terminais'). O número após a barra é o máximo permitido pelo seu plano. Se aparecer 'Ilimitado', você não tem restrição."
+        },
+        {
+          q: "Minha conta foi bloqueada. O que fazer?",
+          a: "Se você vê a mensagem 'Conta bloqueada. Entre em contato com o suporte', significa que o acesso da sua empresa foi suspenso. Entre em contato com a administração para regularizar."
         }
       ]
     }
