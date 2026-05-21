@@ -28,8 +28,9 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && \
     npm cache clean --force
 
-COPY --from=builder /app/prisma/schema.prisma ./prisma/schema.prisma
+COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
 COPY --from=builder /app/dist ./dist
 
 RUN chown -R nodejs:nodejs /app
@@ -41,7 +42,7 @@ ENV PORT=3000
 
 EXPOSE 3000
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["node", "dist/server.cjs"]
+CMD ["sh", "-c", "npx prisma db push --accept-data-loss && node dist/server.cjs"]
