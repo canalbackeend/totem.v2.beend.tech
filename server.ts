@@ -859,7 +859,7 @@ app.get("/api/campaigns", authenticateToken, async (req: any, res) => {
         try {
           assigned = JSON.parse(terminal.campaigns);
         } catch (e) {
-          assigned = terminal.campaigns ? [terminal.campaigns] : [];
+          assigned = terminal.campaigns.split(',').map(c => c.trim()).filter(Boolean);
         }
         
         if (Array.isArray(assigned) && assigned.length > 0) {
