@@ -206,6 +206,9 @@ app.post("/api/auth/login", async (req, res) => {
       console.log(`Login failed: incorrect password for ${cleanEmail}`);
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
+    if (user.status !== "Ativo") {
+      return res.status(403).json({ error: "Conta bloqueada. Entre em contato com o suporte." });
+    }
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
     res.json({ user, session: { access_token: token } });
   } catch (err: any) {
@@ -244,8 +247,12 @@ app.post("/api/terminals/login", async (req, res) => {
       return res.status(401).json({ error: "Credenciais de terminal inválidas" });
     }
 
-    // Check account expiration for Teste 7 dias
     const user = await prisma.user.findUnique({ where: { id: matchedTerminal.user_id } });
+    
+    if (user && user.status !== "Ativo") {
+      return res.status(403).json({ error: "Conta bloqueada. Entre em contato com o suporte." });
+    }
+
     if (user && user.plano === "Teste 7 dias" && user.vencimento) {
       const expirationDate = new Date(user.vencimento);
       if (new Date() > expirationDate) {
@@ -1587,6 +1594,40 @@ app.post("/api/companies/:id/reset-password", authenticateToken, async (req: any
     ]);
 
     res.json({ message: "Senha alterada com sucesso" });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch("/api/companies/:id/status", authenticateToken, async (req: any, res) => {
+  if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+  try {
+    const { status } = req.body;
+    if (!["Ativo", "Bloqueado"].includes(status)) {
+      return res.status(400).json({ error: "Status inválido. Use 'Ativo' ou 'Bloqueado'." });
+    }
+
+    const company = await prisma.company.findUnique({ where: { id: req.params.id } });
+    if (!company) return res.status(404).json({ error: "Empresa não encontrada" });
+
+    const user = await prisma.user.findUnique({ where: { email: company.email } });
+
+    await prisma.$transaction([
+      prisma.company.update({
+        where: { id: req.params.id },
+        data: { status }
+      }),
+      prisma.user.updateMany({
+        where: { email: company.email },
+        data: { status }
+      }),
+      ...(user ? [prisma.terminal.updateMany({
+        where: { user_id: user.id },
+        data: { status: status === "Bloqueado" ? "Bloqueado" : "offline" }
+      })] : [])
+    ]);
+
+    res.json({ message: `Empresa ${status === "Ativo" ? "desbloqueada" : "bloqueada"} com sucesso`, status });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

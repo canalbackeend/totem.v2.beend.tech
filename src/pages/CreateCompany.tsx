@@ -8,7 +8,10 @@ import {
   ShieldCheck,
   Check,
   CreditCard,
-  Calendar as CalendarIcon
+  Calendar as CalendarIcon,
+  Lock,
+  Unlock,
+  AlertTriangle
 } from 'lucide-react';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import React, { useState, useEffect } from 'react';
@@ -70,7 +73,8 @@ export default function CreateCompany() {
     plano: 'Mensal',
     vencimento: '',
     max_terminals: 1,
-    logo_url: ''
+    logo_url: '',
+    status: 'Ativo'
   });
 
   useEffect(() => {
@@ -217,7 +221,7 @@ export default function CreateCompany() {
           vencimento: formData.vencimento,
           max_terminals: formData.max_terminals,
           logo_url: formData.logo_url,
-          status: 'Ativo'
+          status: formData.status
         };
         
         if (id) {
@@ -288,10 +292,12 @@ export default function CreateCompany() {
                             <h3 className={`text-sm font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Informações Cadastrais</h3>
                         </div>
                         <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full border flex items-center gap-2 transition-colors ${
-                          isDarkMode ? 'bg-black border-white/5 text-zinc-500' : 'bg-white border-slate-100 text-slate-400'
+                          formData.status === 'Ativo'
+                            ? (isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-green-50 border-green-200 text-green-600')
+                            : (isDarkMode ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-red-50 border-red-200 text-red-600')
                         }`}>
-                             <Check size={12} className="text-green-500" />
-                             Status Base: Ativo
+                             {formData.status === 'Ativo' ? <Check size={12} /> : <Lock size={12} />}
+                             Status: {formData.status}
                         </span>
                     </div>
 
@@ -561,6 +567,72 @@ export default function CreateCompany() {
                         <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
                     </label>
                 </div>
+
+                {id && (
+                <div className={`p-6 rounded-xl shadow-sm border space-y-4 transition-colors ${
+                  formData.status === 'Ativo'
+                    ? (isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-slate-100')
+                    : (isDarkMode ? 'bg-red-950/30 border-red-500/20' : 'bg-red-50 border-red-200')
+                }`}>
+                    <div className="flex items-center gap-3">
+                        {formData.status === 'Ativo' 
+                          ? <ShieldCheck size={24} className={isDarkMode ? 'text-green-400' : 'text-green-600'} />
+                          : <AlertTriangle size={24} className={isDarkMode ? 'text-red-400' : 'text-red-600'} />
+                        }
+                        <h4 className={`text-sm font-black uppercase tracking-widest transition-colors ${
+                          isDarkMode ? 'text-white' : 'text-slate-800'
+                        }`}>Controle de Acesso</h4>
+                    </div>
+                    
+                    <p className={`text-xs font-medium leading-relaxed transition-colors ${
+                      isDarkMode ? 'text-zinc-400' : 'text-slate-500'
+                    }`}>
+                      {formData.status === 'Ativo' 
+                        ? 'A empresa e todos os terminais vinculados estão com acesso liberado.'
+                        : 'A empresa e todos os terminais vinculados estão BLOQUEADOS. Login e terminais não funcionarão.'
+                      }
+                    </p>
+
+                    <div className={`p-3 rounded-lg border text-[10px] font-bold transition-colors ${
+                      isDarkMode ? 'bg-black/40 border-white/5 text-zinc-400' : 'bg-slate-50 border-slate-200 text-slate-500'
+                    }`}>
+                      <Lock size={12} className="inline mr-1" />
+                      Ao bloquear, todos os terminais serão desativados automaticamente.
+                    </div>
+
+                    <button
+                        type="button"
+                        onClick={async () => {
+                          const newStatus = formData.status === 'Ativo' ? 'Bloqueado' : 'Ativo';
+                          const confirmed = window.confirm(
+                            newStatus === 'Bloqueado'
+                              ? `Tem certeza que deseja BLOQUEAR o acesso de "${formData.empresa}"? Todos os terminais vinculados serão desativados.`
+                              : `Deseja DESBLOQUEAR o acesso de "${formData.empresa}"? Os terminais voltarão a funcionar.`
+                          );
+                          if (!confirmed) return;
+
+                          try {
+                            await api.patch(`/companies/${id}/status`, { status: newStatus });
+                            setFormData(prev => ({ ...prev, status: newStatus }));
+                            toast.success(newStatus === 'Ativo' ? 'Empresa desbloqueada!' : 'Empresa bloqueada!');
+                          } catch (err: any) {
+                            toast.error(err.message || 'Erro ao alterar status.');
+                          }
+                        }}
+                        className={`w-full py-3 px-4 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                          formData.status === 'Ativo'
+                            ? 'bg-red-600 text-white hover:bg-red-700 shadow-md shadow-red-600/20'
+                            : 'bg-green-600 text-white hover:bg-green-700 shadow-md shadow-green-600/20'
+                        }`}
+                    >
+                        {formData.status === 'Ativo' ? (
+                          <><Lock size={14} /> Bloquear Acesso</>
+                        ) : (
+                          <><Unlock size={14} /> Desbloquear Acesso</>
+                        )}
+                    </button>
+                </div>
+                )}
 
                 <div className={`p-8 rounded-xl shadow-lg transition-all space-y-4 ${
                   isDarkMode ? 'bg-zinc-800 shadow-black/40 text-white border border-white/5' : 'bg-[#0b82ff] shadow-blue-500/20 text-white'
