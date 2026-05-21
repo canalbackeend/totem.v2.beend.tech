@@ -846,7 +846,9 @@ export default function SecureReport() {
   }
 
   if (reportData && campaign) {
-    const todayLabel = new Date().toLocaleDateString('pt-BR');
+    const todayLabel = reportData?.reference_date
+      ? new Date(reportData.reference_date).toLocaleDateString('pt-BR')
+      : new Date().toLocaleDateString('pt-BR');
 
     const npsMetrics = npsData ? [
       { label: 'Detratores', value: npsData.detratores, color: '#e74b3c', icon: Frown },
@@ -875,7 +877,7 @@ export default function SecureReport() {
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Canal Seguro beend.tech</span>
                 </div>
                 <h1 className="text-4xl md:text-5xl font-black text-slate-800 tracking-tight uppercase leading-none">{campaign.name}</h1>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Desempenho de Hoje ({todayLabel})</p>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Desempenho do Dia ({todayLabel})</p>
               </div>
             </div>
             <button onClick={handleGerarRelatorio} className="flex items-center gap-2 px-8 py-4 bg-[#0b82ff] text-white rounded-xl font-black uppercase tracking-widest shadow-xl shadow-blue-500/20 active:scale-95 transition-all cursor-pointer">
@@ -1016,7 +1018,7 @@ export default function SecureReport() {
                   {responses.length === 0 && (
                       <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-100">
                           <AlertCircle className="mx-auto text-slate-300 mb-4" size={48} />
-                          <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Nenhum dado encontrado para hoje.</p>
+                          <p className="text-slate-400 font-black uppercase tracking-widest text-xs">Nenhum dado encontrado para o dia de referência.</p>
                       </div>
                   )}
                 </div>
