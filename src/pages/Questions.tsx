@@ -59,11 +59,11 @@ const getOptionsForType = (type: string, options?: string[]) => {
   }
   if (type === 'SMILE 5') {
     return [
-      { label: 'Muito Bom', color: '#22c55d', icon: Smile },
-      { label: 'Bom', color: '#84cc15', icon: Smile },
+      { label: 'Muito Satisfeito', color: '#22c55d', icon: Smile },
+      { label: 'Satisfeito', color: '#84cc15', icon: Smile },
       { label: 'Regular', color: '#e9b306', icon: Meh },
-      { label: 'Ruim', color: '#f97316', icon: Frown },
-      { label: 'Péssimo', color: '#ef4444', icon: Frown },
+      { label: 'Insatisfeito', color: '#f97316', icon: Frown },
+      { label: 'Muito Insatisfeito', color: '#ef4444', icon: Frown },
     ];
   }
   if (type === 'NPS') {
