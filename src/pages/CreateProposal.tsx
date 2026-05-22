@@ -60,9 +60,9 @@ const DEFAULTS = {
   general_description: "Temos o prazer de apresentar nossa solução completa de coleta de feedbacks e pesquisa de satisfação. Nossa plataforma oferece terminais inteligentes integrados a um painel de análise em tempo real, permitindo que você transforme cada interação em insights valiosos para o crescimento do seu negócio.",
   implementation_reqs: "• Instalação e configuração dos terminais\n• Criação e personalização das campanhas de pesquisa\n• Treinamento da equipe para operação do sistema\n• Integração com sistemas existentes (se aplicável)",
   technical_support: "Suporte técnico especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
-  warranty: "Garantia de 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
+  warranty: "Garantia: 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
   resources_text: "Painel de análise em tempo real\nRelatórios automáticos por e-mail\nTerminais com modo offline\nPesquisas personalizáveis (NPS, SMILE, Texto Aberto)\nDashboard com métricas de satisfação\nExportação de dados em CSV e PDF",
-  payment_terms: "Pagamento via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
+  payment_terms: "Pagamento: via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
   final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
 };
 
@@ -409,8 +409,22 @@ export default function CreateProposal() {
                 {/* Conteúdo */}
                 <SectionHeader icon={FileText} title="Conteúdo da Proposta" isDarkMode={isDarkMode} />
                 <div className="p-6 space-y-4">
-                  <InputField label="Saudação Personalizada" name="greeting" placeholder="Prezado(a) [Contato]," colSpan={2} value={formData.greeting} onChange={handleInputChange} isDarkMode={isDarkMode} />
-                  <TextAreaField label="Descrição Geral" name="general_description" placeholder="Descreva a solução oferecida..." rows={4} value={formData.general_description} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <div className="space-y-1.5">
+                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Saudação Personalizada</label>
+                    <textarea name="greeting" value={formData.greeting} onChange={handleInputChange}
+                      placeholder="Prezado(a) [Contato]," rows={2}
+                      className={`w-full rounded p-3 text-base font-medium outline-none transition-all resize-none leading-relaxed ${
+                        isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
+                      }`} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Descrição Geral</label>
+                    <textarea name="general_description" value={formData.general_description} onChange={handleInputChange}
+                      placeholder="Descreva a solução oferecida..." rows={5}
+                      className={`w-full rounded p-3 text-base font-medium outline-none transition-all resize-none leading-relaxed ${
+                        isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
+                      }`} />
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <TextAreaField label="Requisitos de Implementação" name="implementation_reqs" placeholder="• Instalação..." rows={4} value={formData.implementation_reqs} onChange={handleInputChange} isDarkMode={isDarkMode} />
                     <TextAreaField label="Suporte Técnico" name="technical_support" placeholder="Descreva o suporte..." rows={4} value={formData.technical_support} onChange={handleInputChange} isDarkMode={isDarkMode} />

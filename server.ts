@@ -1665,15 +1665,17 @@ app.delete("/api/companies/:id", authenticateToken, async (req: any, res) => {
 
 async function generateProposalNumber() {
   const year = new Date().getFullYear();
-  const prefix = `PROP-${year}-`;
+  const prefix = "PROP-" + year + "-";
   const last = await prisma.proposal.findFirst({
     where: { proposal_number: { startsWith: prefix } },
     orderBy: { proposal_number: "desc" },
     select: { proposal_number: true }
   });
-  if (!last) return `${prefix}0001`;
-  const lastNum = parseInt(last.proposal_number.split("-")[2]);
-  return `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
+  if (!last) return prefix + "0001";
+  const lastNum = parseInt(last.proposal_number.split("-")[2], 10);
+  const nextNum = lastNum + 1;
+  const padded = nextNum.toString().padStart(4, "0");
+  return prefix + padded;
 }
 
 app.get("/api/proposals", authenticateToken, async (req: any, res) => {
@@ -1729,13 +1731,13 @@ app.post("/api/proposals", authenticateToken, async (req: any, res) => {
     validity.setDate(validity.getDate() + 10);
 
     const defaults = {
-      greeting: `Prezado(a) ${req.body.contact_person || "Cliente"},`,
+      greeting: `Conforme solicitado, estamos enviando a nossa Proposta de Aquisição de Totem para Pesquisa de Satisfação do Cliente, a ser realizada pela Beend Smart Solution para o`,
       general_description: "Temos o prazer de apresentar nossa solução completa de coleta de feedbacks e pesquisa de satisfação. Nossa plataforma oferece terminais inteligentes integrados a um painel de análise em tempo real, permitindo que você transforme cada interação em insights valiosos para o crescimento do seu negócio.",
       implementation_reqs: "• Instalação e configuração dos terminais\n• Criação e personalização das campanhas de pesquisa\n• Treinamento da equipe para operação do sistema\n• Integração com sistemas existentes (se aplicável)",
-      technical_support: "Suporte técnico especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
-      warranty: "Garantia de 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
+      technical_support: "Suporte técnico: especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
+      warranty: "Garantia: 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
       resources: ["Painel de análise em tempo real", "Relatórios automáticos por e-mail", "Terminais com modo offline", "Pesquisas personalizáveis (NPS, SMILE, Texto Aberto)", "Dashboard com métricas de satisfação", "Exportação de dados em CSV e PDF"],
-      payment_terms: "Pagamento via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
+      payment_terms: "Pagamento: via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
       final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
     };
 
@@ -1920,7 +1922,7 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
             <h2 style="color: #333; margin: 0 0 5px;">Proposta Comercial ${proposal.proposal_number}</h2>
             <p style="color: #999; font-size: 13px; margin: 0 0 25px;">${proposal.client_name}</p>
             
-            <p style="color: #555; font-size: 15px; line-height: 1.6;">${proposal.greeting || "Prezado(a),"}</p>
+            <p style="color: #555; font-size: 15px; line-height: 1.6;">${proposal.greeting ? proposal.greeting + (proposal.client_name ? " " + proposal.client_name : "") : "Prezado(a),"}</p>
             <p style="color: #555; font-size: 14px; line-height: 1.6;">${proposal.general_description || ""}</p>
             
             ${items.length > 0 ? `
@@ -1929,20 +1931,20 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
                 <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
                   <thead>
                     <tr style="background: #f8f9fa;">
-                      <th style="padding: 10px; text-align: left; font-size: 12px; color: #666;">Item</th>
-                      <th style="padding: 10px; text-align: center; font-size: 12px; color: #666;">Qtd</th>
-                      <th style="padding: 10px; text-align: right; font-size: 12px; color: #666;">Unit.</th>
-                      <th style="padding: 10px; text-align: right; font-size: 12px; color: #666;">Total</th>
+                      <th style="padding: 10px; text-align: left; font-size: 12px; color: #666; width: 45%;">Item</th>
+                      <th style="padding: 10px; text-align: center; font-size: 12px; color: #666; width: 10%;">Qtd</th>
+                      <th style="padding: 10px; text-align: right; font-size: 12px; color: #666; width: 22%;">Unitário</th>
+                      <th style="padding: 10px; text-align: right; font-size: 12px; color: #666; width: 23%;">Total</th>
                     </tr>
                   </thead>
                   <tbody>${itemsHtml}</tbody>
                   <tfoot>
-                    <tr>
+                    <tr style="background: #f5f5f5;">
                       <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold; color: #333;">Subtotal:</td>
                       <td style="padding: 10px; text-align: right; font-weight: bold; color: #333;">R$ ${formatCurrency(subtotal)}</td>
                     </tr>
                     ${proposal.shipping_cost > 0 ? `
-                    <tr>
+                    <tr style="background: #f5f5f5;">
                       <td colspan="3" style="padding: 10px; text-align: right; color: #666;">Frete:</td>
                       <td style="padding: 10px; text-align: right; color: #666;">R$ ${formatCurrency(proposal.shipping_cost || 0)}</td>
                     </tr>` : ""}

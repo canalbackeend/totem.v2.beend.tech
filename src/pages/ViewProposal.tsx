@@ -47,6 +47,14 @@ const loadImageAsBase64 = async (url: string): Promise<string | null> => {
   }
 };
 
+const getImageDimensions = (base64: string): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.width, height: img.height });
+    img.src = base64;
+  });
+};
+
 export default function ViewProposal() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -158,12 +166,18 @@ export default function ViewProposal() {
       doc.setFont('helvetica', 'normal');
       doc.setTextColor(80, 80, 80);
       if (proposal.greeting) {
-        doc.text(proposal.greeting, 15, y);
-        y += 6;
+        const greetingText = proposal.greeting + (proposal.client_name ? " " + proposal.client_name : "");
+        const greetingLines = doc.splitTextToSize(greetingText, 180);
+        doc.text(greetingLines, 15, y);
+        y += greetingLines.length * 5;
       }
-      const descLines = doc.splitTextToSize(proposal.general_description || '', 180);
-      doc.text(descLines, 15, y);
-      y += descLines.length * 5 + 8;
+      if (proposal.general_description) {
+        y += 3;
+        const descLines = doc.splitTextToSize(proposal.general_description, 180);
+        doc.text(descLines, 15, y);
+        y += descLines.length * 5;
+      }
+      y += 8;
     }
 
     // Resources
@@ -201,7 +215,7 @@ export default function ViewProposal() {
           const name = i.name || '-';
           const desc = i.description ? `\n${i.description}` : '';
           return [
-            { content: `${name}${desc}`, styles: { fontSize: 7 } },
+            { content: `${name}${desc}`, styles: { fontSize: 8 } },
             String(i.qty || 1),
             `R$ ${formatCurrency(parseFloat(i.unit_price) || 0)}`,
             `R$ ${formatCurrency(parseFloat(i.total) || 0)}`
@@ -213,14 +227,14 @@ export default function ViewProposal() {
           ['', '', 'TOTAL:', `R$ ${formatCurrency(totalGeral)}`]
         ],
         theme: 'grid',
-        headStyles: { fillColor: [11, 130, 255], textColor: 255, fontSize: 8, fontStyle: 'bold' },
-        bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-        footStyles: { fontSize: 9, fontStyle: 'bold', fillColor: [220, 220, 220], textColor: [30, 30, 30] },
+        headStyles: { fillColor: [11, 130, 255], textColor: 255, fontSize: 9, fontStyle: 'bold' },
+        bodyStyles: { fontSize: 9, textColor: [50, 50, 50] },
+        footStyles: { fontSize: 10, fontStyle: 'bold', fillColor: [240, 240, 240], textColor: [30, 30, 30] },
         columnStyles: {
-          0: { cellWidth: 80 },
-          1: { cellWidth: 16, halign: 'center' },
-          2: { cellWidth: 38, halign: 'right' },
-          3: { cellWidth: 38, halign: 'right' }
+          0: { cellWidth: 70 },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 45, halign: 'right' },
+          3: { cellWidth: 45, halign: 'right' }
         },
         margin: { left: 15, right: 15 }
       });
@@ -235,12 +249,77 @@ export default function ViewProposal() {
       doc.setTextColor(50, 50, 50);
       doc.text('Forma de Pagamento', 15, y);
       y += 7;
-      doc.setFontSize(8);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(80, 80, 80);
-      const payLines = doc.splitTextToSize(proposal.payment_terms, 180);
-      doc.text(payLines, 15, y);
-      y += payLines.length * 5 + 8;
+      doc.setFontSize(9);
+      const payText = proposal.payment_terms;
+      const boldMatch = payText.match(/^([^:]+:)/);
+      if (boldMatch) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(boldMatch[1], 15, y);
+        const boldWidth = doc.getTextWidth(boldMatch[1]);
+        doc.setFont('helvetica', 'normal');
+        doc.text(payText.substring(boldMatch[1].length), 15 + boldWidth, y);
+        y += 5;
+      } else {
+        doc.setFont('helvetica', 'normal');
+        const payLines = doc.splitTextToSize(payText, 180);
+        doc.text(payLines, 15, y);
+        y += payLines.length * 5;
+      }
+      y += 8;
+    }
+
+    // Warranty
+    if (proposal.warranty) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 50, 50);
+      doc.text('Garantia', 15, y);
+      y += 7;
+      doc.setFontSize(9);
+      const warText = proposal.warranty;
+      const boldMatch = warText.match(/^([^:]+:)/);
+      if (boldMatch) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(boldMatch[1], 15, y);
+        const boldWidth = doc.getTextWidth(boldMatch[1]);
+        doc.setFont('helvetica', 'normal');
+        doc.text(warText.substring(boldMatch[1].length), 15 + boldWidth, y);
+        y += 5;
+      } else {
+        doc.setFont('helvetica', 'normal');
+        const warLines = doc.splitTextToSize(warText, 180);
+        doc.text(warLines, 15, y);
+        y += warLines.length * 5;
+      }
+      y += 8;
+    }
+
+    // Technical support
+    if (proposal.technical_support) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 50, 50);
+      doc.text('Suporte Técnico', 15, y);
+      y += 7;
+      doc.setFontSize(9);
+      const supText = proposal.technical_support;
+      const boldMatch = supText.match(/^([^:]+:)/);
+      if (boldMatch) {
+        doc.setFont('helvetica', 'bold');
+        doc.text(boldMatch[1], 15, y);
+        const boldWidth = doc.getTextWidth(boldMatch[1]);
+        doc.setFont('helvetica', 'normal');
+        doc.text(supText.substring(boldMatch[1].length), 15 + boldWidth, y);
+        y += 5;
+      } else {
+        doc.setFont('helvetica', 'normal');
+        const supLines = doc.splitTextToSize(supText, 180);
+        doc.text(supLines, 15, y);
+        y += supLines.length * 5;
+      }
+      y += 8;
     }
 
     // Final considerations
@@ -285,30 +364,40 @@ export default function ViewProposal() {
       doc.text('Imagens', 15, y);
       y += 10;
       
-      const imgWidth = 55;
-      const imgHeight = 40;
+      const maxImgWidth = 55;
+      const maxImgHeight = 40;
       let xPos = 15;
       let imgsInRow = 0;
       
       for (const imgUrl of proposalImages) {
         if (imgsInRow >= 3) {
           xPos = 15;
-          y += imgHeight + 8;
+          y += maxImgHeight + 8;
           imgsInRow = 0;
         }
-        if (y + imgHeight > 280) { doc.addPage(); y = 20; }
+        if (y + maxImgHeight > 280) { doc.addPage(); y = 20; }
         
         try {
           const base64 = await loadImageAsBase64(imgUrl);
           if (base64) {
-            doc.addImage(base64, 'JPEG', xPos, y, imgWidth, imgHeight, undefined, 'FAST');
+            // Get image dimensions to maintain aspect ratio
+            const imgDims = await getImageDimensions(base64);
+            const ratio = Math.min(maxImgWidth / imgDims.width, maxImgHeight / imgDims.height);
+            const finalWidth = imgDims.width * ratio;
+            const finalHeight = imgDims.height * ratio;
+            
+            // Center image in its cell
+            const xOffset = xPos + (maxImgWidth - finalWidth) / 2;
+            const yOffset = y + (maxImgHeight - finalHeight) / 2;
+            
+            doc.addImage(base64, 'JPEG', xOffset, yOffset, finalWidth, finalHeight);
           }
         } catch {}
         
-        xPos += imgWidth + 8;
+        xPos += maxImgWidth + 8;
         imgsInRow++;
       }
-      y += imgHeight + 15;
+      y += maxImgHeight + 15;
     }
 
     // Signature
@@ -496,7 +585,11 @@ export default function ViewProposal() {
               {(proposal.greeting || proposal.general_description) && (
                 <SectionCard icon={FileText} title="Proposta">
                   <div className={`space-y-4 text-sm leading-relaxed ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
-                    {proposal.greeting && <p className="font-bold">{proposal.greeting}</p>}
+                    {proposal.greeting && (
+                      <p className="font-bold">
+                        {proposal.greeting}{proposal.client_name ? ` ${proposal.client_name}` : ""}
+                      </p>
+                    )}
                     {proposal.general_description && <p className="whitespace-pre-line">{proposal.general_description}</p>}
                   </div>
                 </SectionCard>
@@ -538,8 +631,8 @@ export default function ViewProposal() {
                               )}
                             </td>
                             <td className={`px-4 py-3 text-sm text-center ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>{item.qty || 1}</td>
-                            <td className={`px-4 py-3 text-sm text-right ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>R$ {(parseFloat(item.unit_price) || 0).toFixed(2).replace('.', ',')}</td>
-                            <td className={`px-4 py-3 text-sm text-right font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {(parseFloat(item.total) || 0).toFixed(2).replace('.', ',')}</td>
+                            <td className={`px-4 py-3 text-sm text-right ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>R$ {formatCurrency(parseFloat(item.unit_price) || 0)}</td>
+                            <td className={`px-4 py-3 text-sm text-right font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {formatCurrency(parseFloat(item.total) || 0)}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -566,7 +659,31 @@ export default function ViewProposal() {
 
               {proposal.payment_terms && (
                 <SectionCard icon={CreditCard} title="Forma de Pagamento">
-                  <p className={`text-sm whitespace-pre-line ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>{proposal.payment_terms}</p>
+                  <p className={`text-sm whitespace-pre-line ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
+                    {proposal.payment_terms.split(/(:\s*)/).map((part: string, i: number) => 
+                      i === 0 ? <strong key={i}>{part}</strong> : part
+                    )}
+                  </p>
+                </SectionCard>
+              )}
+
+              {proposal.warranty && (
+                <SectionCard icon={CheckCircle2} title="Garantia">
+                  <p className={`text-sm whitespace-pre-line ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
+                    {proposal.warranty.split(/(:\s*)/).map((part: string, i: number) => 
+                      i === 0 ? <strong key={i}>{part}</strong> : part
+                    )}
+                  </p>
+                </SectionCard>
+              )}
+
+              {proposal.technical_support && (
+                <SectionCard icon={User} title="Suporte Técnico">
+                  <p className={`text-sm whitespace-pre-line ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
+                    {proposal.technical_support.split(/(:\s*)/).map((part: string, i: number) => 
+                      i === 0 ? <strong key={i}>{part}</strong> : part
+                    )}
+                  </p>
                 </SectionCard>
               )}
 
@@ -626,7 +743,7 @@ export default function ViewProposal() {
                   {proposal.monthly_value > 0 && (
                     <div className="flex justify-between">
                       <span>Valor Mensal:</span>
-                      <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {proposal.monthly_value.toFixed(2).replace('.', ',')}</span>
+                      <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {formatCurrency(proposal.monthly_value || 0)}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
