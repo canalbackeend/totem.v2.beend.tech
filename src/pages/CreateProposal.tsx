@@ -210,7 +210,10 @@ export default function CreateProposal() {
               plan_type: data.plan_type || 'Mensal',
               monthly_value: data.monthly_value ? String(data.monthly_value).replace('.', ',') : '',
               plan_description: data.plan_description || '',
-              items: data.items || [],
+              items: (data.items || []).map((i: any) => ({
+                ...i,
+                unit_price: i.unit_price ? String(i.unit_price).replace('.', ',') : ''
+              })),
               shipping_cost: data.shipping_cost ? String(data.shipping_cost).replace('.', ',') : '',
               images: data.images || [],
               image_library: data.image_library || [],
@@ -232,18 +235,24 @@ export default function CreateProposal() {
   const addItem = useCallback(() => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { name: '', description: '', qty: 1, unit_price: 0, total: 0 }]
+      items: [...prev.items, { name: '', description: '', qty: 1, unit_price: '', total: 0 }]
     }));
   }, []);
 
   const updateItem = useCallback((index: number, field: string, value: any) => {
     setFormData(prev => {
       const newItems = [...prev.items];
-      newItems[index] = { ...newItems[index], [field]: value };
-      if (field === 'qty' || field === 'unit_price') {
-        const qty = field === 'qty' ? (typeof value === 'string' ? parseFloat(value) || 0 : value) : newItems[index].qty;
-        const unitPrice = field === 'unit_price' ? (typeof value === 'string' ? parseCurrency(value) : value) : newItems[index].unit_price;
-        newItems[index].total = qty * unitPrice;
+      if (field === 'unit_price') {
+        const masked = maskCurrency(value);
+        newItems[index] = { ...newItems[index], unit_price: masked };
+        const qty = newItems[index].qty;
+        newItems[index].total = qty * parseCurrency(masked);
+      } else if (field === 'qty') {
+        const parsedQty = typeof value === 'string' ? parseFloat(value) || 0 : value;
+        newItems[index] = { ...newItems[index], qty: parsedQty };
+        newItems[index].total = parsedQty * parseCurrency(newItems[index].unit_price);
+      } else {
+        newItems[index] = { ...newItems[index], [field]: value };
       }
       return { ...prev, items: newItems };
     });
@@ -298,7 +307,12 @@ export default function CreateProposal() {
       return;
     }
     const resources = formData.resources_text.split('\n').filter(r => r.trim());
-    const payload = { ...formData, resources };
+    const itemsParsed = formData.items.map(item => ({
+      ...item,
+      unit_price: parseCurrency(item.unit_price),
+      total: item.qty * parseCurrency(item.unit_price)
+    }));
+    const payload = { ...formData, resources, items: itemsParsed };
     if (status) payload.status = status;
 
     toast.promise(
@@ -496,8 +510,8 @@ export default function CreateProposal() {
                                     className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none text-center ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                                 </div>
                                 <div className="flex-1 min-w-[120px]">
-                                  <input value={item.unit_price ? formatCurrency(item.unit_price) : ''}
-                                    onChange={(e) => updateItem(idx, 'unit_price', parseCurrency(e.target.value))}
+                                  <input value={item.unit_price}
+                                    onChange={(e) => updateItem(idx, 'unit_price', e.target.value)}
                                     placeholder="Valor unitário (R$)"
                                     className={`w-full rounded px-3 py-2 text-sm font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                                 </div>
