@@ -56,12 +56,12 @@ const formatCurrency = (value: number) => {
 };
 
 const DEFAULTS = {
-  greeting: "Conforme solicitado, estamos enviando a nossa Proposta de Aquisição de Totem para Pesquisa de Satisfação do Cliente, a ser realizada pela Beend Smart Solution para o",
+  greeting: "",
   general_description: "Temos o prazer de apresentar nossa solução completa de coleta de feedbacks e pesquisa de satisfação. Nossa plataforma oferece terminais inteligentes integrados a um painel de análise em tempo real, permitindo que você transforme cada interação em insights valiosos para o crescimento do seu negócio.",
   implementation_reqs: "• Instalação e configuração dos terminais\n• Criação e personalização das campanhas de pesquisa\n• Treinamento da equipe para operação do sistema\n• Integração com sistemas existentes (se aplicável)",
-  technical_support: "Suporte técnico especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
+  technical_support: "Suporte técnico: especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
   warranty: "Garantia: 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
-  resources_text: "Painel de análise em tempo real\nRelatórios automáticos por e-mail\nTerminais com modo offline\nPesquisas personalizáveis (NPS, SMILE, Texto Aberto)\nDashboard com métricas de satisfação\nExportação de dados em CSV e PDF",
+  resources_text: "Principais tipos de campanhas: NPS, CSAT, SMILE e QUIZ\nReceba feedback dos seus clientes em tempo real\nGerencie perguntas e respostas de forma simples\nVários terminais ao mesmo tempo de forma geral ou individual\nGráfico de evolução\nPergunta aberta\nRelatórios diários via email no horário marcado\nRelatórios por data e horários\nLista de clientes cadastrados (Caso haja um formulário de cadastro ativado)\nExportação de dados em PDF, Excel e CSV\nGerencie várias campanhas simultâneas\nAcesso individual para cada terminal\nAnálise de sentimento com IA",
   payment_terms: "Pagamento: via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
   final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
 };
@@ -469,38 +469,40 @@ export default function CreateProposal() {
                       <div className="space-y-3">
                         {formData.items.map((item, idx) => (
                           <div key={idx} className={`rounded-lg border p-4 space-y-3 ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-slate-200 bg-slate-50'}`}>
-                            <div className="flex items-start gap-3">
-                              <span className={`text-[10px] font-black uppercase tracking-widest mt-2 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>#{idx + 1}</span>
-                              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
-                                <div className="md:col-span-1">
-                                  <input value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)}
-                                    placeholder="Nome do item"
-                                    className={`w-full rounded px-3 py-2 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
-                                </div>
-                                <div className="md:col-span-3">
-                                  <input value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)}
-                                    placeholder="Descrição do item (opcional)"
-                                    className={`w-full rounded px-3 py-2 text-xs font-medium outline-none ${isDarkMode ? 'bg-black border border-white/5 text-zinc-300' : 'bg-white border border-slate-200 text-slate-600'}`} />
-                                </div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>#{idx + 1}</span>
+                              <button type="button" onClick={() => removeItem(idx)}
+                                className={`ml-auto p-1.5 rounded transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}>
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                            <div className="space-y-3">
+                              <div>
+                                <input value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)}
+                                  placeholder="Nome do produto"
+                                  className={`w-full rounded px-3 py-3 text-sm font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                               </div>
-                              <div className="flex items-center gap-2">
-                                <div className="w-14">
+                              <div>
+                                <textarea value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                                  placeholder="Descrição do produto"
+                                  rows={2}
+                                  className={`w-full rounded px-3 py-2 text-sm font-medium outline-none resize-none leading-relaxed ${isDarkMode ? 'bg-black border border-white/5 text-zinc-300' : 'bg-white border border-slate-200 text-slate-600'}`} />
+                              </div>
+                              <div className="flex items-center gap-3 flex-wrap">
+                                <div className="w-16">
                                   <input type="number" min="1" value={item.qty} onChange={(e) => updateItem(idx, 'qty', parseFloat(e.target.value) || 0)}
+                                    placeholder="Qtd"
                                     className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none text-center ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                                 </div>
-                                <div className="w-24">
+                                <div className="flex-1 min-w-[120px]">
                                   <input value={item.unit_price ? String(item.unit_price).replace('.', ',') : ''}
                                     onChange={(e) => updateItem(idx, 'unit_price', parseCurrency(e.target.value))}
-                                    placeholder="0,00"
-                                    className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
+                                    placeholder="Valor unitário (R$)"
+                                    className={`w-full rounded px-3 py-2 text-sm font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                                 </div>
-                                <div className={`w-24 text-right text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                <div className={`w-28 text-right text-sm font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                   R$ {formatCurrency(item.total)}
                                 </div>
-                                <button type="button" onClick={() => removeItem(idx)}
-                                  className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}>
-                                  <Trash2 size={14} />
-                                </button>
                               </div>
                             </div>
                           </div>

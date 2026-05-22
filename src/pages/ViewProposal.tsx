@@ -167,9 +167,11 @@ export default function ViewProposal() {
       doc.setTextColor(80, 80, 80);
       if (proposal.greeting) {
         const greetingText = proposal.greeting + (proposal.client_name ? " " + proposal.client_name : "");
-        const greetingLines = doc.splitTextToSize(greetingText, 180);
-        doc.text(greetingLines, 15, y);
-        y += greetingLines.length * 5;
+        if (greetingText.trim()) {
+          const greetingLines = doc.splitTextToSize(greetingText, 180);
+          doc.text(greetingLines, 15, y);
+          y += greetingLines.length * 5;
+        }
       }
       if (proposal.general_description) {
         y += 3;

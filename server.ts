@@ -1731,12 +1731,12 @@ app.post("/api/proposals", authenticateToken, async (req: any, res) => {
     validity.setDate(validity.getDate() + 10);
 
     const defaults = {
-      greeting: `Conforme solicitado, estamos enviando a nossa Proposta de Aquisição de Totem para Pesquisa de Satisfação do Cliente, a ser realizada pela Beend Smart Solution para o`,
+      greeting: ``,
       general_description: "Temos o prazer de apresentar nossa solução completa de coleta de feedbacks e pesquisa de satisfação. Nossa plataforma oferece terminais inteligentes integrados a um painel de análise em tempo real, permitindo que você transforme cada interação em insights valiosos para o crescimento do seu negócio.",
       implementation_reqs: "• Instalação e configuração dos terminais\n• Criação e personalização das campanhas de pesquisa\n• Treinamento da equipe para operação do sistema\n• Integração com sistemas existentes (se aplicável)",
       technical_support: "Suporte técnico: especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
       warranty: "Garantia: 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
-      resources: ["Painel de análise em tempo real", "Relatórios automáticos por e-mail", "Terminais com modo offline", "Pesquisas personalizáveis (NPS, SMILE, Texto Aberto)", "Dashboard com métricas de satisfação", "Exportação de dados em CSV e PDF"],
+      resources: ["Principais tipos de campanhas: NPS, CSAT, SMILE e QUIZ", "Receba feedback dos seus clientes em tempo real", "Gerencie perguntas e respostas de forma simples", "Vários terminais ao mesmo tempo de forma geral ou individual", "Gráfico de evolução", "Pergunta aberta", "Relatórios diários via email no horário marcado", "Relatórios por data e horários", "Lista de clientes cadastrados (Caso haja um formulário de cadastro ativado)", "Exportação de dados em PDF, Excel e CSV", "Gerencie várias campanhas simultâneas", "Acesso individual para cada terminal", "Análise de sentimento com IA"],
       payment_terms: "Pagamento: via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
       final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
     };
@@ -1922,8 +1922,10 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
             <h2 style="color: #333; margin: 0 0 5px;">Proposta Comercial ${proposal.proposal_number}</h2>
             <p style="color: #999; font-size: 13px; margin: 0 0 25px;">${proposal.client_name}</p>
             
-            <p style="color: #555; font-size: 15px; line-height: 1.6;">${proposal.greeting ? proposal.greeting + (proposal.client_name ? " " + proposal.client_name : "") : "Prezado(a),"}</p>
+            ${proposal.greeting || proposal.general_description ? `
+            <p style="color: #555; font-size: 15px; line-height: 1.6;">${proposal.greeting ? proposal.greeting + (proposal.client_name ? " " + proposal.client_name : "") : ""}</p>
             <p style="color: #555; font-size: 14px; line-height: 1.6;">${proposal.general_description || ""}</p>
+            ` : ""}
             
             ${items.length > 0 ? `
               <div style="margin: 25px 0;">
