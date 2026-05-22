@@ -178,6 +178,7 @@ model Proposal {
   resources             Json      @default("[]")
   payment_terms         String?
   final_considerations  String?
+  observations          String?
   
   plan_type             String?
   monthly_value         Float     @default(0)

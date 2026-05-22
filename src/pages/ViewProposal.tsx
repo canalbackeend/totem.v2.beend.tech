@@ -17,7 +17,8 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
-  File
+  File,
+  AlignLeft
 } from 'lucide-react';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { useState, useEffect } from 'react';
@@ -178,12 +179,16 @@ export default function ViewProposal() {
       autoTable(doc, {
         startY: y,
         head: [['Item', 'Qtd', 'Unitário', 'Total']],
-        body: items.map((i: any) => [
-          i.name || '-',
-          String(i.qty || 1),
-          `R$ ${(parseFloat(i.unit_price) || 0).toFixed(2).replace('.', ',')}`,
-          `R$ ${(parseFloat(i.total) || 0).toFixed(2).replace('.', ',')}`
-        ]),
+        body: items.map((i: any) => {
+          const name = i.name || '-';
+          const desc = i.description ? `\n${i.description}` : '';
+          return [
+            { content: `${name}${desc}`, styles: { fontSize: 7 } },
+            String(i.qty || 1),
+            `R$ ${(parseFloat(i.unit_price) || 0).toFixed(2).replace('.', ',')}`,
+            `R$ ${(parseFloat(i.total) || 0).toFixed(2).replace('.', ',')}`
+          ];
+        }),
         foot: [
           ['', '', 'Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`],
           ...(shipping > 0 ? [['', '', 'Frete:', `R$ ${shipping.toFixed(2).replace('.', ',')}`]] : []),
@@ -194,10 +199,10 @@ export default function ViewProposal() {
         bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
         footStyles: { fontSize: 9, fontStyle: 'bold', fillColor: [240, 240, 240] },
         columnStyles: {
-          0: { cellWidth: 80 },
-          1: { cellWidth: 20, halign: 'center' },
-          2: { cellWidth: 35, halign: 'right' },
-          3: { cellWidth: 35, halign: 'right' }
+          0: { cellWidth: 85 },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 32, halign: 'right' },
+          3: { cellWidth: 32, halign: 'right' }
         },
         margin: { left: 15, right: 15 }
       });
@@ -234,6 +239,22 @@ export default function ViewProposal() {
       const consLines = doc.splitTextToSize(proposal.final_considerations, 180);
       doc.text(consLines, 15, y);
       y += consLines.length * 5 + 15;
+    }
+
+    // Observations
+    if (proposal.observations) {
+      if (y > 250) { doc.addPage(); y = 20; }
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 50, 50);
+      doc.text('Observacoes', 15, y);
+      y += 7;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 100, 100);
+      const obsLines = doc.splitTextToSize(proposal.observations, 180);
+      doc.text(obsLines, 15, y);
+      y += obsLines.length * 5 + 15;
     }
 
     // Signature
@@ -456,7 +477,12 @@ export default function ViewProposal() {
                       <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
                         {items.map((item: any, idx: number) => (
                           <tr key={idx}>
-                            <td className={`px-4 py-3 text-sm font-semibold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{item.name || '-'}</td>
+                            <td className={`px-4 py-3 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                              <span className="text-sm font-semibold">{item.name || '-'}</span>
+                              {item.description && (
+                                <p className={`text-xs mt-1 ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>{item.description}</p>
+                              )}
+                            </td>
                             <td className={`px-4 py-3 text-sm text-center ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>{item.qty || 1}</td>
                             <td className={`px-4 py-3 text-sm text-right ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>R$ {(parseFloat(item.unit_price) || 0).toFixed(2).replace('.', ',')}</td>
                             <td className={`px-4 py-3 text-sm text-right font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {(parseFloat(item.total) || 0).toFixed(2).replace('.', ',')}</td>
@@ -493,6 +519,12 @@ export default function ViewProposal() {
               {proposal.final_considerations && (
                 <SectionCard icon={FileText} title="Considerações Finais">
                   <p className={`text-sm whitespace-pre-line ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>{proposal.final_considerations}</p>
+                </SectionCard>
+              )}
+
+              {proposal.observations && (
+                <SectionCard icon={AlignLeft} title="Observações">
+                  <p className={`text-sm whitespace-pre-line ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>{proposal.observations}</p>
                 </SectionCard>
               )}
 

@@ -1758,6 +1758,7 @@ app.post("/api/proposals", authenticateToken, async (req: any, res) => {
         resources: req.body.resources || defaults.resources,
         payment_terms: req.body.payment_terms || defaults.payment_terms,
         final_considerations: req.body.final_considerations || defaults.final_considerations,
+        observations: req.body.observations || "",
         plan_type: req.body.plan_type || "Mensal",
         monthly_value: parseFloat(req.body.monthly_value) || 0,
         plan_description: req.body.plan_description || "",
@@ -1953,6 +1954,13 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
               <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
                 <h4 style="color: #333; margin: 0 0 8px; font-size: 14px;">Forma de Pagamento</h4>
                 <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${proposal.payment_terms}</p>
+              </div>
+            ` : ""}
+            
+            ${proposal.observations ? `
+              <div style="margin: 20px 0; padding: 15px; background: #fffbeb; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                <h4 style="color: #333; margin: 0 0 8px; font-size: 14px;">Observações</h4>
+                <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${proposal.observations}</p>
               </div>
             ` : ""}
             

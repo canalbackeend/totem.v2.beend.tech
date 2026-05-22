@@ -17,10 +17,11 @@ import {
   Trash2,
   Loader2,
   Send,
-  Eye
+  Eye,
+  AlignLeft
 } from 'lucide-react';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { toast } from 'sonner';
@@ -50,6 +51,52 @@ const parseCurrency = (value: string) => {
   return parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
 };
 
+const DEFAULTS = {
+  greeting: "Prezado(a),",
+  general_description: "Temos o prazer de apresentar nossa solução completa de coleta de feedbacks e pesquisa de satisfação. Nossa plataforma oferece terminais inteligentes integrados a um painel de análise em tempo real, permitindo que você transforme cada interação em insights valiosos para o crescimento do seu negócio.",
+  implementation_reqs: "• Instalação e configuração dos terminais\n• Criação e personalização das campanhas de pesquisa\n• Treinamento da equipe para operação do sistema\n• Integração com sistemas existentes (se aplicável)",
+  technical_support: "Suporte técnico especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
+  warranty: "Garantia de 12 meses contra defeitos de fabricação e funcionamento. Manutenção preventiva e corretiva inclusas durante o período de vigência do contrato.",
+  resources_text: "Painel de análise em tempo real\nRelatórios automáticos por e-mail\nTerminais com modo offline\nPesquisas personalizáveis (NPS, SMILE, Texto Aberto)\nDashboard com métricas de satisfação\nExportação de dados em CSV e PDF",
+  payment_terms: "Pagamento via boleto bancário ou PIX, com vencimento todo dia 10 de cada mês. Primeiro faturamento após a instalação dos terminais.",
+  final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
+};
+
+type ProposalItem = { name: string; description: string; qty: number; unit_price: number; total: number };
+
+interface CreateProposalProps {}
+
+const SectionHeader = React.memo(({ icon: Icon, title, isDarkMode }: { icon: any; title: string; isDarkMode: boolean }) => (
+  <div className={`p-5 border-b flex items-center gap-3 transition-colors ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
+    <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-100 text-amber-600'}`}>
+      <Icon size={20} />
+    </div>
+    <h3 className={`text-sm font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
+  </div>
+));
+
+const InputField = React.memo(({ label, name, type = 'text', placeholder, colSpan = 1, value, onChange, isDarkMode }: any) => (
+  <div className={`space-y-1.5 ${colSpan === 2 ? 'md:col-span-2' : ''}`}>
+    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{label}</label>
+    <input name={name} type={type} value={value || ''} onChange={onChange}
+      placeholder={placeholder}
+      className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all ${
+        isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
+      }`} />
+  </div>
+));
+
+const TextAreaField = React.memo(({ label, name, placeholder, rows = 3, value, onChange, isDarkMode }: any) => (
+  <div className="space-y-1.5">
+    <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{label}</label>
+    <textarea name={name} value={value || ''} onChange={onChange}
+      placeholder={placeholder} rows={rows}
+      className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all resize-none ${
+        isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
+      }`} />
+  </div>
+));
+
 export default function CreateProposal() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -72,18 +119,19 @@ export default function CreateProposal() {
     address: '',
     proposal_date: today.toISOString().split('T')[0],
     validity_date: validity.toISOString().split('T')[0],
-    greeting: '',
-    general_description: '',
-    implementation_reqs: '',
-    technical_support: '',
-    warranty: '',
-    resources_text: '',
-    payment_terms: '',
-    final_considerations: '',
+    greeting: DEFAULTS.greeting,
+    general_description: DEFAULTS.general_description,
+    implementation_reqs: DEFAULTS.implementation_reqs,
+    technical_support: DEFAULTS.technical_support,
+    warranty: DEFAULTS.warranty,
+    resources_text: DEFAULTS.resources_text,
+    payment_terms: DEFAULTS.payment_terms,
+    final_considerations: DEFAULTS.final_considerations,
+    observations: '',
     plan_type: 'Mensal',
     monthly_value: '',
     plan_description: '',
-    items: [] as { name: string; qty: number; unit_price: number; total: number }[],
+    items: [] as ProposalItem[],
     shipping_cost: '',
     images: [] as string[],
     image_library: [] as string[],
@@ -91,7 +139,43 @@ export default function CreateProposal() {
     responsible_phone: ''
   });
 
-  const [newItemImage, setNewItemImage] = useState('');
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    let processedValue = value;
+    if (name === 'cep') {
+      processedValue = maskCEP(value);
+    }
+    if (name === 'phone' || name === 'responsible_phone') processedValue = maskPhone(value);
+    if (name === 'monthly_value' || name === 'shipping_cost') processedValue = maskCurrency(value);
+    setFormData(prev => ({ ...prev, [name]: processedValue }));
+  }, []);
+
+  const fetchAddressByCEP = useCallback(async (cep: string) => {
+    const cleanCEP = cep.replace(/\D/g, '');
+    if (cleanCEP.length !== 8) return;
+    setLoadingCEP(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
+      const data = await response.json();
+      if (!data.erro) {
+        setFormData(prev => ({
+          ...prev,
+          address: data.logradouro ? `${data.logradouro}, ${data.bairro || ''} - ${data.localidade || ''}/${data.uf || ''}` : prev.address
+        }));
+        toast.info('Endereço localizado!');
+      }
+    } catch (error) {
+      console.error("Erro ao buscar CEP:", error);
+    } finally {
+      setLoadingCEP(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (formData.cep.replace(/\D/g, '').length === 8) {
+      // Don't auto-fetch on mount, only on user input
+    }
+  }, [formData.cep]);
 
   useEffect(() => {
     if (id) {
@@ -109,14 +193,15 @@ export default function CreateProposal() {
               address: data.address || '',
               proposal_date: data.proposal_date || today.toISOString().split('T')[0],
               validity_date: data.validity_date || validity.toISOString().split('T')[0],
-              greeting: data.greeting || '',
-              general_description: data.general_description || '',
-              implementation_reqs: data.implementation_reqs || '',
-              technical_support: data.technical_support || '',
-              warranty: data.warranty || '',
-              resources_text: resources,
-              payment_terms: data.payment_terms || '',
-              final_considerations: data.final_considerations || '',
+              greeting: data.greeting || DEFAULTS.greeting,
+              general_description: data.general_description || DEFAULTS.general_description,
+              implementation_reqs: data.implementation_reqs || DEFAULTS.implementation_reqs,
+              technical_support: data.technical_support || DEFAULTS.technical_support,
+              warranty: data.warranty || DEFAULTS.warranty,
+              resources_text: resources || DEFAULTS.resources_text,
+              payment_terms: data.payment_terms || DEFAULTS.payment_terms,
+              final_considerations: data.final_considerations || DEFAULTS.final_considerations,
+              observations: data.observations || '',
               plan_type: data.plan_type || 'Mensal',
               monthly_value: data.monthly_value ? String(data.monthly_value).replace('.', ',') : '',
               plan_description: data.plan_description || '',
@@ -139,47 +224,14 @@ export default function CreateProposal() {
     }
   }, [id]);
 
-  const fetchAddressByCEP = async (cep: string) => {
-    const cleanCEP = cep.replace(/\D/g, '');
-    if (cleanCEP.length !== 8) return;
-    setLoadingCEP(true);
-    try {
-      const response = await fetch(`https://viacep.com.br/ws/${cleanCEP}/json/`);
-      const data = await response.json();
-      if (!data.erro) {
-        setFormData(prev => ({
-          ...prev,
-          address: data.logradouro ? `${data.logradouro}, ${data.bairro || ''} - ${data.localidade || ''}/${data.uf || ''}` : prev.address
-        }));
-        toast.info('Endereço localizado!');
-      }
-    } catch (error) {
-      console.error("Erro ao buscar CEP:", error);
-    } finally {
-      setLoadingCEP(false);
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    let processedValue = value;
-    if (name === 'cep') {
-      processedValue = maskCEP(value);
-      if (processedValue.replace(/\D/g, '').length === 8) fetchAddressByCEP(processedValue);
-    }
-    if (name === 'phone' || name === 'responsible_phone') processedValue = maskPhone(value);
-    if (name === 'monthly_value' || name === 'shipping_cost') processedValue = maskCurrency(value);
-    setFormData(prev => ({ ...prev, [name]: processedValue }));
-  };
-
-  const addItem = () => {
+  const addItem = useCallback(() => {
     setFormData(prev => ({
       ...prev,
-      items: [...prev.items, { name: '', qty: 1, unit_price: 0, total: 0 }]
+      items: [...prev.items, { name: '', description: '', qty: 1, unit_price: 0, total: 0 }]
     }));
-  };
+  }, []);
 
-  const updateItem = (index: number, field: string, value: any) => {
+  const updateItem = useCallback((index: number, field: string, value: any) => {
     setFormData(prev => {
       const newItems = [...prev.items];
       newItems[index] = { ...newItems[index], [field]: value };
@@ -190,13 +242,13 @@ export default function CreateProposal() {
       }
       return { ...prev, items: newItems };
     });
-  };
+  }, []);
 
-  const removeItem = (index: number) => {
+  const removeItem = useCallback((index: number) => {
     setFormData(prev => ({ ...prev, items: prev.items.filter((_, i) => i !== index) }));
-  };
+  }, []);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, slot?: number) => {
+  const handleImageUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>, slot?: number) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
@@ -225,9 +277,17 @@ export default function CreateProposal() {
       }
     };
     reader.readAsDataURL(file);
-  };
+  }, [formData.images]);
 
-  const handleSubmit = async (status?: string) => {
+  const removeImage = useCallback((slot: number) => {
+    setFormData(prev => {
+      const newImages = [...prev.images];
+      newImages[slot] = '';
+      return { ...prev, images: newImages };
+    });
+  }, []);
+
+  const handleSubmit = useCallback(async (status?: string) => {
     if (!formData.client_name) {
       toast.error('Preencha o nome do cliente.');
       return;
@@ -257,9 +317,9 @@ export default function CreateProposal() {
         error: (err: any) => err.message || 'Erro ao salvar proposta.'
       }
     );
-  };
+  }, [formData, id, navigate]);
 
-  const handleSend = async (proposalId?: string) => {
+  const handleSend = useCallback(async (proposalId?: string) => {
     const pid = proposalId || id;
     if (!pid) return;
     if (!formData.email) {
@@ -276,7 +336,7 @@ export default function CreateProposal() {
     } finally {
       setSending(false);
     }
-  };
+  }, [id, formData.email, navigate]);
 
   const subtotal = formData.items.reduce((sum, i) => sum + i.total, 0);
   const shipping = parseCurrency(formData.shipping_cost);
@@ -296,37 +356,6 @@ export default function CreateProposal() {
       </>
     );
   }
-
-  const SectionHeader = ({ icon: Icon, title }: { icon: any; title: string }) => (
-    <div className={`p-5 border-b flex items-center gap-3 transition-colors ${isDarkMode ? 'bg-black/20 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
-      <div className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-100 text-amber-600'}`}>
-        <Icon size={20} />
-      </div>
-      <h3 className={`text-sm font-black uppercase tracking-widest transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{title}</h3>
-    </div>
-  );
-
-  const InputField = ({ label, name, type = 'text', placeholder, colSpan = 1 }: any) => (
-    <div className={`space-y-1.5 ${colSpan === 2 ? 'md:col-span-2' : ''}`}>
-      <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{label}</label>
-      <input name={name} type={type} value={(formData as any)[name] || ''} onChange={handleInputChange}
-        placeholder={placeholder}
-        className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all ${
-          isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
-        }`} />
-    </div>
-  );
-
-  const TextAreaField = ({ label, name, placeholder, rows = 3 }: any) => (
-    <div className="space-y-1.5">
-      <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{label}</label>
-      <textarea name={name} value={(formData as any)[name] || ''} onChange={handleInputChange}
-        placeholder={placeholder} rows={rows}
-        className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all resize-none ${
-          isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
-        }`} />
-    </div>
-  );
 
   return (
     <>
@@ -356,42 +385,43 @@ export default function CreateProposal() {
                 className={`rounded-xl shadow-sm border overflow-hidden transition-colors ${isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-slate-100'}`}>
                 
                 {/* Dados do Cliente */}
-                <SectionHeader icon={User} title="Dados do Cliente" />
+                <SectionHeader icon={User} title="Dados do Cliente" isDarkMode={isDarkMode} />
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <InputField label="Nome da Empresa / Cliente *" name="client_name" placeholder="Razo social ou nome fantasia" colSpan={2} />
-                  <InputField label="Pessoa de Contato" name="contact_person" placeholder="Nome do responsvel" />
-                  <InputField label="Telefone" name="phone" placeholder="(00) 00000-0000" />
-                  <InputField label="E-mail" name="email" type="email" placeholder="cliente@empresa.com" colSpan={2} />
+                  <InputField label="Nome da Empresa / Cliente *" name="client_name" placeholder="Razão social ou nome fantasia" colSpan={2} value={formData.client_name} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <InputField label="Pessoa de Contato" name="contact_person" placeholder="Nome do responsável" value={formData.contact_person} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <InputField label="Telefone" name="phone" placeholder="(00) 00000-0000" value={formData.phone} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <InputField label="E-mail" name="email" type="email" placeholder="cliente@empresa.com" colSpan={2} value={formData.email} onChange={handleInputChange} isDarkMode={isDarkMode} />
                   <div className="space-y-1.5 relative">
                     <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>CEP</label>
-                    <input name="cep" value={formData.cep} onChange={handleInputChange} placeholder="00.000-000"
+                    <input name="cep" value={formData.cep} onChange={(e) => { handleInputChange(e); if (e.target.value.replace(/\D/g, '').length === 8) fetchAddressByCEP(e.target.value); }} placeholder="00.000-000"
                       className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all ${loadingCEP ? (isDarkMode ? 'border-blue-500' : 'border-blue-500') : (isDarkMode ? 'border-white/5' : 'border-slate-100')} ${isDarkMode ? 'bg-black border text-white focus:border-amber-500/50' : 'bg-slate-50 border text-slate-700 focus:border-amber-500'}`} />
                     {loadingCEP && <span className="absolute right-3 top-9 text-[10px] text-blue-500 font-bold animate-pulse">Buscando...</span>}
                   </div>
-                  <InputField label="Data da Proposta" name="proposal_date" type="date" />
-                  <InputField label="Endereço" name="address" placeholder="Endereço completo" colSpan={2} />
-                  <InputField label="Validade" name="validity_date" type="date" />
+                  <InputField label="Data da Proposta" name="proposal_date" type="date" value={formData.proposal_date} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <InputField label="Endereço" name="address" placeholder="Endereço completo" colSpan={2} value={formData.address} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <InputField label="Validade" name="validity_date" type="date" value={formData.validity_date} onChange={handleInputChange} isDarkMode={isDarkMode} />
                 </div>
 
                 {/* Conteúdo */}
-                <SectionHeader icon={FileText} title="Conteúdo da Proposta" />
+                <SectionHeader icon={FileText} title="Conteúdo da Proposta" isDarkMode={isDarkMode} />
                 <div className="p-6 space-y-4">
-                  <InputField label="Saudação Personalizada" name="greeting" placeholder="Prezado(a) [Contato]," colSpan={2} />
-                  <TextAreaField label="Descrição Geral" name="general_description" placeholder="Descreva a solução oferecida..." rows={4} />
+                  <InputField label="Saudação Personalizada" name="greeting" placeholder="Prezado(a) [Contato]," colSpan={2} value={formData.greeting} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <TextAreaField label="Descrição Geral" name="general_description" placeholder="Descreva a solução oferecida..." rows={4} value={formData.general_description} onChange={handleInputChange} isDarkMode={isDarkMode} />
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <TextAreaField label="Requisitos de Implementação" name="implementation_reqs" placeholder="• Instalação..." rows={4} />
-                    <TextAreaField label="Suporte Técnico" name="technical_support" placeholder="Descreva o suporte..." rows={4} />
+                    <TextAreaField label="Requisitos de Implementação" name="implementation_reqs" placeholder="• Instalação..." rows={4} value={formData.implementation_reqs} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                    <TextAreaField label="Suporte Técnico" name="technical_support" placeholder="Descreva o suporte..." rows={4} value={formData.technical_support} onChange={handleInputChange} isDarkMode={isDarkMode} />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <TextAreaField label="Garantia" name="warranty" placeholder="Descreva a garantia..." rows={3} />
-                    <TextAreaField label="Forma de Pagamento" name="payment_terms" placeholder="Condições de pagamento..." rows={3} />
+                    <TextAreaField label="Garantia" name="warranty" placeholder="Descreva a garantia..." rows={3} value={formData.warranty} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                    <TextAreaField label="Forma de Pagamento" name="payment_terms" placeholder="Condições de pagamento..." rows={3} value={formData.payment_terms} onChange={handleInputChange} isDarkMode={isDarkMode} />
                   </div>
-                  <TextAreaField label="Recursos do Sistema (um por linha)" name="resources_text" placeholder="Painel de análise em tempo real&#10;Relatórios automáticos por e-mail&#10;Terminais com modo offline" rows={5} />
-                  <TextAreaField label="Considerações Finais" name="final_considerations" placeholder="Observações adicionais..." rows={3} />
+                  <TextAreaField label="Recursos do Sistema (um por linha)" name="resources_text" placeholder="Painel de análise em tempo real" rows={5} value={formData.resources_text} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <TextAreaField label="Considerações Finais" name="final_considerations" placeholder="Observações adicionais..." rows={3} value={formData.final_considerations} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <TextAreaField label="Observações" name="observations" placeholder="Observações gerais adicionais..." rows={3} value={formData.observations} onChange={handleInputChange} isDarkMode={isDarkMode} />
                 </div>
 
                 {/* Valores e Plano */}
-                <SectionHeader icon={CreditCard} title="Valores e Plano" />
+                <SectionHeader icon={CreditCard} title="Valores e Plano" isDarkMode={isDarkMode} />
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -401,9 +431,9 @@ export default function CreateProposal() {
                         {plans.map(p => <option key={p} value={p}>{p}</option>)}
                       </select>
                     </div>
-                    <InputField label="Valor Mensal (R$)" name="monthly_value" placeholder="0,00" />
+                    <InputField label="Valor Mensal (R$)" name="monthly_value" placeholder="0,00" value={formData.monthly_value} onChange={handleInputChange} isDarkMode={isDarkMode} />
                   </div>
-                  <TextAreaField label="Descrição do Plano" name="plan_description" placeholder="Detalhes do plano..." rows={2} />
+                  <TextAreaField label="Descrição do Plano" name="plan_description" placeholder="Detalhes do plano..." rows={2} value={formData.plan_description} onChange={handleInputChange} isDarkMode={isDarkMode} />
 
                   {/* Itens/Produtos */}
                   <div className="mt-4">
@@ -418,60 +448,62 @@ export default function CreateProposal() {
                     </div>
 
                     {formData.items.length > 0 && (
-                      <div className={`rounded-lg border overflow-hidden ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className={isDarkMode ? 'bg-black/40' : 'bg-slate-50'}>
-                              <th className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest text-left ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Item</th>
-                              <th className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest w-16 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Qtd</th>
-                              <th className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest w-28 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Unitário</th>
-                              <th className={`px-3 py-2 text-[10px] font-black uppercase tracking-widest w-28 text-right ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Total</th>
-                              <th className={`w-10 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}></th>
-                            </tr>
-                          </thead>
-                          <tbody className={`divide-y ${isDarkMode ? 'divide-white/5' : 'divide-slate-100'}`}>
-                            {formData.items.map((item, idx) => (
-                              <tr key={idx} className={isDarkMode ? 'bg-zinc-900' : 'bg-white'}>
-                                <td className="px-3 py-2">
+                      <div className="space-y-3">
+                        {formData.items.map((item, idx) => (
+                          <div key={idx} className={`rounded-lg border p-4 space-y-3 ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-slate-200 bg-slate-50'}`}>
+                            <div className="flex items-start gap-3">
+                              <span className={`text-[10px] font-black uppercase tracking-widest mt-2 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>#{idx + 1}</span>
+                              <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-3">
+                                <div className="md:col-span-1">
                                   <input value={item.name} onChange={(e) => updateItem(idx, 'name', e.target.value)}
                                     placeholder="Nome do item"
-                                    className={`w-full rounded px-2 py-1.5 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-slate-50 border border-slate-200 text-slate-700'}`} />
-                                </td>
-                                <td className="px-3 py-2">
+                                    className={`w-full rounded px-3 py-2 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
+                                </div>
+                                <div className="md:col-span-3">
+                                  <input value={item.description} onChange={(e) => updateItem(idx, 'description', e.target.value)}
+                                    placeholder="Descrição do item (opcional)"
+                                    className={`w-full rounded px-3 py-2 text-xs font-medium outline-none ${isDarkMode ? 'bg-black border border-white/5 text-zinc-300' : 'bg-white border border-slate-200 text-slate-600'}`} />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-14">
                                   <input type="number" min="1" value={item.qty} onChange={(e) => updateItem(idx, 'qty', parseFloat(e.target.value) || 0)}
-                                    className={`w-full rounded px-2 py-1.5 text-xs font-semibold outline-none text-center ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-slate-50 border border-slate-200 text-slate-700'}`} />
-                                </td>
-                                <td className="px-3 py-2">
+                                    className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none text-center ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
+                                </div>
+                                <div className="w-24">
                                   <input value={item.unit_price ? String(item.unit_price).replace('.', ',') : ''}
                                     onChange={(e) => updateItem(idx, 'unit_price', parseCurrency(e.target.value))}
                                     placeholder="0,00"
-                                    className={`w-full rounded px-2 py-1.5 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-slate-50 border border-slate-200 text-slate-700'}`} />
-                                </td>
-                                <td className={`px-3 py-2 text-right text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
+                                    className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
+                                </div>
+                                <div className={`w-24 text-right text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                                   R$ {item.total.toFixed(2).replace('.', ',')}
-                                </td>
-                                <td className="px-3 py-2 text-center">
-                                  <button type="button" onClick={() => removeItem(idx)}
-                                    className={`p-1 rounded transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-red-400' : 'text-slate-300 hover:text-red-500'}`}>
-                                    <Trash2 size={14} />
-                                  </button>
-                                </td>
+                                </div>
+                                <button type="button" onClick={() => removeItem(idx)}
+                                  className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}>
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+
+                        {/* Totals */}
+                        <div className={`rounded-lg border overflow-hidden ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                          <table className="w-full text-sm">
+                            <tfoot>
+                              <tr className={isDarkMode ? 'bg-black/30' : 'bg-slate-50'}>
+                                <td className={`px-4 py-2 text-right text-xs font-bold ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Subtotal:</td>
+                                <td className={`px-4 py-2 text-right text-xs font-black ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>R$ {subtotal.toFixed(2).replace('.', ',')}</td>
                               </tr>
-                            ))}
-                          </tbody>
-                          <tfoot>
-                            <tr className={isDarkMode ? 'bg-black/30' : 'bg-slate-50'}>
-                              <td colSpan={3} className={`px-3 py-2 text-right text-xs font-bold ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Subtotal:</td>
-                              <td className={`px-3 py-2 text-right text-xs font-black ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>R$ {subtotal.toFixed(2).replace('.', ',')}</td>
-                              <td></td>
-                            </tr>
-                          </tfoot>
-                        </table>
+                            </tfoot>
+                          </table>
+                        </div>
                       </div>
                     )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      <InputField label="Frete Adicional (R$)" name="shipping_cost" placeholder="0,00" />
+                      <InputField label="Frete Adicional (R$)" name="shipping_cost" placeholder="0,00" value={formData.shipping_cost} onChange={handleInputChange} isDarkMode={isDarkMode} />
                       <div className={`flex items-end p-4 rounded-lg border transition-colors ${isDarkMode ? 'bg-amber-500/5 border-amber-500/10' : 'bg-amber-50 border-amber-100'}`}>
                         <div className="w-full">
                           <span className={`text-[9px] font-black uppercase tracking-widest block mb-1 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Total Geral</span>
@@ -485,11 +517,11 @@ export default function CreateProposal() {
                 </div>
 
                 {/* Imagens */}
-                <SectionHeader icon={ImageIcon} title="Imagens da Proposta" />
+                <SectionHeader icon={ImageIcon} title="Imagens da Proposta" isDarkMode={isDarkMode} />
                 <div className="p-6 space-y-4">
                   <div className="grid grid-cols-5 gap-3">
                     {[0, 1, 2, 3, 4].map(slot => (
-                      <div key={slot} className={`aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-colors ${
+                      <div key={slot} className={`relative aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-colors ${
                         formData.images[slot]
                           ? (isDarkMode ? 'border-amber-500/30 bg-black' : 'border-amber-300 bg-slate-50')
                           : (isDarkMode ? 'border-zinc-800 hover:border-amber-500/50' : 'border-slate-200 hover:border-amber-400')
@@ -497,13 +529,13 @@ export default function CreateProposal() {
                         {formData.images[slot] ? (
                           <>
                             <img src={formData.images[slot]} alt={`Imagem ${slot + 1}`} className="w-full h-full object-cover" />
-                            <button type="button" onClick={() => { const n = [...formData.images]; n[slot] = ''; setFormData(p => ({ ...p, images: n })); }}
-                              className="absolute top-1 right-1 p-1 bg-red-500 rounded-full text-white">
-                              <Trash2 size={10} />
+                            <button type="button" onClick={() => removeImage(slot)}
+                              className="absolute top-1.5 right-1.5 p-1.5 bg-red-500 hover:bg-red-600 rounded-full text-white shadow-lg z-10 transition-colors">
+                              <Trash2 size={12} />
                             </button>
                           </>
                         ) : (
-                          <label className="cursor-pointer flex flex-col items-center gap-1 p-2 text-center">
+                          <label className="cursor-pointer flex flex-col items-center gap-1 p-2 text-center w-full h-full justify-center">
                             <ImageIcon size={16} className={isDarkMode ? 'text-zinc-700' : 'text-slate-300'} />
                             <span className={`text-[8px] font-black uppercase ${isDarkMode ? 'text-zinc-700' : 'text-slate-400'}`}>Img {slot + 1}</span>
                             <input type="file" accept="image/*" className="hidden" onChange={(e) => handleImageUpload(e, slot)} />
@@ -520,10 +552,10 @@ export default function CreateProposal() {
                     </h4>
                     <div className="flex flex-wrap gap-3">
                       {formData.image_library.map((img, idx) => (
-                        <div key={idx} className={`w-20 h-20 rounded-lg border overflow-hidden relative group ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
+                        <div key={idx} className={`relative w-20 h-20 rounded-lg border overflow-hidden group ${isDarkMode ? 'border-white/5' : 'border-slate-200'}`}>
                           <img src={img} alt={`Lib ${idx}`} className="w-full h-full object-cover" />
                           <button type="button" onClick={() => setFormData(p => ({ ...p, image_library: p.image_library.filter((_, i) => i !== idx) }))}
-                            className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                            className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -540,10 +572,10 @@ export default function CreateProposal() {
                 </div>
 
                 {/* Assinatura */}
-                <SectionHeader icon={PenTool} title="Assinatura" />
+                <SectionHeader icon={PenTool} title="Assinatura" isDarkMode={isDarkMode} />
                 <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                  <InputField label="Nome do Responsável" name="responsible_name" placeholder="Nome completo" />
-                  <InputField label="Telefone de Contato" name="responsible_phone" placeholder="(00) 00000-0000" />
+                  <InputField label="Nome do Responsável" name="responsible_name" placeholder="Nome completo" value={formData.responsible_name} onChange={handleInputChange} isDarkMode={isDarkMode} />
+                  <InputField label="Telefone de Contato" name="responsible_phone" placeholder="(00) 00000-0000" value={formData.responsible_phone} onChange={handleInputChange} isDarkMode={isDarkMode} />
                 </div>
 
                 {/* Actions */}
