@@ -39,6 +39,9 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import SurveyWeb from './pages/SurveyWeb';
 import SecureReport from './pages/SecureReport';
 import ApkDownload from './pages/ApkDownload';
+import Proposals from './pages/Proposals';
+import CreateProposal from './pages/CreateProposal';
+import ViewProposal from './pages/ViewProposal';
 
 export default function App() {
   return (
@@ -78,6 +81,10 @@ export default function App() {
                 <Route path="empresas" element={<Companies />} />
                 <Route path="empresas/novo" element={<CreateCompany />} />
                 <Route path="empresas/editar/:id" element={<CreateCompany />} />
+                <Route path="propostas" element={<Proposals />} />
+                <Route path="propostas/nova" element={<CreateProposal />} />
+                <Route path="propostas/editar/:id" element={<CreateProposal />} />
+                <Route path="propostas/visualizar/:id" element={<ViewProposal />} />
               </Route>
             </Route>
           </Route>

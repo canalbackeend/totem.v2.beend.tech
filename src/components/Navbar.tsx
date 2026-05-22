@@ -1,4 +1,4 @@
-import { Bell, Settings, User, LogOut, HelpCircle, ShoppingCart, Shield, Wifi, Building2, Globe, Sun, Moon } from 'lucide-react';
+import { Bell, Settings, User, LogOut, HelpCircle, ShoppingCart, Shield, Wifi, Building2, Globe, Sun, Moon, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -84,6 +84,17 @@ export const Navbar = () => {
                 >
                   <Wifi size={20} />
                   <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border ${isDarkMode ? 'border-zinc-900' : 'border-white'}`} />
+                </motion.button>
+              </Link>
+
+              <Link to="/propostas" className="flex items-center">
+                <motion.button 
+                  whileHover={{ scale: 1.1 }} 
+                  whileTap={{ scale: 0.95 }} 
+                  title="Propostas Comerciais"
+                  className={`${isDarkMode ? 'text-zinc-500 hover:text-amber-500' : 'text-slate-400 hover:text-amber-500'} transition-colors cursor-pointer flex items-center`}
+                >
+                  <FileText size={20} />
                 </motion.button>
               </Link>
             </div>

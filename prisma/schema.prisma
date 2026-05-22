@@ -155,3 +155,44 @@ model ReportToken {
 
   @@map("report_tokens")
 }
+
+model Proposal {
+  id                    String    @id @default(uuid())
+  proposal_number       String    @unique
+  status                String    @default("Rascunho")
+  
+  client_name           String
+  contact_person        String?
+  email                 String?
+  phone                 String?
+  cep                   String?
+  address               String?
+  proposal_date         String
+  validity_date         String
+  
+  greeting              String?
+  general_description   String?
+  implementation_reqs   String?
+  technical_support     String?
+  warranty              String?
+  resources             Json      @default("[]")
+  payment_terms         String?
+  final_considerations  String?
+  
+  plan_type             String?
+  monthly_value         Float     @default(0)
+  plan_description      String?
+  items                 Json      @default("[]")
+  shipping_cost         Float     @default(0)
+  
+  images                Json      @default("[]")
+  image_library         Json      @default("[]")
+  
+  responsible_name      String?
+  responsible_phone     String?
+  
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  @@map("proposals")
+}
