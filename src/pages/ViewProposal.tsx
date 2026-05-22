@@ -148,12 +148,22 @@ export default function ViewProposal() {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 100, 100);
-    doc.text(`Empresa: ${proposal.client_name}`, 15, y); y += 6;
-    if (proposal.contact_person) { doc.text(`Contato: ${proposal.contact_person}`, 15, y); y += 6; }
-    if (proposal.email) { doc.text(`Email: ${proposal.email}`, 15, y); y += 6; }
-    if (proposal.phone) { doc.text(`Telefone: ${proposal.phone}`, 15, y); y += 6; }
-    if (proposal.address) { doc.text(`Endereco: ${proposal.address}`, 15, y); y += 6; }
-    doc.text(`Data: ${new Date(proposal.proposal_date).toLocaleDateString('pt-BR')}`, 15, y); y += 10;
+    const clientInfoWidth = 175;
+    const clientFields = [
+      `Empresa: ${proposal.client_name}`,
+      proposal.contact_person ? `Contato: ${proposal.contact_person}` : null,
+      proposal.email ? `Email: ${proposal.email}` : null,
+      proposal.phone ? `Telefone: ${proposal.phone}` : null,
+      proposal.address ? `Endereco: ${proposal.address}` : null,
+      `Data: ${new Date(proposal.proposal_date).toLocaleDateString('pt-BR')}`
+    ].filter(Boolean);
+    clientFields.forEach((field: string) => {
+      if (y > 270) { doc.addPage(); y = 20; }
+      const lines = doc.splitTextToSize(field, clientInfoWidth);
+      doc.text(lines, 15, y);
+      y += lines.length * 5;
+    });
+    y += 5;
 
     // Greeting + Description
     if (proposal.greeting || proposal.general_description) {
@@ -196,8 +206,9 @@ export default function ViewProposal() {
       doc.setTextColor(80, 80, 80);
       resources.forEach((r: string) => {
         if (y > 270) { doc.addPage(); y = 20; }
-        doc.text(`• ${r}`, 20, y);
-        y += 5;
+        const rLines = doc.splitTextToSize(`• ${r}`, 170);
+        doc.text(rLines, 20, y);
+        y += rLines.length * 5;
       });
       y += 5;
     }
@@ -252,22 +263,35 @@ export default function ViewProposal() {
       doc.text('Forma de Pagamento', 15, y);
       y += 7;
       doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
       const payText = proposal.payment_terms;
-      const boldMatch = payText.match(/^([^:]+:)/);
-      if (boldMatch) {
+      const payMatch = payText.match(/^([^:]+:)\s*/);
+      if (payMatch) {
         doc.setFont('helvetica', 'bold');
-        doc.text(boldMatch[1], 15, y);
-        const boldWidth = doc.getTextWidth(boldMatch[1]);
+        doc.text(payMatch[1], 15, y);
+        const boldW = doc.getTextWidth(payMatch[1]);
+        const rest = payText.substring(payMatch[0].length);
         doc.setFont('helvetica', 'normal');
-        doc.text(payText.substring(boldMatch[1].length), 15 + boldWidth, y);
-        y += 5;
+        const restLines = doc.splitTextToSize(rest, 175);
+        if (boldW < 60 && restLines.length > 0) {
+          doc.text(restLines[0], 15 + boldW, y);
+          if (restLines.length > 1) {
+            doc.text(restLines.slice(1), 15, y + 5);
+            y += restLines.length * 5;
+          } else {
+            y += 6;
+          }
+        } else {
+          doc.text(restLines, 15, y + 5);
+          y += restLines.length * 5 + 5;
+        }
       } else {
         doc.setFont('helvetica', 'normal');
         const payLines = doc.splitTextToSize(payText, 180);
         doc.text(payLines, 15, y);
         y += payLines.length * 5;
       }
-      y += 8;
+      y += 3;
     }
 
     // Warranty
@@ -279,22 +303,35 @@ export default function ViewProposal() {
       doc.text('Garantia', 15, y);
       y += 7;
       doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
       const warText = proposal.warranty;
-      const boldMatch = warText.match(/^([^:]+:)/);
-      if (boldMatch) {
+      const warMatch = warText.match(/^([^:]+:)\s*/);
+      if (warMatch) {
         doc.setFont('helvetica', 'bold');
-        doc.text(boldMatch[1], 15, y);
-        const boldWidth = doc.getTextWidth(boldMatch[1]);
+        doc.text(warMatch[1], 15, y);
+        const boldW = doc.getTextWidth(warMatch[1]);
+        const rest = warText.substring(warMatch[0].length);
         doc.setFont('helvetica', 'normal');
-        doc.text(warText.substring(boldMatch[1].length), 15 + boldWidth, y);
-        y += 5;
+        const restLines = doc.splitTextToSize(rest, 175);
+        if (boldW < 60 && restLines.length > 0) {
+          doc.text(restLines[0], 15 + boldW, y);
+          if (restLines.length > 1) {
+            doc.text(restLines.slice(1), 15, y + 5);
+            y += restLines.length * 5;
+          } else {
+            y += 6;
+          }
+        } else {
+          doc.text(restLines, 15, y + 5);
+          y += restLines.length * 5 + 5;
+        }
       } else {
         doc.setFont('helvetica', 'normal');
         const warLines = doc.splitTextToSize(warText, 180);
         doc.text(warLines, 15, y);
         y += warLines.length * 5;
       }
-      y += 8;
+      y += 3;
     }
 
     // Technical support
@@ -306,22 +343,51 @@ export default function ViewProposal() {
       doc.text('Suporte Técnico', 15, y);
       y += 7;
       doc.setFontSize(9);
+      doc.setTextColor(80, 80, 80);
       const supText = proposal.technical_support;
-      const boldMatch = supText.match(/^([^:]+:)/);
-      if (boldMatch) {
+      const supMatch = supText.match(/^([^:]+:)\s*/);
+      if (supMatch) {
         doc.setFont('helvetica', 'bold');
-        doc.text(boldMatch[1], 15, y);
-        const boldWidth = doc.getTextWidth(boldMatch[1]);
+        doc.text(supMatch[1], 15, y);
+        const boldW = doc.getTextWidth(supMatch[1]);
+        const rest = supText.substring(supMatch[0].length);
         doc.setFont('helvetica', 'normal');
-        doc.text(supText.substring(boldMatch[1].length), 15 + boldWidth, y);
-        y += 5;
+        const restLines = doc.splitTextToSize(rest, 175);
+        if (boldW < 60 && restLines.length > 0) {
+          doc.text(restLines[0], 15 + boldW, y);
+          if (restLines.length > 1) {
+            doc.text(restLines.slice(1), 15, y + 5);
+            y += restLines.length * 5;
+          } else {
+            y += 6;
+          }
+        } else {
+          doc.text(restLines, 15, y + 5);
+          y += restLines.length * 5 + 5;
+        }
       } else {
         doc.setFont('helvetica', 'normal');
         const supLines = doc.splitTextToSize(supText, 180);
         doc.text(supLines, 15, y);
         y += supLines.length * 5;
       }
-      y += 8;
+      y += 3;
+    }
+
+    // Implementation requirements
+    if (proposal.implementation_reqs) {
+      if (y > 240) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 50, 50);
+      doc.text('Requisitos de Implementacao', 15, y);
+      y += 7;
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(80, 80, 80);
+      const reqLines = doc.splitTextToSize(proposal.implementation_reqs, 175);
+      doc.text(reqLines, 15, y);
+      y += reqLines.length * 5 + 8;
     }
 
     // Final considerations
