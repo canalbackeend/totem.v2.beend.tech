@@ -43,7 +43,8 @@ const maskCurrency = (value: string) => {
   const digits = value.replace(/\D/g, '');
   if (!digits) return '';
   const cents = parseInt(digits);
-  return (cents / 100).toFixed(2).replace('.', ',');
+  const formatted = (cents / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatted;
 };
 
 const parseCurrency = (value: string) => {
@@ -495,7 +496,7 @@ export default function CreateProposal() {
                                     className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none text-center ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                                 </div>
                                 <div className="flex-1 min-w-[120px]">
-                                  <input value={item.unit_price ? String(item.unit_price).replace('.', ',') : ''}
+                                  <input value={item.unit_price ? formatCurrency(item.unit_price) : ''}
                                     onChange={(e) => updateItem(idx, 'unit_price', parseCurrency(e.target.value))}
                                     placeholder="Valor unitário (R$)"
                                     className={`w-full rounded px-3 py-2 text-sm font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
