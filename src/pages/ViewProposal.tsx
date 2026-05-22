@@ -29,6 +29,24 @@ import { api } from '../lib/api';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+const formatCurrency = (value: number) => {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+};
+
 export default function ViewProposal() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -72,7 +90,7 @@ export default function ViewProposal() {
     }
   };
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     if (!proposal) return;
     const doc = new jsPDF();
     const items = (proposal.items || []) as any[];
@@ -185,24 +203,24 @@ export default function ViewProposal() {
           return [
             { content: `${name}${desc}`, styles: { fontSize: 7 } },
             String(i.qty || 1),
-            `R$ ${(parseFloat(i.unit_price) || 0).toFixed(2).replace('.', ',')}`,
-            `R$ ${(parseFloat(i.total) || 0).toFixed(2).replace('.', ',')}`
+            `R$ ${formatCurrency(parseFloat(i.unit_price) || 0)}`,
+            `R$ ${formatCurrency(parseFloat(i.total) || 0)}`
           ];
         }),
         foot: [
-          ['', '', 'Subtotal:', `R$ ${subtotal.toFixed(2).replace('.', ',')}`],
-          ...(shipping > 0 ? [['', '', 'Frete:', `R$ ${shipping.toFixed(2).replace('.', ',')}`]] : []),
-          ['', '', 'TOTAL:', `R$ ${totalGeral.toFixed(2).replace('.', ',')}`]
+          ['', '', 'Subtotal:', `R$ ${formatCurrency(subtotal)}`],
+          ...(shipping > 0 ? [['', '', 'Frete:', `R$ ${formatCurrency(shipping)}`]] : []),
+          ['', '', 'TOTAL:', `R$ ${formatCurrency(totalGeral)}`]
         ],
         theme: 'grid',
         headStyles: { fillColor: [11, 130, 255], textColor: 255, fontSize: 8, fontStyle: 'bold' },
         bodyStyles: { fontSize: 8, textColor: [50, 50, 50] },
-        footStyles: { fontSize: 9, fontStyle: 'bold', fillColor: [240, 240, 240] },
+        footStyles: { fontSize: 9, fontStyle: 'bold', fillColor: [220, 220, 220], textColor: [30, 30, 30] },
         columnStyles: {
-          0: { cellWidth: 85 },
-          1: { cellWidth: 18, halign: 'center' },
-          2: { cellWidth: 32, halign: 'right' },
-          3: { cellWidth: 32, halign: 'right' }
+          0: { cellWidth: 80 },
+          1: { cellWidth: 16, halign: 'center' },
+          2: { cellWidth: 38, halign: 'right' },
+          3: { cellWidth: 38, halign: 'right' }
         },
         margin: { left: 15, right: 15 }
       });
@@ -255,6 +273,42 @@ export default function ViewProposal() {
       const obsLines = doc.splitTextToSize(proposal.observations, 180);
       doc.text(obsLines, 15, y);
       y += obsLines.length * 5 + 15;
+    }
+
+    // Images
+    const proposalImages = (proposal.images || []).filter((i: string) => i);
+    if (proposalImages.length > 0) {
+      if (y > 180) { doc.addPage(); y = 20; }
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(50, 50, 50);
+      doc.text('Imagens', 15, y);
+      y += 10;
+      
+      const imgWidth = 55;
+      const imgHeight = 40;
+      let xPos = 15;
+      let imgsInRow = 0;
+      
+      for (const imgUrl of proposalImages) {
+        if (imgsInRow >= 3) {
+          xPos = 15;
+          y += imgHeight + 8;
+          imgsInRow = 0;
+        }
+        if (y + imgHeight > 280) { doc.addPage(); y = 20; }
+        
+        try {
+          const base64 = await loadImageAsBase64(imgUrl);
+          if (base64) {
+            doc.addImage(base64, 'JPEG', xPos, y, imgWidth, imgHeight, undefined, 'FAST');
+          }
+        } catch {}
+        
+        xPos += imgWidth + 8;
+        imgsInRow++;
+      }
+      y += imgHeight + 15;
     }
 
     // Signature
@@ -492,17 +546,17 @@ export default function ViewProposal() {
                       <tfoot>
                         <tr className={isDarkMode ? 'bg-black/30' : 'bg-slate-50'}>
                           <td colSpan={3} className={`px-4 py-3 text-right text-sm font-bold ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Subtotal:</td>
-                          <td className={`px-4 py-3 text-right text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {subtotal.toFixed(2).replace('.', ',')}</td>
+                          <td className={`px-4 py-3 text-right text-sm font-bold ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>R$ {formatCurrency(subtotal)}</td>
                         </tr>
                         {shipping > 0 && (
                           <tr>
                             <td colSpan={3} className={`px-4 py-2 text-right text-sm ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Frete:</td>
-                            <td className={`px-4 py-2 text-right text-sm ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>R$ {shipping.toFixed(2).replace('.', ',')}</td>
+                            <td className={`px-4 py-2 text-right text-sm ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>R$ {formatCurrency(shipping)}</td>
                           </tr>
                         )}
                         <tr className={isDarkMode ? 'bg-amber-500/10' : 'bg-amber-50'}>
                           <td colSpan={3} className={`px-4 py-3 text-right text-base font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>TOTAL:</td>
-                          <td className={`px-4 py-3 text-right text-base font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>R$ {totalGeral.toFixed(2).replace('.', ',')}</td>
+                          <td className={`px-4 py-3 text-right text-base font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>R$ {formatCurrency(totalGeral)}</td>
                         </tr>
                       </tfoot>
                     </table>
@@ -582,17 +636,17 @@ export default function ViewProposal() {
                   <div className={`border-t pt-3 mt-3 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
                     <div className="flex justify-between">
                       <span>Subtotal:</span>
-                      <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+                      <span>R$ {formatCurrency(subtotal)}</span>
                     </div>
                     {shipping > 0 && (
                       <div className="flex justify-between mt-1">
                         <span>Frete:</span>
-                        <span>R$ {shipping.toFixed(2).replace('.', ',')}</span>
+                        <span>R$ {formatCurrency(shipping)}</span>
                       </div>
                     )}
                     <div className="flex justify-between mt-2 pt-2 border-t border-amber-500/20">
                       <span className={`font-black text-lg ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Total:</span>
-                      <span className={`font-black text-lg ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>R$ {totalGeral.toFixed(2).replace('.', ',')}</span>
+                      <span className={`font-black text-lg ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>R$ {formatCurrency(totalGeral)}</span>
                     </div>
                   </div>
                 </div>

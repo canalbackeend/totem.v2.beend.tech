@@ -1673,7 +1673,7 @@ async function generateProposalNumber() {
   });
   if (!last) return `${prefix}0001`;
   const lastNum = parseInt(last.proposal_number.split("-")[2]);
-  return `${prefix}String(lastNum + 1).padStart(4, "0")`;
+  return `${prefix}${String(lastNum + 1).padStart(4, "0")}`;
 }
 
 app.get("/api/proposals", authenticateToken, async (req: any, res) => {
@@ -1892,14 +1892,19 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
     const subtotal = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total) || 0), 0);
     const totalGeral = subtotal + (proposal.shipping_cost || 0);
 
+    const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
     const itemsHtml = items.map((item: any) => `
       <tr>
-        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name || "-"}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name || "-"}${item.description ? `<br><small style="color: #999;">${item.description}</small>` : ""}</td>
         <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.qty || 1}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">R$ ${(parseFloat(item.unit_price) || 0).toFixed(2).replace(".", ",")}</td>
-        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">R$ ${(parseFloat(item.total) || 0).toFixed(2).replace(".", ",")}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">R$ ${formatCurrency(parseFloat(item.unit_price) || 0)}</td>
+        <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">R$ ${formatCurrency(parseFloat(item.total) || 0)}</td>
       </tr>
     `).join("");
+
+    const appUrl = process.env.APP_URL || "https://totem.v2.beend.tech";
+    const proposalLink = `${appUrl}/propostas/visualizar/${proposal.id}`;
 
     const mailOptions = {
       from: `"beend.tech" <${process.env.GMAIL_USER}>`,
@@ -1934,16 +1939,16 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
                   <tfoot>
                     <tr>
                       <td colspan="3" style="padding: 10px; text-align: right; font-weight: bold; color: #333;">Subtotal:</td>
-                      <td style="padding: 10px; text-align: right; font-weight: bold; color: #333;">R$ ${subtotal.toFixed(2).replace(".", ",")}</td>
+                      <td style="padding: 10px; text-align: right; font-weight: bold; color: #333;">R$ ${formatCurrency(subtotal)}</td>
                     </tr>
                     ${proposal.shipping_cost > 0 ? `
                     <tr>
                       <td colspan="3" style="padding: 10px; text-align: right; color: #666;">Frete:</td>
-                      <td style="padding: 10px; text-align: right; color: #666;">R$ ${(proposal.shipping_cost || 0).toFixed(2).replace(".", ",")}</td>
+                      <td style="padding: 10px; text-align: right; color: #666;">R$ ${formatCurrency(proposal.shipping_cost || 0)}</td>
                     </tr>` : ""}
                     <tr style="background: #0b82ff; color: white;">
                       <td colspan="3" style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">TOTAL:</td>
-                      <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">R$ ${totalGeral.toFixed(2).replace(".", ",")}</td>
+                      <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">R$ ${formatCurrency(totalGeral)}</td>
                     </tr>
                   </tfoot>
                 </table>
@@ -1963,6 +1968,12 @@ app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => 
                 <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${proposal.observations}</p>
               </div>
             ` : ""}
+            
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${proposalLink}" style="background-color: #0b82ff; color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
+                Baixar Proposta Completa (PDF)
+              </a>
+            </div>
             
             <p style="color: #999; font-size: 12px; margin-top: 30px; font-style: italic;">
               * Proposta válida até ${new Date(proposal.validity_date).toLocaleDateString("pt-BR")}.

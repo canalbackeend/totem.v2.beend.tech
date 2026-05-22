@@ -51,8 +51,12 @@ const parseCurrency = (value: string) => {
   return parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
 };
 
+const formatCurrency = (value: number) => {
+  return value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
 const DEFAULTS = {
-  greeting: "Prezado(a),",
+  greeting: "Conforme solicitado, estamos enviando a nossa Proposta de Aquisição de Totem para Pesquisa de Satisfação do Cliente, a ser realizada pela Beend Smart Solution para o",
   general_description: "Temos o prazer de apresentar nossa solução completa de coleta de feedbacks e pesquisa de satisfação. Nossa plataforma oferece terminais inteligentes integrados a um painel de análise em tempo real, permitindo que você transforme cada interação em insights valiosos para o crescimento do seu negócio.",
   implementation_reqs: "• Instalação e configuração dos terminais\n• Criação e personalização das campanhas de pesquisa\n• Treinamento da equipe para operação do sistema\n• Integração com sistemas existentes (se aplicável)",
   technical_support: "Suporte técnico especializado durante horário comercial (segunda a sexta, 9h às 18h). Atendimento via telefone, e-mail e acesso remoto quando necessário.",
@@ -80,7 +84,7 @@ const InputField = React.memo(({ label, name, type = 'text', placeholder, colSpa
     <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{label}</label>
     <input name={name} type={type} value={value || ''} onChange={onChange}
       placeholder={placeholder}
-      className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all ${
+      className={`w-full rounded p-3 text-base font-medium outline-none transition-all ${
         isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
       }`} />
   </div>
@@ -91,7 +95,7 @@ const TextAreaField = React.memo(({ label, name, placeholder, rows = 3, value, o
     <label className={`text-[10px] font-black uppercase tracking-widest ml-1 transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{label}</label>
     <textarea name={name} value={value || ''} onChange={onChange}
       placeholder={placeholder} rows={rows}
-      className={`w-full rounded p-3 text-sm font-semibold outline-none transition-all resize-none ${
+      className={`w-full rounded p-3 text-base font-medium outline-none transition-all resize-none leading-relaxed ${
         isDarkMode ? 'bg-black border border-white/5 text-white focus:border-amber-500/50' : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-amber-500'
       }`} />
   </div>
@@ -477,7 +481,7 @@ export default function CreateProposal() {
                                     className={`w-full rounded px-2 py-2 text-xs font-semibold outline-none ${isDarkMode ? 'bg-black border border-white/5 text-white' : 'bg-white border border-slate-200 text-slate-700'}`} />
                                 </div>
                                 <div className={`w-24 text-right text-xs font-black ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
-                                  R$ {item.total.toFixed(2).replace('.', ',')}
+                                  R$ {formatCurrency(item.total)}
                                 </div>
                                 <button type="button" onClick={() => removeItem(idx)}
                                   className={`p-1.5 rounded transition-colors ${isDarkMode ? 'text-zinc-700 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-300 hover:text-red-500 hover:bg-red-50'}`}>
@@ -494,7 +498,7 @@ export default function CreateProposal() {
                             <tfoot>
                               <tr className={isDarkMode ? 'bg-black/30' : 'bg-slate-50'}>
                                 <td className={`px-4 py-2 text-right text-xs font-bold ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Subtotal:</td>
-                                <td className={`px-4 py-2 text-right text-xs font-black ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>R$ {subtotal.toFixed(2).replace('.', ',')}</td>
+                                <td className={`px-4 py-2 text-right text-xs font-black ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>R$ {formatCurrency(subtotal)}</td>
                               </tr>
                             </tfoot>
                           </table>
@@ -508,7 +512,7 @@ export default function CreateProposal() {
                         <div className="w-full">
                           <span className={`text-[9px] font-black uppercase tracking-widest block mb-1 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Total Geral</span>
                           <span className={`text-2xl font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>
-                            R$ {totalGeral.toFixed(2).replace('.', ',')}
+R$ {formatCurrency(totalGeral)}
                           </span>
                         </div>
                       </div>
@@ -617,17 +621,17 @@ export default function CreateProposal() {
                   <div className={`border-t pt-3 mt-3 ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
                     <div className="flex justify-between">
                       <span className="font-bold">Subtotal:</span>
-                      <span>R$ {subtotal.toFixed(2).replace('.', ',')}</span>
+                      <span>R$ {formatCurrency(subtotal)}</span>
                     </div>
                     {shipping > 0 && (
                       <div className="flex justify-between mt-1">
                         <span>Frete:</span>
-                        <span>R$ {shipping.toFixed(2).replace('.', ',')}</span>
+                        <span>R$ {formatCurrency(shipping)}</span>
                       </div>
                     )}
                     <div className="flex justify-between mt-2 pt-2 border-t border-amber-500/20">
                       <span className={`font-black text-base ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Total:</span>
-                      <span className={`font-black text-base ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>R$ {totalGeral.toFixed(2).replace('.', ',')}</span>
+                      <span className={`font-black text-base ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>R$ {formatCurrency(totalGeral)}</span>
                     </div>
                   </div>
                 </div>
