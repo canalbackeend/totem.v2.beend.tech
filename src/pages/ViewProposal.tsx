@@ -272,24 +272,25 @@ export default function ViewProposal() {
         const boldW = doc.getTextWidth(payMatch[1]);
         const rest = payText.substring(payMatch[0].length);
         doc.setFont('helvetica', 'normal');
-        const restLines = doc.splitTextToSize(rest, 175);
-        if (boldW < 60 && restLines.length > 0) {
+        const restW = Math.max(100, 175 - boldW);
+        const restLines = doc.splitTextToSize(rest, restW);
+        if (restW >= 100 && restLines.length > 0) {
           doc.text(restLines[0], 15 + boldW, y);
           if (restLines.length > 1) {
             doc.text(restLines.slice(1), 15, y + 5);
-            y += restLines.length * 5;
+            y += restLines.length * 5 + 2;
           } else {
             y += 6;
           }
         } else {
           doc.text(restLines, 15, y + 5);
-          y += restLines.length * 5 + 5;
+          y += restLines.length * 5 + 7;
         }
       } else {
         doc.setFont('helvetica', 'normal');
-        const payLines = doc.splitTextToSize(payText, 180);
+        const payLines = doc.splitTextToSize(payText, 175);
         doc.text(payLines, 15, y);
-        y += payLines.length * 5;
+        y += payLines.length * 5 + 3;
       }
       y += 3;
     }
@@ -312,24 +313,25 @@ export default function ViewProposal() {
         const boldW = doc.getTextWidth(warMatch[1]);
         const rest = warText.substring(warMatch[0].length);
         doc.setFont('helvetica', 'normal');
-        const restLines = doc.splitTextToSize(rest, 175);
-        if (boldW < 60 && restLines.length > 0) {
+        const restW = Math.max(100, 175 - boldW);
+        const restLines = doc.splitTextToSize(rest, restW);
+        if (restW >= 100 && restLines.length > 0) {
           doc.text(restLines[0], 15 + boldW, y);
           if (restLines.length > 1) {
             doc.text(restLines.slice(1), 15, y + 5);
-            y += restLines.length * 5;
+            y += restLines.length * 5 + 2;
           } else {
             y += 6;
           }
         } else {
           doc.text(restLines, 15, y + 5);
-          y += restLines.length * 5 + 5;
+          y += restLines.length * 5 + 7;
         }
       } else {
         doc.setFont('helvetica', 'normal');
-        const warLines = doc.splitTextToSize(warText, 180);
+        const warLines = doc.splitTextToSize(warText, 175);
         doc.text(warLines, 15, y);
-        y += warLines.length * 5;
+        y += warLines.length * 5 + 3;
       }
       y += 3;
     }
@@ -352,24 +354,25 @@ export default function ViewProposal() {
         const boldW = doc.getTextWidth(supMatch[1]);
         const rest = supText.substring(supMatch[0].length);
         doc.setFont('helvetica', 'normal');
-        const restLines = doc.splitTextToSize(rest, 175);
-        if (boldW < 60 && restLines.length > 0) {
+        const restW = Math.max(100, 175 - boldW);
+        const restLines = doc.splitTextToSize(rest, restW);
+        if (restW >= 100 && restLines.length > 0) {
           doc.text(restLines[0], 15 + boldW, y);
           if (restLines.length > 1) {
             doc.text(restLines.slice(1), 15, y + 5);
-            y += restLines.length * 5;
+            y += restLines.length * 5 + 2;
           } else {
             y += 6;
           }
         } else {
           doc.text(restLines, 15, y + 5);
-          y += restLines.length * 5 + 5;
+          y += restLines.length * 5 + 7;
         }
       } else {
         doc.setFont('helvetica', 'normal');
-        const supLines = doc.splitTextToSize(supText, 180);
+        const supLines = doc.splitTextToSize(supText, 175);
         doc.text(supLines, 15, y);
-        y += supLines.length * 5;
+        y += supLines.length * 5 + 3;
       }
       y += 3;
     }
