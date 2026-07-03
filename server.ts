@@ -269,6 +269,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.post("/api/terminals/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
+  console.log(`[Terminal Login] email=${email}, password=${password ? 'provided' : 'missing'}, body keys=${Object.keys(req.body).join(',')}`);
   try {
     const terminals = await prisma.terminal.findMany({
       where: { email }

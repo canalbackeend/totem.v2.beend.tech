@@ -1,15 +1,36 @@
 import { describe, it, expect, beforeAll } from "vitest";
 import request from "supertest";
+import { PrismaClient } from "@prisma/client";
 import { app } from "../../server.ts";
 
-const TV_01_ID = "afc232be-a390-4eb8-b789-dfae70edd9fd";
-const TV_02_ID = "9e07624a-0c9e-4e6c-91d8-703b5931f30b";
-const CAMPAIGN_WITH_DATA = "3dfa2870-128a-4059-84d0-3094e1e1b153";
-const CAMPAIGN_EMPTY = "69dcc5ef-23ff-40f2-85a2-e6a1ed25399a";
+const prisma = new PrismaClient();
 
+let TV_WITH_DATA = "";
+let TV_WITHOUT_DATA = "";
+let CAMPAIGN_WITH_DATA = "";
+let CAMPAIGN_EMPTY = "";
 let adminToken = "";
 
 beforeAll(async () => {
+  // Fetch dynamic IDs from DB so tests survive resets
+  const terminals = await prisma.terminal.findMany();
+  const termWithData = await prisma.response.groupBy({
+    by: ["terminal_id"],
+    _count: true,
+    orderBy: { _count: { terminal_id: "desc" } },
+  });
+  TV_WITH_DATA = termWithData.find((t) => t.terminal_id)?.terminal_id || "";
+  TV_WITHOUT_DATA = terminals.find((t) => t.id !== TV_WITH_DATA)?.id || "";
+
+  const campaigns = await prisma.campaign.findMany({ orderBy: { created_at: "desc" } });
+  const respCampaigns = await prisma.response.groupBy({
+    by: ["campaign_id"],
+    _count: true,
+  });
+  const campaignIdsWithData = new Set(respCampaigns.map((r) => r.campaign_id));
+  CAMPAIGN_WITH_DATA = campaigns.find((c) => campaignIdsWithData.has(c.id))?.id || "";
+  CAMPAIGN_EMPTY = campaigns.find((c) => !campaignIdsWithData.has(c.id))?.id || "";
+
   const res = await request(app)
     .post("/api/auth/login")
     .send({ email: "adm@beend.tech", password: "admin123" });
@@ -30,22 +51,22 @@ describe("GET /api/responses - filtro por terminal", () => {
     expect(res.body.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("deve filtrar responses por terminal_id (TV-01)", async () => {
+  it("deve filtrar responses por terminal_id", async () => {
     const res = await request(app)
-      .get(`/api/responses?terminal_id=${TV_01_ID}`)
+      .get(`/api/responses?terminal_id=${TV_WITH_DATA}`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.length).toBe(7);
+    expect(res.body.length).toBeGreaterThanOrEqual(1);
 
     for (const r of res.body) {
-      expect(r.terminal_id).toBe(TV_01_ID);
+      expect(r.terminal_id).toBe(TV_WITH_DATA);
     }
   });
 
-  it("deve retornar vazio para terminal sem responses (TV-02)", async () => {
+  it("deve retornar vazio para terminal sem responses", async () => {
     const res = await request(app)
-      .get(`/api/responses?terminal_id=${TV_02_ID}`)
+      .get(`/api/responses?terminal_id=${TV_WITHOUT_DATA}`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -74,13 +95,13 @@ describe("GET /api/responses - filtro por data", () => {
 
   it("deve filtrar por terminal + data combinados", async () => {
     const res = await request(app)
-      .get(`/api/responses?terminal_id=${TV_01_ID}&startDate=2026-07-03&endDate=2026-07-03`)
+      .get(`/api/responses?terminal_id=${TV_WITH_DATA}&startDate=2026-07-03&endDate=2026-07-03`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.length).toBe(7);
+    expect(res.body.length).toBeGreaterThanOrEqual(1);
     for (const r of res.body) {
-      expect(r.terminal_id).toBe(TV_01_ID);
+      expect(r.terminal_id).toBe(TV_WITH_DATA);
     }
   });
 });
@@ -98,7 +119,7 @@ describe("GET /api/campaigns/:id/evolution - filtros (campanha com dados)", () =
 
   it("deve filtrar evolução por terminal_id", async () => {
     const res = await request(app)
-      .get(`/api/campaigns/${CAMPAIGN_WITH_DATA}/evolution?days=7&terminal_id=${TV_01_ID}`)
+      .get(`/api/campaigns/${CAMPAIGN_WITH_DATA}/evolution?days=7&terminal_id=${TV_WITH_DATA}`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -131,7 +152,7 @@ describe("GET /api/campaigns/:id/evolution - filtros (campanha com dados)", () =
 
   it("deve filtrar evolução por terminal + data combinados", async () => {
     const res = await request(app)
-      .get(`/api/campaigns/${CAMPAIGN_WITH_DATA}/evolution?startDate=2026-07-03&endDate=2026-07-03&terminal_id=${TV_01_ID}`)
+      .get(`/api/campaigns/${CAMPAIGN_WITH_DATA}/evolution?startDate=2026-07-03&endDate=2026-07-03&terminal_id=${TV_WITH_DATA}`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
