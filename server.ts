@@ -9,6 +9,8 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
@@ -49,9 +51,21 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ limit: "10mb", extended: true }));
+app.use(helmet());
+app.use(cors({ origin: process.env.APP_URL || "http://localhost:5173", credentials: true }));
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ limit: "1mb", extended: false }));
+
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Muitas tentativas. Tente novamente mais tarde." } });
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
+
+function whitelist(obj: any, allowed: string[]) {
+  const safe: any = {};
+  for (const key of allowed) {
+    if (obj[key] !== undefined) safe[key] = obj[key];
+  }
+  return safe;
+}
 
 // Auth Middleware
 const authenticateToken = (req: any, res: any, next: any) => {
@@ -102,10 +116,10 @@ async function syncCompaniesToUsers() {
       const cleanEmail = String(comp.email).trim().toLowerCase();
       if (!cleanEmail) continue;
 
-      const passwordToUse = comp.password || "123456";
-      const hashedPassword = comp.password?.startsWith("$2b$") 
-        ? comp.password 
-        : await bcrypt.hash(passwordToUse, 10);
+      // Check if user already exists — preserve their password if so
+      const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+
+      const hashedPassword = existingUser?.password || await bcrypt.hash("123456", 10);
 
       await prisma.user.upsert({
         where: { email: cleanEmail },
@@ -194,16 +208,23 @@ app.post("/api/auth/register", async (req, res) => {
       }
     });
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
     res.json({ user, session: { access_token: token } });
   } catch (err: any) {
     console.error("Register error:", err);
     if (err.code === 'P2002') {
       return res.status(400).json({ error: "Este e-mail já está em uso." });
     }
-    res.status(500).json({ error: "Erro ao criar conta: " + err.message });
+    res.status(500).json({ error: "Erro ao criar conta." });
   }
 });
+
+// Apply rate limiter to auth routes
+app.use("/api/auth/register", authLimiter);
+app.use("/api/auth/login", authLimiter);
+
+// Global API rate limiter
+app.use("/api", apiLimiter);
 
 app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
@@ -225,15 +246,15 @@ app.post("/api/auth/login", async (req, res) => {
     if (user.status !== "Ativo") {
       return res.status(403).json({ error: "Conta bloqueada. Entre em contato com o suporte." });
     }
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET);
-    res.json({ user, session: { access_token: token } });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    res.json({ message: "Login OK", user, session: { access_token: token } });
   } catch (err: any) {
     console.error("Login error:", err);
-    res.status(500).json({ error: "Erro na conexão com o banco: " + err.message });
+    res.status(500).json({ error: "Erro na conexão com o servidor." });
   }
 });
 
-app.post("/api/terminals/login", async (req, res) => {
+app.post("/api/terminals/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
   try {
     const terminals = await prisma.terminal.findMany({
@@ -277,7 +298,7 @@ app.post("/api/terminals/login", async (req, res) => {
     }
 
     // Terminals use a simple token tied to their owner (user_id) but we can put the terminal ID in the token too
-    const token = jwt.sign({ id: matchedTerminal.user_id, terminal_id: matchedTerminal.id, email: matchedTerminal.email }, JWT_SECRET);
+    const token = jwt.sign({ id: matchedTerminal.user_id, terminal_id: matchedTerminal.id, email: matchedTerminal.email }, JWT_SECRET, { expiresIn: "7d" });
     
     res.json({
       id: matchedTerminal.id,
@@ -290,7 +311,8 @@ app.post("/api/terminals/login", async (req, res) => {
       access_token: token
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Terminal login error:", err);
+    res.status(500).json({ error: "Erro no servidor." });
   }
 });
 
@@ -746,10 +768,16 @@ async function sendDailyReports(targetTimeStr?: string) {
 }
 
 // Helper to upload base64 to Supabase bucket "medias"
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
+
 async function uploadBase64ToSupabase(base64Str: string, folder: string): Promise<string> {
   if (!supabase) {
     throw new Error("Supabase não está configurado. Por favor, defina SUPABASE_URL e SUPABASE_ANON_KEY nas suas variáveis de ambiente.");
   }
+
+  // Sanitize folder
+  const safeFolder = (folder || "geral").replace(/[^a-zA-Z0-9_-]/g, '');
 
   // Parse the base64 string
   const matches = base64Str.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
@@ -761,7 +789,14 @@ async function uploadBase64ToSupabase(base64Str: string, folder: string): Promis
   }
 
   const mimeType = matches[1];
+  if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+    throw new Error("Tipo de arquivo não permitido. Use apenas JPEG, PNG, GIF, WebP ou SVG.");
+  }
+
   const buffer = Buffer.from(matches[2], 'base64');
+  if (buffer.length > MAX_IMAGE_SIZE) {
+    throw new Error("Imagem muito grande. O tamanho máximo é 5MB.");
+  }
   
   let ext = "png";
   if (mimeType.includes("jpeg") || mimeType.includes("jpg")) ext = "jpg";
@@ -769,14 +804,13 @@ async function uploadBase64ToSupabase(base64Str: string, folder: string): Promis
   else if (mimeType.includes("webp")) ext = "webp";
   else if (mimeType.includes("svg")) ext = "svg";
 
-  const filename = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2, 11)}.${ext}`;
+  const filename = `${safeFolder}/${Date.now()}-${crypto.randomBytes(16).toString('hex')}.${ext}`;
 
   const { data, error } = await supabase.storage
     .from("medias")
     .upload(filename, buffer, {
       contentType: mimeType,
       cacheControl: "3600",
-      upsert: true,
     });
 
   if (error) {
@@ -796,28 +830,41 @@ app.post("/api/upload", authenticateToken, async (req: any, res: any) => {
     return res.status(400).json({ error: "Imagem em formato base64 é obrigatória" });
   }
   try {
-    // Only allow managers or users to upload to their own spaces if needed later
-    // For now, just ensuring auth is active
     const url = await uploadBase64ToSupabase(image, folder || "geral");
     res.json({ url });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Upload error:", err);
+    res.status(500).json({ error: err.message || "Erro ao fazer upload da imagem." });
   }
 });
 
 // Proxy endpoint to download and serve images with CORS headers (public for PDF logos)
+const ALLOWED_PROXY_DOMAINS = process.env.SUPABASE_URL ? [new URL(process.env.SUPABASE_URL).hostname] : [];
+
 app.get("/api/proxy-image", async (req: any, res: any) => {
   const { url } = req.query;
   if (!url || typeof url !== 'string') {
     return res.status(400).json({ error: "Parâmetro url é obrigatório" });
   }
-  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
     return res.status(400).json({ error: "URL inválida" });
   }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    return res.status(400).json({ error: "Protocolo não permitido" });
+  }
+  if (ALLOWED_PROXY_DOMAINS.length > 0 && !ALLOWED_PROXY_DOMAINS.some(d => parsed.hostname.endsWith(d))) {
+    return res.status(403).json({ error: "Domínio não autorizado" });
+  }
   try {
-    const response = await fetch(url);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
     if (!response.ok) {
-      throw new Error(`Failed to fetch image from remote: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to fetch image: ${response.status}`);
     }
     const contentType = response.headers.get("content-type") || "image/png";
     const arrayBuffer = await response.arrayBuffer();
@@ -951,11 +998,12 @@ app.post("/api/campaigns", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
     const campaign = await prisma.campaign.create({
-      data: { ...req.body, user_id: req.user.id }
+      data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global"]), user_id: req.user.id }
     });
     res.json(campaign);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Campaign create error:", err);
+    res.status(500).json({ error: "Erro ao criar campanha." });
   }
 });
 
@@ -972,11 +1020,12 @@ app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
     }
     const campaign = await prisma.campaign.update({
       where: { id: req.params.id },
-      data: req.body
+      data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global"])
     });
     res.json(campaign);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Campaign update error:", err);
+    res.status(500).json({ error: "Erro ao atualizar campanha." });
   }
 });
 
@@ -1164,16 +1213,16 @@ app.get("/api/products", async (req, res) => {
 
 app.post("/api/products", authenticateToken, async (req: any, res) => {
   try {
-    // Check if master admin
     if (req.user.email !== ADMIN_EMAIL) {
       return res.status(403).json({ error: "Only master admin can manage products" });
     }
     const product = await prisma.shopProduct.create({
-      data: { ...req.body, user_id: req.user.id }
+      data: { ...whitelist(req.body, ["name", "description", "price", "image_url", "features", "popular", "category"]), user_id: req.user.id }
     });
     res.json(product);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Product create error:", err);
+    res.status(500).json({ error: "Erro ao criar produto." });
   }
 });
 
@@ -1184,11 +1233,12 @@ app.patch("/api/products/:id", authenticateToken, async (req: any, res) => {
     }
     const product = await prisma.shopProduct.update({
       where: { id: req.params.id },
-      data: req.body
+      data: whitelist(req.body, ["name", "description", "price", "image_url", "features", "popular", "category"])
     });
     res.json(product);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Product update error:", err);
+    res.status(500).json({ error: "Erro ao atualizar produto." });
   }
 });
 
@@ -1297,12 +1347,13 @@ app.post("/api/terminals", authenticateToken, async (req: any, res) => {
     const plainPassword = password || "term123";
     const hashedPassword = await bcrypt.hash(plainPassword, 10);
     const terminal = await prisma.terminal.create({
-      data: { ...rest, password: hashedPassword, user_id: req.user.id }
+      data: { ...whitelist(rest, ["name", "campaigns", "redirect_url", "email", "status"]), password: hashedPassword, user_id: req.user.id }
     });
     const { password: _, ...terminalWithoutHash } = terminal;
     res.json({ ...terminalWithoutHash, password: plainPassword });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Terminal create error:", err);
+    res.status(500).json({ error: "Erro ao criar terminal." });
   }
 });
 
@@ -1310,7 +1361,7 @@ app.patch("/api/terminals/:id", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
     const { password, ...rest } = req.body;
-    const updateData: any = { ...rest };
+    const updateData: any = { ...whitelist(rest, ["name", "campaigns", "redirect_url", "email", "status"]) };
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
@@ -1325,7 +1376,8 @@ app.patch("/api/terminals/:id", authenticateToken, async (req: any, res) => {
     const { password: _, ...terminalWithoutHash } = terminal;
     res.json({ ...terminalWithoutHash, password: password || null });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Terminal update error:", err);
+    res.status(500).json({ error: "Erro ao atualizar terminal." });
   }
 });
 
@@ -1473,7 +1525,7 @@ app.post("/api/responses", async (req, res) => {
     const bodyAnswers = req.body.answers || [];
     const collabAnswer = bodyAnswers.find((a: any) => a.type === 'Colaborador');
     const responseData = {
-      ...req.body,
+      ...whitelist(req.body, ["campaign_id", "terminal_id", "answers", "created_at"]),
       user_id: campaign.user_id,
       collaborator_name: collabAnswer?.answer || req.body.collaborator_name || null
     };
@@ -1630,9 +1682,8 @@ app.post("/api/companies", authenticateToken, async (req: any, res) => {
     
     const company = await prisma.company.create({ 
       data: { 
-        ...req.body, 
+        ...whitelist(req.body, ["empresa", "responsavel", "cnpj", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "plano", "vencimento", "status", "logo_url", "max_terminals"]),
         email: cleanEmail,
-        password: undefined // REMOVED: security risk
       } 
     });
     
@@ -1682,7 +1733,7 @@ app.post("/api/companies", authenticateToken, async (req: any, res) => {
     res.json(company);
   } catch (err: any) {
     console.error("Create company error:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Erro ao criar empresa." });
   }
 });
 
@@ -1692,7 +1743,7 @@ app.patch("/api/companies/:id", authenticateToken, async (req: any, res) => {
     const oldCompany = await prisma.company.findUnique({ where: { id: req.params.id } });
     if (!oldCompany) return res.status(404).json({ error: "Empresa não encontrada" });
 
-    const updateData = { ...req.body };
+    const updateData: any = whitelist(req.body, ["empresa", "responsavel", "email", "cnpj", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "plano", "vencimento", "status", "logo_url", "max_terminals"]);
     if (updateData.email) {
       updateData.email = String(updateData.email).trim().toLowerCase();
     }
@@ -1760,10 +1811,6 @@ app.post("/api/companies/:id/reset-password", authenticateToken, async (req: any
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
     await prisma.$transaction([
-      prisma.company.update({
-        where: { id: req.params.id },
-        data: { password: newPassword } // Original keeps the plaintext one for reference in this specific app logic it seems
-      }),
       prisma.user.updateMany({
         where: { email: company.email },
         data: { password: hashedPassword }
@@ -1772,7 +1819,8 @@ app.post("/api/companies/:id/reset-password", authenticateToken, async (req: any
 
     res.json({ message: "Senha alterada com sucesso" });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Reset password error:", err);
+    res.status(500).json({ error: "Erro ao resetar senha." });
   }
 });
 
@@ -2210,7 +2258,8 @@ app.patch("/api/profiles/:id", authenticateToken, async (req: any, res) => {
   }
   try {
     const { password, ...rest } = req.body;
-    const updateData: any = { ...rest };
+    const allowedFields = ["nome", "empresa", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "logo_url"];
+    const updateData: any = whitelist(rest, allowedFields);
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
@@ -2220,7 +2269,8 @@ app.patch("/api/profiles/:id", authenticateToken, async (req: any, res) => {
     });
     res.json(profile);
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    console.error("Profile update error:", err);
+    res.status(500).json({ error: "Erro ao atualizar perfil." });
   }
 });
 
@@ -2267,8 +2317,13 @@ app.get("/api/survey/campaign/:id", async (req, res) => {
   }
 });
 
+// Cron concurrency guard
+let cronRunning = false;
+
 // Schedule task to run every minute and check the time
 cron.schedule("* * * * *", () => {
+  if (cronRunning) return;
+  cronRunning = true;
   const now = new Date();
   
   // Format as HH:mm in America/Sao_Paulo timezone
@@ -2280,15 +2335,20 @@ cron.schedule("* * * * *", () => {
   });
   
   const targetTimeStr = formatter.format(now);
-  sendDailyReports(targetTimeStr);
+  sendDailyReports(targetTimeStr).finally(() => { cronRunning = false; });
 }, {
   timezone: "America/Sao_Paulo"
 });
 
 app.post("/api/admin/trigger-reports", authenticateToken, async (req: any, res) => {
   if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
-  await sendDailyReports();
-  res.json({ message: "Task triggered" });
+  try {
+    await sendDailyReports();
+    res.json({ message: "Task triggered" });
+  } catch (err) {
+    console.error("Trigger reports error:", err);
+    res.status(500).json({ error: "Erro ao disparar relatórios." });
+  }
 });
 
 async function startServer() {
@@ -2314,6 +2374,12 @@ async function startServer() {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
+
+// Centralized error handler
+app.use((err: any, req: any, res: any, next: any) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Erro interno do servidor." });
+});
 
 if (!process.env.VITEST) {
   startServer();
