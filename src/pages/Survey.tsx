@@ -580,29 +580,43 @@ export default function Survey() {
       <main className="flex-1 flex flex-col items-center px-6 max-w-4xl mx-auto w-full pt-8 pb-48">
         <p className="text-zinc-400 text-lg font-black uppercase tracking-[0.15em] text-center mb-6">Selecione uma pesquisa para iniciar</p>
         <div className="flex flex-col gap-6 w-full">
-          {availableCampaigns.map((camp, idx) => (
-            <motion.button
-              key={camp.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              onClick={() => selectCampaign(camp)}
-              className="bg-zinc-900 hover:bg-zinc-800 border-2 border-white/5 hover:border-blue-500/30 border-b-[6px] p-5 rounded-[3rem] text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4"
-            >
-              <div className="bg-black w-10 h-10 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-blue-500/10 transition-colors shrink-0">
-                <Layout className="w-5 h-5 text-zinc-500 group-hover:text-blue-500" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-lg font-black text-white uppercase tracking-tight truncate">{camp.name}</h3>
-                <p className="text-xs text-zinc-500 font-medium mt-0.5">{camp.questions.length} Perguntas • Toque para iniciar</p>
-              </div>
-              <div className="shrink-0">
-                <div className="bg-black p-1.5 rounded-full shadow-sm group-hover:translate-x-2 transition-transform">
-                  <ChevronRight className="text-zinc-600 group-hover:text-blue-500 w-4 h-4" />
+          {(() => {
+            const cardColors = [
+              { border: 'border-blue-500/30', borderB: 'border-b-blue-500/30', bg: 'bg-blue-500/15', text: 'text-blue-400', hoverBorder: 'hover:border-blue-500/50', hoverBg: 'group-hover:bg-blue-500/15', hoverText: 'group-hover:text-blue-400' },
+              { border: 'border-emerald-500/30', borderB: 'border-b-emerald-500/30', bg: 'bg-emerald-500/15', text: 'text-emerald-400', hoverBorder: 'hover:border-emerald-500/50', hoverBg: 'group-hover:bg-emerald-500/15', hoverText: 'group-hover:text-emerald-400' },
+              { border: 'border-purple-500/30', borderB: 'border-b-purple-500/30', bg: 'bg-purple-500/15', text: 'text-purple-400', hoverBorder: 'hover:border-purple-500/50', hoverBg: 'group-hover:bg-purple-500/15', hoverText: 'group-hover:text-purple-400' },
+              { border: 'border-pink-500/30', borderB: 'border-b-pink-500/30', bg: 'bg-pink-500/15', text: 'text-pink-400', hoverBorder: 'hover:border-pink-500/50', hoverBg: 'group-hover:bg-pink-500/15', hoverText: 'group-hover:text-pink-400' },
+              { border: 'border-orange-500/30', borderB: 'border-b-orange-500/30', bg: 'bg-orange-500/15', text: 'text-orange-400', hoverBorder: 'hover:border-orange-500/50', hoverBg: 'group-hover:bg-orange-500/15', hoverText: 'group-hover:text-orange-400' },
+              { border: 'border-cyan-500/30', borderB: 'border-b-cyan-500/30', bg: 'bg-cyan-500/15', text: 'text-cyan-400', hoverBorder: 'hover:border-cyan-500/50', hoverBg: 'group-hover:bg-cyan-500/15', hoverText: 'group-hover:text-cyan-400' },
+              { border: 'border-amber-500/30', borderB: 'border-b-amber-500/30', bg: 'bg-amber-500/15', text: 'text-amber-400', hoverBorder: 'hover:border-amber-500/50', hoverBg: 'group-hover:bg-amber-500/15', hoverText: 'group-hover:text-amber-400' },
+              { border: 'border-rose-500/30', borderB: 'border-b-rose-500/30', bg: 'bg-rose-500/15', text: 'text-rose-400', hoverBorder: 'hover:border-rose-500/50', hoverBg: 'group-hover:bg-rose-500/15', hoverText: 'group-hover:text-rose-400' },
+            ];
+            return availableCampaigns.map((camp, idx) => {
+              const c = cardColors[idx % cardColors.length];
+              return (
+              <motion.button
+                key={camp.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                onClick={() => selectCampaign(camp)}
+                className={`bg-zinc-900 hover:bg-zinc-800 border-2 ${c.border} ${c.borderB} p-5 rounded-[3rem] text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4 ${c.hoverBorder}`}
+              >
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-colors shrink-0 ${c.bg}`}>
+                  <Layout className={`w-5 h-5 transition-colors ${c.text}`} />
                 </div>
-              </div>
-            </motion.button>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-black text-white uppercase tracking-tight truncate">{camp.name}</h3>
+                  <p className="text-xs text-zinc-500 font-medium mt-0.5">{camp.questions.length} Perguntas • Toque para iniciar</p>
+                </div>
+                <div className="shrink-0">
+                  <div className={`p-1.5 rounded-full shadow-sm group-hover:translate-x-2 transition-transform ${c.bg}`}>
+                    <ChevronRight className={`w-4 h-4 transition-colors ${c.text}`} />
+                  </div>
+                </div>
+              </motion.button>
+            )});
+          })()}
         </div>
       </main>
       
