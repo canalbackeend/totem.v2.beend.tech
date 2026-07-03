@@ -578,7 +578,7 @@ export default function Survey() {
       </header>
 
       <main className="flex-1 flex flex-col items-center px-6 max-w-4xl mx-auto w-full pt-8 pb-48">
-        <p className="text-zinc-400 text-sm font-black uppercase tracking-[0.15em] text-center mb-6">Selecione uma pesquisa para iniciar</p>
+        <p className="text-zinc-400 text-lg font-black uppercase tracking-[0.15em] text-center mb-6">Selecione uma pesquisa para iniciar</p>
         <div className="flex flex-col gap-6 w-full">
           {availableCampaigns.map((camp, idx) => (
             <motion.button
