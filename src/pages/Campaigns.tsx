@@ -228,7 +228,7 @@ export default function Campaigns() {
                   </div>
                   <div className="flex items-center gap-2">
                     <h4 className={`text-lg font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{camp.name}</h4>
-                    {(isMasterAdmin || isAdmin) && camp.company_name && (
+                    {camp.company_name && (
                       <span className={`px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
                         isDarkMode
                           ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'

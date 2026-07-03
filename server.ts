@@ -955,13 +955,13 @@ app.get("/api/campaigns", authenticateToken, async (req: any, res) => {
 
       const campaigns = await prisma.campaign.findMany({
         where,
-        include: { user: { select: { email: true } } },
+        include: { user: { select: { email: true, empresa: true } } },
         orderBy: { created_at: "desc" }
       });
 
       const enriched = campaigns.map(({ user, ...rest }) => ({
         ...rest,
-        company_name: companyMap.get(user.email) || null
+        company_name: companyMap.get(user.email) || user.empresa || null
       }));
       res.json(enriched);
     } else {
