@@ -630,7 +630,6 @@ export default function SurveyOffline() {
                  </span>
               </div>
             </div>
-            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Selecione uma pesquisa para iniciar</p>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -644,7 +643,8 @@ export default function SurveyOffline() {
            </button>
         </div>
       </header>
-      <main className="flex-1 flex flex-col items-center px-6 max-w-4xl mx-auto w-full pt-12 pb-48">
+      <main className="flex-1 flex flex-col items-center px-6 max-w-4xl mx-auto w-full pt-8 pb-48">
+        <p className="text-zinc-400 text-sm font-black uppercase tracking-[0.15em] text-center mb-6">Selecione uma pesquisa para iniciar</p>
         <div className="flex flex-col gap-6 w-full">
           {availableCampaigns.map((camp, idx) => (
             <motion.button 
