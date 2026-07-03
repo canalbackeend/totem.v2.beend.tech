@@ -653,16 +653,16 @@ export default function SurveyOffline() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
               onClick={() => selectCampaign(camp)}
-              className="bg-zinc-900 hover:bg-zinc-800 border-2 border-white/5 hover:border-blue-500/30 p-5 rounded-2xl text-left transition-all group relative overflow-hidden flex flex-col gap-3"
+              className="bg-zinc-900 hover:bg-zinc-800 border-2 border-white/5 hover:border-blue-500/30 p-5 rounded-2xl text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4"
             >
-              <div className="bg-black w-10 h-10 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-blue-500/10 transition-colors">
+              <div className="bg-black w-10 h-10 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-blue-500/10 transition-colors shrink-0">
                 <Layout className="w-5 h-5 text-zinc-500 group-hover:text-blue-500" />
               </div>
-              <div>
-                <h3 className="text-lg font-black text-white uppercase tracking-tight">{camp.name}</h3>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-lg font-black text-white uppercase tracking-tight truncate">{camp.name}</h3>
                 <p className="text-xs text-zinc-500 font-medium mt-0.5">{camp.questions.length} Perguntas • Toque para iniciar</p>
               </div>
-              <div className="mt-auto flex justify-end">
+              <div className="shrink-0">
                 <div className="bg-black p-1.5 rounded-full shadow-sm group-hover:translate-x-2 transition-transform">
                   <ChevronRight className="text-zinc-600 group-hover:text-blue-500 w-4 h-4" />
                 </div>
