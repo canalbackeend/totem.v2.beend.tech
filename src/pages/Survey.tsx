@@ -576,16 +576,10 @@ export default function Survey() {
             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">Selecione uma pesquisa para iniciar</p>
           </div>
         </div>
-        <button 
-          onClick={handleLogout}
-          className="p-3 text-zinc-500 hover:text-red-500 transition-colors"
-        >
-          <LogOut className="w-6 h-6" />
-        </button>
       </header>
 
       <main className="flex-1 flex flex-col items-center px-6 max-w-4xl mx-auto w-full pt-0 pb-48">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full">
+        <div className="flex flex-col gap-6 w-full">
           {availableCampaigns.map((camp, idx) => (
             <motion.button
               key={camp.id}
