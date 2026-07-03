@@ -1584,6 +1584,32 @@ app.get("/api/companies", authenticateToken, async (req: any, res) => {
   }
 });
 
+app.get("/api/companies/:id/access-data", authenticateToken, async (req: any, res) => {
+  if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+  try {
+    const company = await prisma.company.findUnique({ where: { id: req.params.id } });
+    if (!company) return res.status(404).json({ error: "Empresa não encontrada" });
+
+    const user = await prisma.user.findUnique({ where: { email: company.email } });
+
+    const terminals = user
+      ? await prisma.terminal.findMany({
+          where: { user_id: user.id },
+          select: { name: true, email: true }
+        })
+      : [];
+
+    res.json({
+      responsavel: company.responsavel,
+      empresa: company.empresa,
+      email: company.email,
+      terminals
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/api/companies/:id", authenticateToken, async (req: any, res) => {
   if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
   try {

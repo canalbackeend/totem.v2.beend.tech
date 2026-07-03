@@ -1,6 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Search, 
   Filter, 
   Smile, 
   Meh, 
@@ -57,10 +56,16 @@ export default function Feedbacks() {
   const { user, isAdmin, isMasterAdmin, isTerminal } = useAuth();
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [terminalsList, setTerminalsList] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<RawResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedFeedback, setSelectedFeedback] = useState<RawResponse | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>('');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
+  const [selectedTerminalId, setSelectedTerminalId] = useState<string>('all');
+  const [activeShortcut, setActiveShortcut] = useState<number | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -68,16 +73,15 @@ export default function Feedbacks() {
     const fetchFeedbacks = async () => {
       setLoading(true);
       try {
-         // Define query params
-        let query = '';
-        if (isTerminal && user.terminal_id) {
-          query = `?terminal_id=${user.terminal_id}`;
-        }
+        let query = '?';
+        if (selectedCampaignId) query += `&campaign_id=${selectedCampaignId}`;
+        if (startDate) query += `&startDate=${startDate}`;
+        if (endDate) query += `&endDate=${endDate}`;
+        if (selectedTerminalId !== 'all') query += `&terminal_id=${selectedTerminalId}`;
+        if (isTerminal && user.terminal_id) query += `&terminal_id=${user.terminal_id}`;
         
         const data = await api.get(`/responses${query}`);
-        // Filter valid ones
-        const validFeedbacks = (data || []).filter((f: any) => f.campaign && f.campaign.status === 'Ativo') as RawResponse[];
-        setFeedbacks(validFeedbacks);
+        setFeedbacks(data || []);
       } catch (err) {
         console.error('Error fetching feedbacks:', err);
       } finally {
@@ -86,20 +90,23 @@ export default function Feedbacks() {
     };
 
     fetchFeedbacks();
+  }, [user, selectedCampaignId, startDate, endDate, selectedTerminalId]);
 
-    // Auto-refresh when user returns to tab
-    const handleFocus = () => {
-      if (document.visibilityState === 'visible') {
-        fetchFeedbacks();
+  useEffect(() => {
+    if (!user) return;
+    const fetchMeta = async () => {
+      try {
+        const [campaignsData, terminalsData] = await Promise.all([
+          api.get('/campaigns'),
+          api.get('/terminals')
+        ]);
+        setCampaigns(campaignsData || []);
+        setTerminalsList(terminalsData || []);
+      } catch (err) {
+        console.error('Error fetching campaigns/terminals:', err);
       }
     };
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', handleFocus);
-
-    return () => {
-      window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('visibilitychange', handleFocus);
-    };
+    fetchMeta();
   }, [user]);
 
   const ratingConfig: Record<string, any> = {
@@ -163,16 +170,7 @@ export default function Feedbacks() {
     });
   };
 
-  const filteredFeedbacks = (feedbacks || [])
-    .filter(fb => hasTextualContent(fb))
-    .filter(fb => 
-      fb.campaign.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (fb.terminal?.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      fb.answers.some(a => 
-        (a.comment || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (typeof a.answer === 'string' && a.answer.toLowerCase().includes(searchTerm.toLowerCase()))
-      )
-    );
+  const filteredFeedbacks = (feedbacks || []).filter(fb => hasTextualContent(fb));
 
   const handleExportCSV = () => {
     if (!feedbacks || feedbacks.length === 0) {
@@ -231,6 +229,23 @@ export default function Feedbacks() {
     toast.success(`CSV exportado com ${feedbacks.length} registros!`);
   };
 
+  const setQuickRange = (days: number) => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - days);
+    setStartDate(start.toISOString().split('T')[0]);
+    setEndDate(end.toISOString().split('T')[0]);
+    setActiveShortcut(days);
+  };
+
+  const clearFilters = () => {
+    setStartDate('');
+    setEndDate('');
+    setSelectedTerminalId('all');
+    setSelectedCampaignId('');
+    setActiveShortcut(null);
+  };
+
   return (
     <>
       <Breadcrumbs />
@@ -244,32 +259,106 @@ export default function Feedbacks() {
               <h2 className={`text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Feedbacks</h2>
               <p className={`text-sm font-medium transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Histórico de participação nas pesquisas</p>
             </div>
-            <button
-              onClick={handleExportCSV}
-              className="flex items-center justify-center space-x-2 w-full lg:px-4 h-10 rounded-md text-white font-bold text-sm bg-[#2b80b9] hover:opacity-90 transition-all shadow-md active:scale-95 group cursor-pointer"
-            >
-              <Download size={14} className="group-hover:scale-110 transition-transform flex-shrink-0" />
-              <span className="whitespace-nowrap uppercase">Exportar CSV</span>
-            </button>
           </div>
 
-          {/* Filters & Search */}
-          <div className={`mt-6 p-4 rounded-md shadow-[0_10px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row gap-4 items-center transition-colors border ${
-            isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-slate-100'
-          }`}>
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Pesquisar por campanha, terminal ou comentário..." 
-                className={`w-full rounded-md py-2.5 pl-10 pr-4 text-sm outline-none transition-colors ${
-                  isDarkMode 
-                    ? 'bg-black border border-white/5 text-white focus:border-white/20' 
-                    : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-slate-400'
-                }`}
-              />
+          {/* Filters */}
+          <div className={`mt-6 rounded-md shadow-[0_10px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-colors ${isDarkMode ? 'bg-zinc-900 border border-white/5' : 'bg-white'}`}>
+            <div className={`p-6 border-b ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
+              <h2 className={`text-xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Filtros de Pesquisa</h2>
+            </div>
+            <div className={`px-6 py-4 border-b flex flex-wrap items-center gap-2 transition-colors ${isDarkMode ? 'bg-black/50 border-white/5' : 'bg-slate-50/50 border-slate-100'}`}>
+              <span className={`text-[10px] font-black uppercase tracking-widest self-center mr-2 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Atalhos:</span>
+              <div className="flex flex-wrap gap-2 flex-1">
+                {[7, 30, 90, 120].map(days => (
+                  <button
+                    key={days}
+                    onClick={() => setQuickRange(days)}
+                    className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded transition-all cursor-pointer shadow-sm active:scale-95 ${
+                      activeShortcut === days 
+                        ? 'bg-[#0b82ff] text-white border border-[#0b82ff]' 
+                        : (isDarkMode ? 'bg-zinc-800 border-white/10 text-zinc-400 hover:bg-zinc-700' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-100')
+                    }`}
+                  >
+                    Últimos {days} Dias
+                  </button>
+                ))}
+              </div>
+              {(startDate || endDate || selectedTerminalId !== 'all' || selectedCampaignId) && (
+                <button
+                  onClick={clearFilters}
+                  className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5 ${
+                    isDarkMode ? 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'
+                  }`}
+                >
+                  <X size={12} strokeWidth={3} />
+                  Limpar Filtros
+                </button>
+              )}
+              <button
+                onClick={handleExportCSV}
+                className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded transition-all cursor-pointer shadow-sm active:scale-95 flex items-center gap-1.5 bg-[#0b82ff] text-white hover:opacity-90`}
+              >
+                <Download size={12} strokeWidth={3} />
+                Exportar CSV
+              </button>
+            </div>
+            <div className="p-6 flex flex-wrap lg:grid lg:grid-cols-4 items-end gap-4">
+              <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
+                <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Campanha:</label>
+                <select
+                  disabled={!campaigns.length}
+                  value={selectedCampaignId}
+                  onChange={(e) => setSelectedCampaignId(e.target.value)}
+                  className={`w-full border rounded-md px-2 py-2 text-sm outline-none appearance-none h-10 transition-colors cursor-pointer ${
+                    isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
+                  }`}
+                >
+                  <option value="">Todas as campanhas</option>
+                  {campaigns.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
+                <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Data Inicial:</label>
+                <input 
+                  type="date" 
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
+                    isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
+                  }`}
+                />
+              </div>
+              <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
+                <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Data Final:</label>
+                <input 
+                  type="date" 
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
+                    isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
+                  }`}
+                />
+              </div>
+              <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
+                <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Terminal:</label>
+                <select 
+                  disabled={isTerminal}
+                  value={selectedTerminalId}
+                  onChange={(e) => setSelectedTerminalId(e.target.value)}
+                  className={`w-full border rounded-md px-2 py-2 text-sm outline-none appearance-none h-10 transition-colors ${
+                    isTerminal ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+                  } ${
+                    isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
+                  }`}
+                >
+                  {!isTerminal && <option value="all">Todos os terminais</option>}
+                  {terminalsList.length > 0 ? terminalsList.map((term: any) => (
+                    <option key={term.id} value={term.id}>{term.name}</option>
+                  )) : !isTerminal && <option value="all" disabled>Nenhum terminal vinculado</option>}
+                </select>
+              </div>
             </div>
           </div>
 

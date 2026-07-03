@@ -733,7 +733,7 @@ export default function Survey() {
 
             <div className="flex items-center gap-8">
               <div className="flex items-center gap-4">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${remainingTime < 15 ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-zinc-900 text-zinc-500'}`}>
+                <div onClick={handleSecretTap} className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${remainingTime < 15 ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-zinc-900 text-zinc-500'}`}>
                   <Timer className="w-6 h-6" />
                 </div>
                 <div className="flex flex-col min-w-[60px]">

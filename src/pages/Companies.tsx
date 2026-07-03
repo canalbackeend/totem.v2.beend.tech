@@ -14,6 +14,7 @@ import {
   Edit,
   Trash2,
   Key,
+  Copy,
   ChevronLeft,
   ChevronRight
 } from 'lucide-react';
@@ -108,6 +109,37 @@ export default function Companies() {
       toast.error('Erro ao excluir empresa');
     } finally {
       setCompanyToDelete(null);
+    }
+  };
+
+  const handleCopyAccess = async (company: any) => {
+    try {
+      const data = await api.get(`/companies/${company.id}/access-data`);
+      let text = `Olá ${data.responsavel}, segue os acessos da plataforma de pesquisa licenciada para a ${data.empresa}:\n\n`;
+      text += `Endereço da plataforma: https://totem.beend.tech\n`;
+      text += `Login: ${data.email}\n`;
+      text += `Senha (Provisória): 123456\n\n`;
+
+      if (data.terminals && data.terminals.length > 0) {
+        text += `Acesso dos terminais:\n\n`;
+        data.terminals.forEach((t: any) => {
+          text += `Terminal: ${t.name}\n`;
+          text += `Login: ${t.email || t.name}\n`;
+          text += `Senha (Provisória): term123\n\n`;
+        });
+      }
+
+      text += `Link para download do APK de instalação do tablet:\n`;
+      text += `https://totem.beend.tech/bee-on.apk`;
+
+      await navigator.clipboard.writeText(text);
+      toast.success('Dados de acesso copiados!', {
+        description: `Acessos da "${data.empresa}" copiados para a área de transferência.`
+      });
+    } catch (error: any) {
+      toast.error('Erro ao copiar dados de acesso', {
+        description: error.message || 'Tente novamente.'
+      });
     }
   };
 
@@ -309,6 +341,16 @@ export default function Companies() {
                       </td>
                       <td className="px-6 py-5 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          <motion.button 
+                            whileHover={{ scale: 1.1 }}
+                            onClick={() => handleCopyAccess(item)}
+                            title="Copiar Acesso"
+                            className={`p-1 px-2 rounded transition-all cursor-pointer flex items-center justify-center border border-transparent ${
+                              isDarkMode ? 'text-zinc-600 hover:bg-blue-600 hover:text-white' : 'text-slate-400 hover:bg-[#0b82ff] hover:text-white'
+                            }`}
+                          >
+                             <Copy size={16} />
+                          </motion.button>
                           <motion.button 
                             whileHover={{ scale: 1.1 }}
                             onClick={() => setCompanyToResetPassword({ id: item.id, name: item.empresa, email: item.email })}
