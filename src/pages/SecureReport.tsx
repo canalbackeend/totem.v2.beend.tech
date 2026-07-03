@@ -744,8 +744,8 @@ export default function SecureReport() {
 
       currentY += ch + 15;
 
-      // 6. Comments / Textual feedbacks beautifully grouped by Collaborator
-      const feedbackGroups: Record<string, { collaborator: string; comments: { dateStr: string; rating: string; comment: string }[] }> = {};
+      // 6a. Comments / Textual feedbacks grouped by Question
+      const feedbackGroups: Record<string, { question: string; comments: { dateStr: string; rating: string; comment: string }[] }> = {};
       
       responses.forEach(r => {
         let parsed: any[] = [];
@@ -755,9 +755,6 @@ export default function SecureReport() {
           console.warn(e);
         }
         
-        const collabName = r.collaborator_name || parsed.find((a: any) => a.type === 'Colaborador')?.answer || null;
-        const groupKey = collabName || 'Geral';
-        
         parsed.forEach((ans: any) => {
           const commentVal = ans.comment ? String(ans.comment).trim() : '';
           const isTextOpen = campaign.questions?.find((cq: any) => cq.text === ans.question)?.type === 'Texto Aberto';
@@ -766,8 +763,8 @@ export default function SecureReport() {
             : commentVal;
           
           if (realText && realText.length > 0) {
-            if (!feedbackGroups[groupKey]) {
-              feedbackGroups[groupKey] = { collaborator: collabName || 'Geral', comments: [] };
+            if (!feedbackGroups[ans.question]) {
+              feedbackGroups[ans.question] = { question: ans.question, comments: [] };
             }
             
             const localFormattedTime = new Date(r.created_at).toLocaleDateString('pt-BR') + ' às ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -775,7 +772,7 @@ export default function SecureReport() {
             if (!isTextOpen && ans.answer !== null && ans.answer !== undefined) {
               answerRating = String(ans.answer);
             }
-            feedbackGroups[groupKey].comments.push({
+            feedbackGroups[ans.question].comments.push({
               dateStr: localFormattedTime,
               rating: answerRating,
               comment: realText
@@ -784,13 +781,13 @@ export default function SecureReport() {
         });
       });
 
-      const collaboratorKeys = Object.keys(feedbackGroups);
-      if (collaboratorKeys.length > 0) {
+      const questionKeysWithComments = Object.keys(feedbackGroups);
+      if (questionKeysWithComments.length > 0) {
         doc.addPage();
         currentY = 20;
 
-        collaboratorKeys.forEach((cKey, ckIdx) => {
-          const fGroup = feedbackGroups[cKey];
+        questionKeysWithComments.forEach((qKey, qkIdx) => {
+          const fGroup = feedbackGroups[qKey];
           if (currentY > 230) {
             doc.addPage();
             currentY = 20;
@@ -799,7 +796,7 @@ export default function SecureReport() {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(11);
           doc.setTextColor(0, 0, 0);
-          doc.text(`Feedbacks - ${fGroup.collaborator}`, 15, currentY);
+          doc.text(`Comentários - ${fGroup.question}`, 15, currentY);
           currentY += 5;
 
           const tableData = fGroup.comments.map(c => [
@@ -812,7 +809,7 @@ export default function SecureReport() {
             startY: currentY,
             head: [[
               'Horário',
-              'Resposta',
+              qKey === primaryQ?.text ? primaryQ.text : 'Resposta',
               'Comentário ou Sugestão'
             ]],
             body: tableData,
@@ -829,6 +826,86 @@ export default function SecureReport() {
           // @ts-ignore
           currentY = doc.lastAutoTable.finalY + 12;
         });
+      }
+
+      // 6b. Collaborator feedbacks (if campaign has collaborator questions)
+      const hasCollaborator = campaign.questions?.some((q: any) => q.type === 'Colaborador');
+      if (hasCollaborator) {
+        const collabGroups: Record<string, { collaborator: string; feedbacks: { dateStr: string; rating: string; comment: string }[] }> = {};
+        
+        responses.forEach(r => {
+          let parsed: any[] = [];
+          try {
+            parsed = typeof r.answers === 'string' ? JSON.parse(r.answers) : (r.answers || []);
+          } catch (e) {}
+          
+          const collabName = r.collaborator_name || parsed.find((a: any) => a.type === 'Colaborador')?.answer || null;
+          if (!collabName) return;
+          
+          parsed.forEach((ans: any) => {
+            if (ans.type === 'Colaborador') return;
+            
+            const commentVal = ans.comment ? String(ans.comment).trim() : '';
+            const isTextOpen = campaign.questions?.find((cq: any) => cq.text === ans.question)?.type === 'Texto Aberto';
+            const realText = isTextOpen
+              ? (ans.answer && typeof ans.answer === 'string' ? String(ans.answer).trim() : '')
+              : commentVal;
+            
+            if (!collabGroups[collabName]) {
+              collabGroups[collabName] = { collaborator: collabName, feedbacks: [] };
+            }
+            
+            const localFormattedTime = new Date(r.created_at).toLocaleDateString('pt-BR') + ' às ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            let answerRating = 'N/A';
+            if (!isTextOpen && ans.answer !== null && ans.answer !== undefined) {
+              answerRating = String(ans.answer);
+            }
+            collabGroups[collabName].feedbacks.push({
+              dateStr: localFormattedTime,
+              rating: answerRating,
+              comment: realText
+            });
+          });
+        });
+
+        const collabKeys = Object.keys(collabGroups);
+        if (collabKeys.length > 0) {
+          doc.addPage();
+          currentY = 20;
+
+          collabKeys.forEach((cKey) => {
+            const group = collabGroups[cKey];
+            if (currentY > 230) {
+              doc.addPage();
+              currentY = 20;
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Feedbacks - ${group.collaborator}`, 15, currentY);
+            currentY += 5;
+
+            const tableData = group.feedbacks.map(f => [
+              f.dateStr,
+              f.rating,
+              f.comment
+            ]);
+
+            autoTable(doc, {
+              startY: currentY,
+              head: [['Horário', 'Resposta', 'Comentário ou Sugestão']],
+              body: tableData,
+              theme: 'grid',
+              headStyles: { fillColor: [50, 50, 50], textColor: 255, fontSize: 8 },
+              styles: { fontSize: 7.5, cellPadding: 2.5 },
+              columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 40 }, 2: { cellWidth: 'auto' } }
+            });
+
+            // @ts-ignore
+            currentY = doc.lastAutoTable.finalY + 12;
+          });
+        }
       }
 
       doc.save(`Relatorio-Secure-${campaign.name.toUpperCase().replace(/\s+/g, '-')}-${now.getTime()}.pdf`);

@@ -354,6 +354,56 @@ export default function Dashboard() {
   }, [selectedCampaignId, startDate, endDate, selectedTerminalId]);
 
   const handleExportConsolidado = () => {
+    if (!selectedCampaign) {
+      toast.error('Selecione uma campanha primeiro.');
+      return;
+    }
+    if (!responses || responses.length === 0) {
+      toast.error('Nenhum feedback disponível para exportar.');
+      return;
+    }
+
+    const questions = selectedCampaign.questions || [];
+    const cols = ['Data/Hora', 'Terminal', 'Empresa', ...questions.map((q: any) => q.text)];
+
+    const escapeCSV = (val: any) => {
+      const s = val !== null && val !== undefined ? String(val) : '';
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const rows: string[] = [cols.map(escapeCSV).join(',')];
+
+    responses.forEach((r: any) => {
+      let parsed: any[] = [];
+      try {
+        parsed = typeof r.answers === 'string' ? JSON.parse(r.answers) : (r.answers || []);
+      } catch (e) {}
+
+      const dateStr = new Date(r.created_at).toLocaleDateString('pt-BR') + ' ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const terminalName = r.terminal?.name || '';
+      const empresa = r.user?.empresa || '';
+
+      const answerMap: Record<string, string> = {};
+      parsed.forEach((a: any) => {
+        const isTextOpen = questions.find((q: any) => q.text === a.question)?.type === 'Texto Aberto';
+        answerMap[a.question] = isTextOpen ? a.answer : (a.answer !== null && a.answer !== undefined ? String(a.answer) : '');
+      });
+
+      const row = [dateStr, terminalName, empresa, ...questions.map((q: any) => answerMap[q.text] || '')];
+      rows.push(row.map(escapeCSV).join(','));
+    });
+
+    const csvContent = '\uFEFF' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${selectedCampaign.name.replace(/[^a-zA-Z0-9]/g, '_')}_consolidado.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
     toast.success('Exportando CSV Consolidado...', {
       description: 'O arquivo será baixado em instantes.'
     });
@@ -1000,8 +1050,8 @@ export default function Dashboard() {
 
       currentY += ch + 15;
 
-      // 6. Comments / Textual feedbacks beautifully grouped by Collaborator
-      const feedbackGroups: Record<string, { collaborator: string; comments: { dateStr: string; rating: string; comment: string }[] }> = {};
+      // 6a. Comments / Textual feedbacks grouped by Question
+      const feedbackGroups: Record<string, { question: string; comments: { dateStr: string; rating: string; comment: string }[] }> = {};
       
       responses.forEach(r => {
         let parsed: any[] = [];
@@ -1011,9 +1061,6 @@ export default function Dashboard() {
           console.warn(e);
         }
         
-        const collabName = r.collaborator_name || parsed.find((a: any) => a.type === 'Colaborador')?.answer || null;
-        const groupKey = collabName || 'Geral';
-        
         parsed.forEach((ans: any) => {
           const commentVal = ans.comment ? String(ans.comment).trim() : '';
           const isTextOpen = selectedCampaign?.questions?.find((cq: any) => cq.text === ans.question)?.type === 'Texto Aberto';
@@ -1022,8 +1069,8 @@ export default function Dashboard() {
             : commentVal;
           
           if (realText && realText.length > 0) {
-            if (!feedbackGroups[groupKey]) {
-              feedbackGroups[groupKey] = { collaborator: collabName || 'Geral', comments: [] };
+            if (!feedbackGroups[ans.question]) {
+              feedbackGroups[ans.question] = { question: ans.question, comments: [] };
             }
             
             const localFormattedTime = new Date(r.created_at).toLocaleDateString('pt-BR') + ' às ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -1031,7 +1078,7 @@ export default function Dashboard() {
             if (!isTextOpen && ans.answer !== null && ans.answer !== undefined) {
               answerRating = String(ans.answer);
             }
-            feedbackGroups[groupKey].comments.push({
+            feedbackGroups[ans.question].comments.push({
               dateStr: localFormattedTime,
               rating: answerRating,
               comment: realText
@@ -1040,13 +1087,13 @@ export default function Dashboard() {
         });
       });
 
-      const collaboratorKeys = Object.keys(feedbackGroups);
-      if (collaboratorKeys.length > 0) {
+      const questionKeysWithComments = Object.keys(feedbackGroups);
+      if (questionKeysWithComments.length > 0) {
         doc.addPage();
         currentY = 20;
 
-        collaboratorKeys.forEach((cKey, ckIdx) => {
-          const fGroup = feedbackGroups[cKey];
+        questionKeysWithComments.forEach((qKey, qkIdx) => {
+          const fGroup = feedbackGroups[qKey];
           if (currentY > 230) {
             doc.addPage();
             currentY = 20;
@@ -1055,7 +1102,7 @@ export default function Dashboard() {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(11);
           doc.setTextColor(0, 0, 0);
-          doc.text(`Feedbacks - ${fGroup.collaborator}`, 15, currentY);
+          doc.text(`Comentários - ${fGroup.question}`, 15, currentY);
           currentY += 5;
 
           const tableData = fGroup.comments.map(c => [
@@ -1068,7 +1115,7 @@ export default function Dashboard() {
             startY: currentY,
             head: [[
               'Horário',
-              'Resposta',
+              qKey === primaryQ?.text ? primaryQ.text : 'Resposta',
               'Comentário ou Sugestão'
             ]],
             body: tableData,
@@ -1085,6 +1132,86 @@ export default function Dashboard() {
           // @ts-ignore
           currentY = doc.lastAutoTable.finalY + 12;
         });
+      }
+
+      // 6b. Collaborator feedbacks (if campaign has collaborator questions)
+      const hasCollaborator = selectedCampaign?.questions?.some((q: any) => q.type === 'Colaborador');
+      if (hasCollaborator) {
+        const collabGroups: Record<string, { collaborator: string; feedbacks: { dateStr: string; rating: string; comment: string }[] }> = {};
+        
+        responses.forEach(r => {
+          let parsed: any[] = [];
+          try {
+            parsed = typeof r.answers === 'string' ? JSON.parse(r.answers) : (r.answers || []);
+          } catch (e) {}
+          
+          const collabName = r.collaborator_name || parsed.find((a: any) => a.type === 'Colaborador')?.answer || null;
+          if (!collabName) return;
+          
+          parsed.forEach((ans: any) => {
+            if (ans.type === 'Colaborador') return;
+            
+            const commentVal = ans.comment ? String(ans.comment).trim() : '';
+            const isTextOpen = selectedCampaign?.questions?.find((cq: any) => cq.text === ans.question)?.type === 'Texto Aberto';
+            const realText = isTextOpen
+              ? (ans.answer && typeof ans.answer === 'string' ? String(ans.answer).trim() : '')
+              : commentVal;
+            
+            if (!collabGroups[collabName]) {
+              collabGroups[collabName] = { collaborator: collabName, feedbacks: [] };
+            }
+            
+            const localFormattedTime = new Date(r.created_at).toLocaleDateString('pt-BR') + ' às ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            let answerRating = 'N/A';
+            if (!isTextOpen && ans.answer !== null && ans.answer !== undefined) {
+              answerRating = String(ans.answer);
+            }
+            collabGroups[collabName].feedbacks.push({
+              dateStr: localFormattedTime,
+              rating: answerRating,
+              comment: realText
+            });
+          });
+        });
+
+        const collabKeys = Object.keys(collabGroups);
+        if (collabKeys.length > 0) {
+          doc.addPage();
+          currentY = 20;
+
+          collabKeys.forEach((cKey) => {
+            const group = collabGroups[cKey];
+            if (currentY > 230) {
+              doc.addPage();
+              currentY = 20;
+            }
+
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(0, 0, 0);
+            doc.text(`Feedbacks - ${group.collaborator}`, 15, currentY);
+            currentY += 5;
+
+            const tableData = group.feedbacks.map(f => [
+              f.dateStr,
+              f.rating,
+              f.comment
+            ]);
+
+            autoTable(doc, {
+              startY: currentY,
+              head: [['Horário', 'Resposta', 'Comentário ou Sugestão']],
+              body: tableData,
+              theme: 'grid',
+              headStyles: { fillColor: [50, 50, 50], textColor: 255, fontSize: 8 },
+              styles: { fontSize: 7.5, cellPadding: 2.5 },
+              columnStyles: { 0: { cellWidth: 35 }, 1: { cellWidth: 40 }, 2: { cellWidth: 'auto' } }
+            });
+
+            // @ts-ignore
+            currentY = doc.lastAutoTable.finalY + 12;
+          });
+        }
       }
 
       doc.save(`Relatorio-${selectedCampaign.name.toUpperCase().replace(/\s+/g, '-')}-${now.getTime()}.pdf`);

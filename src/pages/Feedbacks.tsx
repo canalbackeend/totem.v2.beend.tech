@@ -27,6 +27,7 @@ import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { toast } from 'sonner';
 
 interface ResponseAnswer {
   question: string;
@@ -173,6 +174,62 @@ export default function Feedbacks() {
       )
     );
 
+  const handleExportCSV = () => {
+    if (!feedbacks || feedbacks.length === 0) {
+      toast.error('Nenhum feedback disponível para exportar.');
+      return;
+    }
+
+    const allQuestions = new Set<string>();
+    feedbacks.forEach((fb: RawResponse) => {
+      (fb.campaign?.questions || []).forEach((q: any) => allQuestions.add(q.text));
+    });
+    const questionsArray = Array.from(allQuestions);
+
+    const cols = ['Data/Hora', 'Terminal', 'Empresa', 'Campanha', ...questionsArray];
+
+    const escapeCSV = (val: any) => {
+      const s = val !== null && val !== undefined ? String(val) : '';
+      return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+
+    const rows: string[] = [cols.map(escapeCSV).join(',')];
+
+    feedbacks.forEach((r: RawResponse) => {
+      let parsed: any[] = [];
+      try {
+        parsed = typeof r.answers === 'string' ? JSON.parse(r.answers) : (r.answers || []);
+      } catch (e) {}
+
+      const dateStr = new Date(r.created_at).toLocaleDateString('pt-BR') + ' ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+      const terminalName = r.terminal?.name || '';
+      const empresa = r.user?.empresa || '';
+      const campaignName = r.campaign?.name || '';
+
+      const answerMap: Record<string, string> = {};
+      parsed.forEach((a: any) => {
+        const qInfo = r.campaign?.questions?.find((q: any) => q.text === a.question);
+        const isTextOpen = qInfo?.type === 'Texto Aberto';
+        answerMap[a.question] = isTextOpen ? a.answer : (a.answer !== null && a.answer !== undefined ? String(a.answer) : '');
+      });
+
+      const row = [dateStr, terminalName, empresa, campaignName, ...questionsArray.map(q => answerMap[q] || '')];
+      rows.push(row.map(escapeCSV).join(','));
+    });
+
+    const csvContent = '\uFEFF' + rows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `feedbacks_consolidado.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast.success(`CSV exportado com ${feedbacks.length} registros!`);
+  };
 
   return (
     <>
@@ -187,6 +244,13 @@ export default function Feedbacks() {
               <h2 className={`text-2xl font-bold tracking-tight transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Feedbacks</h2>
               <p className={`text-sm font-medium transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Histórico de participação nas pesquisas</p>
             </div>
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center justify-center space-x-2 w-full lg:px-4 h-10 rounded-md text-white font-bold text-sm bg-[#2b80b9] hover:opacity-90 transition-all shadow-md active:scale-95 group cursor-pointer"
+            >
+              <Download size={14} className="group-hover:scale-110 transition-transform flex-shrink-0" />
+              <span className="whitespace-nowrap uppercase">Exportar CSV</span>
+            </button>
           </div>
 
           {/* Filters & Search */}
