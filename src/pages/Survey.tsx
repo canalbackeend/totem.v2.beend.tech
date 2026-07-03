@@ -587,7 +587,7 @@ export default function Survey() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.1 }}
               onClick={() => selectCampaign(camp)}
-              className="bg-zinc-900 hover:bg-zinc-800 border-2 border-white/5 hover:border-blue-500/30 p-5 rounded-[3rem] text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4"
+              className="bg-zinc-900 hover:bg-zinc-800 border-2 border-white/5 hover:border-blue-500/30 border-b-[6px] p-5 rounded-[3rem] text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4"
             >
               <div className="bg-black w-10 h-10 rounded-xl flex items-center justify-center shadow-sm group-hover:bg-blue-500/10 transition-colors shrink-0">
                 <Layout className="w-5 h-5 text-zinc-500 group-hover:text-blue-500" />
