@@ -645,7 +645,7 @@ export default function SurveyOffline() {
       </header>
       <main className="flex-1 flex flex-col items-center px-6 max-w-4xl mx-auto w-full pt-8 pb-48">
         <p className="text-zinc-400 text-lg font-black uppercase tracking-[0.15em] text-center mb-6">Selecione uma pesquisa para iniciar</p>
-        <div className="flex flex-col gap-6 w-full">
+        <div className="flex flex-col gap-3 w-full">
           {(() => {
 const cardColors = [
   { border: 'border-blue-500/50', borderB: 'border-b-blue-500/40', bg: 'bg-blue-500/15', text: 'text-blue-400', hoverBorder: 'hover:border-blue-500/70', hoverBg: 'hover:bg-blue-500/25' },
