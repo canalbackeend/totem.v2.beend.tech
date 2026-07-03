@@ -648,14 +648,14 @@ export default function SurveyOffline() {
         <div className="flex flex-col gap-6 w-full">
           {(() => {
 const cardColors = [
-  { border: 'border-blue-500/50', borderB: 'border-b-blue-500/40', bg: 'bg-blue-500/15', text: 'text-blue-400', hoverBorder: 'hover:border-blue-500/70' },
-              { border: 'border-emerald-500/50', borderB: 'border-b-emerald-500/40', bg: 'bg-emerald-500/15', text: 'text-emerald-400', hoverBorder: 'hover:border-emerald-500/70' },
-              { border: 'border-purple-500/50', borderB: 'border-b-purple-500/40', bg: 'bg-purple-500/15', text: 'text-purple-400', hoverBorder: 'hover:border-purple-500/70' },
-              { border: 'border-pink-500/50', borderB: 'border-b-pink-500/40', bg: 'bg-pink-500/15', text: 'text-pink-400', hoverBorder: 'hover:border-pink-500/70' },
-              { border: 'border-orange-500/50', borderB: 'border-b-orange-500/40', bg: 'bg-orange-500/15', text: 'text-orange-400', hoverBorder: 'hover:border-orange-500/70' },
-              { border: 'border-cyan-500/50', borderB: 'border-b-cyan-500/40', bg: 'bg-cyan-500/15', text: 'text-cyan-400', hoverBorder: 'hover:border-cyan-500/70' },
-              { border: 'border-amber-500/50', borderB: 'border-b-amber-500/40', bg: 'bg-amber-500/15', text: 'text-amber-400', hoverBorder: 'hover:border-amber-500/70' },
-              { border: 'border-rose-500/50', borderB: 'border-b-rose-500/40', bg: 'bg-rose-500/15', text: 'text-rose-400', hoverBorder: 'hover:border-rose-500/70' },
+  { border: 'border-blue-500/50', borderB: 'border-b-blue-500/40', bg: 'bg-blue-500/15', text: 'text-blue-400', hoverBorder: 'hover:border-blue-500/70', hoverBg: 'hover:bg-blue-500/25' },
+              { border: 'border-emerald-500/50', borderB: 'border-b-emerald-500/40', bg: 'bg-emerald-500/15', text: 'text-emerald-400', hoverBorder: 'hover:border-emerald-500/70', hoverBg: 'hover:bg-emerald-500/25' },
+              { border: 'border-purple-500/50', borderB: 'border-b-purple-500/40', bg: 'bg-purple-500/15', text: 'text-purple-400', hoverBorder: 'hover:border-purple-500/70', hoverBg: 'hover:bg-purple-500/25' },
+              { border: 'border-pink-500/50', borderB: 'border-b-pink-500/40', bg: 'bg-pink-500/15', text: 'text-pink-400', hoverBorder: 'hover:border-pink-500/70', hoverBg: 'hover:bg-pink-500/25' },
+              { border: 'border-orange-500/50', borderB: 'border-b-orange-500/40', bg: 'bg-orange-500/15', text: 'text-orange-400', hoverBorder: 'hover:border-orange-500/70', hoverBg: 'hover:bg-orange-500/25' },
+              { border: 'border-cyan-500/50', borderB: 'border-b-cyan-500/40', bg: 'bg-cyan-500/15', text: 'text-cyan-400', hoverBorder: 'hover:border-cyan-500/70', hoverBg: 'hover:bg-cyan-500/25' },
+              { border: 'border-amber-500/50', borderB: 'border-b-amber-500/40', bg: 'bg-amber-500/15', text: 'text-amber-400', hoverBorder: 'hover:border-amber-500/70', hoverBg: 'hover:bg-amber-500/25' },
+              { border: 'border-rose-500/50', borderB: 'border-b-rose-500/40', bg: 'bg-rose-500/15', text: 'text-rose-400', hoverBorder: 'hover:border-rose-500/70', hoverBg: 'hover:bg-rose-500/25' },
             ];
             return availableCampaigns.map((camp, idx) => {
               const c = cardColors[idx % cardColors.length];
@@ -666,7 +666,7 @@ const cardColors = [
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.1 }}
                 onClick={() => selectCampaign(camp)}
-                className={`${c.bg} hover:bg-zinc-800 border-2 ${c.border} border-b-[6px] ${c.borderB} p-5 rounded-[3rem] text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4 ${c.hoverBorder}`}
+                className={`${c.bg} ${c.hoverBg} border-2 ${c.border} border-b-[6px] ${c.borderB} p-5 rounded-[3rem] text-left transition-all group relative overflow-hidden flex flex-row items-center gap-4 ${c.hoverBorder}`}
               >
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-sm transition-colors shrink-0 ${c.bg}`}>
                   <Layout className={`w-5 h-5 transition-colors ${c.text}`} />
