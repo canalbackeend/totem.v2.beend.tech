@@ -51,7 +51,20 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://viacep.com.br"],
+      fontSrc: ["'self'", "data:"],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+    },
+  },
+}));
 app.use(cors({ origin: process.env.APP_URL || "http://localhost:5173", credentials: true }));
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: false }));
