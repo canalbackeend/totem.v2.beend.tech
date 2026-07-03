@@ -1000,8 +1000,8 @@ export default function Dashboard() {
 
       currentY += ch + 15;
 
-      // 6. Comments / Textual feedbacks beautifully grouped by Question
-      const feedbackGroups: Record<string, { question: string; comments: { dateStr: string; rating: string; comment: string }[] }> = {};
+      // 6. Comments / Textual feedbacks beautifully grouped by Collaborator
+      const feedbackGroups: Record<string, { collaborator: string; comments: { dateStr: string; rating: string; comment: string }[] }> = {};
       
       responses.forEach(r => {
         let parsed: any[] = [];
@@ -1011,6 +1011,9 @@ export default function Dashboard() {
           console.warn(e);
         }
         
+        const collabName = r.collaborator_name || parsed.find((a: any) => a.type === 'Colaborador')?.answer || null;
+        const groupKey = collabName || 'Geral';
+        
         parsed.forEach((ans: any) => {
           const commentVal = ans.comment ? String(ans.comment).trim() : '';
           const isTextOpen = selectedCampaign?.questions?.find((cq: any) => cq.text === ans.question)?.type === 'Texto Aberto';
@@ -1019,8 +1022,8 @@ export default function Dashboard() {
             : commentVal;
           
           if (realText && realText.length > 0) {
-            if (!feedbackGroups[ans.question]) {
-              feedbackGroups[ans.question] = { question: ans.question, comments: [] };
+            if (!feedbackGroups[groupKey]) {
+              feedbackGroups[groupKey] = { collaborator: collabName || 'Geral', comments: [] };
             }
             
             const localFormattedTime = new Date(r.created_at).toLocaleDateString('pt-BR') + ' às ' + new Date(r.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -1028,7 +1031,7 @@ export default function Dashboard() {
             if (!isTextOpen && ans.answer !== null && ans.answer !== undefined) {
               answerRating = String(ans.answer);
             }
-            feedbackGroups[ans.question].comments.push({
+            feedbackGroups[groupKey].comments.push({
               dateStr: localFormattedTime,
               rating: answerRating,
               comment: realText
@@ -1037,13 +1040,13 @@ export default function Dashboard() {
         });
       });
 
-      const questionKeysWithComments = Object.keys(feedbackGroups);
-      if (questionKeysWithComments.length > 0) {
+      const collaboratorKeys = Object.keys(feedbackGroups);
+      if (collaboratorKeys.length > 0) {
         doc.addPage();
         currentY = 20;
 
-        questionKeysWithComments.forEach((qKey, qkIdx) => {
-          const fGroup = feedbackGroups[qKey];
+        collaboratorKeys.forEach((cKey, ckIdx) => {
+          const fGroup = feedbackGroups[cKey];
           if (currentY > 230) {
             doc.addPage();
             currentY = 20;
@@ -1052,7 +1055,7 @@ export default function Dashboard() {
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(11);
           doc.setTextColor(0, 0, 0);
-          doc.text(`Comentários - ${fGroup.question}`, 15, currentY);
+          doc.text(`Feedbacks - ${fGroup.collaborator}`, 15, currentY);
           currentY += 5;
 
           const tableData = fGroup.comments.map(c => [
@@ -1065,7 +1068,7 @@ export default function Dashboard() {
             startY: currentY,
             head: [[
               'Horário',
-              qKey === primaryQ?.text ? primaryQ.text : 'Resposta',
+              'Resposta',
               'Comentário ou Sugestão'
             ]],
             body: tableData,

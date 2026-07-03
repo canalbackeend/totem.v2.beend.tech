@@ -49,6 +49,7 @@ interface RawResponse {
   };
   terminal: { name: string } | null;
   user: { empresa: string } | null;
+  collaborator_name?: string | null;
 }
 
 export default function Feedbacks() {
@@ -254,6 +255,13 @@ export default function Feedbacks() {
                             <h4 className={`text-sm font-bold truncate transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                               {fb.user?.empresa || 'Anônimo'}
                             </h4>
+                            {fb.collaborator_name && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full transition-colors ${
+                                isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600'
+                              }`}>
+                                {fb.collaborator_name}
+                              </span>
+                            )}
                           </div>
                           <div className="flex flex-col gap-0.5 ml-0.5">
                             <div className={`flex items-center gap-1.5 text-[11px] transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>

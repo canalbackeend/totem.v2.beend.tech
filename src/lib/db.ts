@@ -25,6 +25,7 @@ export interface OfflineResponse {
   answers: any[];
   created_at: string;
   synced: number; // 0 or 1
+  collaborator_name?: string | null;
 }
 
 export interface OfflineImage {

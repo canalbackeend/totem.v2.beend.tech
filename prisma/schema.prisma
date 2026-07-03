@@ -106,15 +106,16 @@ model Campaign {
 }
 
 model Response {
-  id            String    @id @default(uuid())
-  campaign_id   String
-  campaign      Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
-  terminal_id   String?
-  terminal      Terminal? @relation(fields: [terminal_id], references: [id], onDelete: SetNull)
-  user_id       String?
-  user          User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
-  answers       Json      @default("[]")
-  created_at    DateTime  @default(now())
+  id                String    @id @default(uuid())
+  campaign_id       String
+  campaign          Campaign  @relation(fields: [campaign_id], references: [id], onDelete: Cascade)
+  terminal_id       String?
+  terminal          Terminal? @relation(fields: [terminal_id], references: [id], onDelete: SetNull)
+  user_id           String?
+  user              User?     @relation(fields: [user_id], references: [id], onDelete: SetNull)
+  answers           Json      @default("[]")
+  collaborator_name String?
+  created_at        DateTime  @default(now())
 
   @@map("responses")
 }

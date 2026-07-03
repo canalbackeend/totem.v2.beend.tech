@@ -1367,7 +1367,7 @@ app.delete("/api/terminals/:id", authenticateToken, async (req: any, res) => {
 
 // Responses
 app.get("/api/responses", authenticateToken, async (req: any, res) => {
-  const { campaign_id, startDate, endDate, terminal_id } = req.query;
+  const { campaign_id, startDate, endDate, terminal_id, collaborator_name } = req.query;
   const userId = req.user.id;
   const isMasterAdmin = req.user.email === ADMIN_EMAIL && !req.user.terminal_id;
   
@@ -1398,6 +1398,11 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
       where.terminal_id = req.user.terminal_id;
     } else if (terminal_id && terminal_id !== 'all') {
       where.terminal_id = terminal_id as string;
+    }
+
+    // Collaborator filter
+    if (collaborator_name) {
+      where.collaborator_name = collaborator_name as string;
     }
 
     // Company filter only for non-admin users
@@ -1465,9 +1470,12 @@ app.post("/api/responses", async (req, res) => {
     }
 
     // Ensure response is linked to the campaign owner
+    const bodyAnswers = req.body.answers || [];
+    const collabAnswer = bodyAnswers.find((a: any) => a.type === 'Colaborador');
     const responseData = {
       ...req.body,
-      user_id: campaign.user_id
+      user_id: campaign.user_id,
+      collaborator_name: collabAnswer?.answer || req.body.collaborator_name || null
     };
 
     const response = await prisma.response.create({

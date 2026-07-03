@@ -261,7 +261,8 @@ export default function SurveyOffline() {
           campaign_id: res.campaign_id,
           terminal_id: res.terminal_id,
           answers: res.answers,
-          created_at: res.created_at
+          created_at: res.created_at,
+          collaborator_name: (res as any).collaborator_name || null
         });
         await db.responses.update(res.id!, { synced: 1 });
         successCount++;
@@ -499,12 +500,14 @@ export default function SurveyOffline() {
       });
 
       // Save locally first
+      const collabAns = formattedAnswers.find((a: any) => a.type === 'Colaborador');
       await db.responses.add({
         campaign_id: selectedCampaign.id,
         terminal_id: terminal.id,
         answers: formattedAnswers,
         created_at: new Date().toISOString(),
-        synced: 0
+        synced: 0,
+        collaborator_name: collabAns?.answer || null
       });
 
       setStep('THANK_YOU');

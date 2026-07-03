@@ -205,10 +205,12 @@ export default function SurveyWeb() {
         };
       });
 
+      const collabAns = formattedAnswers.find((a: any) => a.type === 'Colaborador');
       await api.post('/responses', {
         campaign_id: campaign.id,
         terminal_id: terminal.id,
-        answers: formattedAnswers
+        answers: formattedAnswers,
+        collaborator_name: collabAns?.answer || null
       });
 
       const lastAnswerRaw = finalAnswers[finalAnswers.length - 1];

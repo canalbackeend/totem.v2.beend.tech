@@ -412,10 +412,12 @@ export default function Survey() {
         }
 
         // Save response using internal API
+        const collabAns = formattedAnswers.find((a: any) => a.type === 'Colaborador');
         await api.post('/responses', {
           campaign_id: selectedCampaign.id,
           terminal_id: terminal?.id,
-          answers: formattedAnswers
+          answers: formattedAnswers,
+          collaborator_name: collabAns?.answer || null
         });
 
         // Update campaign counts
