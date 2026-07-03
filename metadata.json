@@ -1,0 +1,6 @@
+{
+  "name": "Feedbacks Beend",
+  "description": "Sistema de gestão de feedbacks e KPIs (NPS) para empresas e terminais de autoatendimento. Inclui dashboard administrativo, controle de colaboradores e automação de relatórios.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
