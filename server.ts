@@ -1036,6 +1036,30 @@ app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
       where: { id: req.params.id },
       data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global"])
     });
+
+    // Propagate name change to terminals that store campaign names
+    if (req.body.name && req.body.name !== existing.name) {
+      const oldName = existing.name;
+      const newName = req.body.name;
+      const affectedTerminals = await prisma.terminal.findMany({
+        where: { campaigns: { contains: oldName } }
+      });
+      for (const term of affectedTerminals) {
+        if (!term.campaigns) continue;
+        const updated = term.campaigns
+          .split(',')
+          .map((c: string) => c.trim())
+          .map((c: string) => c === oldName ? newName : c)
+          .join(',');
+        if (updated !== term.campaigns) {
+          await prisma.terminal.update({
+            where: { id: term.id },
+            data: { campaigns: updated }
+          });
+        }
+      }
+    }
+
     res.json(campaign);
   } catch (err: any) {
     console.error("Campaign update error:", err);
