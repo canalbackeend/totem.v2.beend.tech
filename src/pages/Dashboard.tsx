@@ -152,7 +152,12 @@ export default function Dashboard() {
 
       // Weights for satisfaction (Excelente=100, Bom=75, Regular=50, Ruim=25, Muito Insatisfeito=0 if applicable)
       // Standardizing to the 4 categories we track
-      if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM'].includes(val) || (typeof ans === 'number' && ans >= 9)) score += 100;
+      if (qType === 'Avaliação de 1 à 5' && typeof ans === 'number') {
+        if (ans >= 5) score += 100;
+        else if (ans >= 4) score += 75;
+        else if (ans >= 3) score += 50;
+        else score += 25;
+      } else if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM'].includes(val) || (typeof ans === 'number' && ans >= 9)) score += 100;
       else if (['SATISFEITO', 'BOM'].includes(val) || (typeof ans === 'number' && ans >= 7 && ans <= 8)) score += 75;
       else if (['REGULAR'].includes(val) || (typeof ans === 'number' && ans >= 5 && ans <= 6)) score += 50;
       else if (['RUIM', 'PÉSSIMO', 'INSATISFEITO', 'MUITO INSATISFEITO'].includes(val) || (typeof ans === 'number' && ans <= 4)) score += 25;
@@ -673,7 +678,7 @@ export default function Dashboard() {
         doc.setFontSize(8);
         doc.setTextColor(120, 120, 120);
 
-        if (q.type === 'SMILE 5' || q.type === 'SMILE 4') {
+        if (q.type === 'SMILE 5' || q.type === 'SMILE 4' || q.type === 'Avaliação de 1 à 5') {
           doc.text(`${qStats.respondentCount} respostas`, 15, currentY);
           currentY += 5;
 

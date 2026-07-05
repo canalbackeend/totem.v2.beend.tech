@@ -447,7 +447,7 @@ export default function SecureReport() {
         doc.setFontSize(8);
         doc.setTextColor(120, 120, 120);
 
-        if (q.type === 'SMILE 5' || q.type === 'SMILE 4') {
+        if (q.type === 'SMILE 5' || q.type === 'SMILE 4' || q.type === 'Avaliação de 1 à 5') {
           doc.text(`${qStats.count} respostas`, 15, currentY);
           currentY += 5;
 

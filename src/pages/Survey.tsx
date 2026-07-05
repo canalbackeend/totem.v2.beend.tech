@@ -881,11 +881,11 @@ const cardColors = [
     if (q.type === 'Avaliação de 1 à 5') {
       const selectedRating = answers[currentQuestionIndex] as number || 0;
       const starOpts = [
-        { value: 5, label: "Cinco estrelas", color: "#22c55d" },
-        { value: 4, label: "Quatro estrelas", color: "#84cc15" },
-        { value: 3, label: "Três estrelas", color: "#e9b306" },
-        { value: 2, label: "Duas estrelas", color: "#f97316" },
         { value: 1, label: "Uma estrela", color: "#ef4444" },
+        { value: 2, label: "Duas estrelas", color: "#f97316" },
+        { value: 3, label: "Três estrelas", color: "#e9b306" },
+        { value: 4, label: "Quatro estrelas", color: "#84cc15" },
+        { value: 5, label: "Cinco estrelas", color: "#22c55d" },
       ];
       return (
         <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">

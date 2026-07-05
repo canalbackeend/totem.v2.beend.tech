@@ -251,7 +251,7 @@ export default function CreateCampaign() {
       case 'Avaliação de 1 à 5':
         return (
           <div className="flex justify-between w-full max-w-xl mx-auto mt-6 px-2 gap-2">
-            {[5, 4, 3, 2, 1].map((val) => {
+            {[1, 2, 3, 4, 5].map((val) => {
               const colors = ['#22c55d', '#84cc15', '#e9b306', '#f97316', '#ef4444'];
               const labels = ['Cinco estrelas', 'Quatro estrelas', 'Três estrelas', 'Duas estrelas', 'Uma estrela'];
               return (
