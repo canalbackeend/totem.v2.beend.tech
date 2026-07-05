@@ -913,13 +913,13 @@ const cardColors = [
                   borderBottomColor: optColor,
                 }}
               >
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-colors"
                   style={{ backgroundColor: isSelected ? optColor : `${optColor}40` }}
                 >
-                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                  <span className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-black transition-all ${
                     isSelected ? 'scale-110 text-white' : ''
                   }`} style={{ color: isSelected ? undefined : optColor }}>
-                    {isMultipleChoice(q.type) ? (isSelected ? '✓' : '□') : (isSelected ? '●' : '○')}
+                    {isSelected ? '●' : '○'}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
