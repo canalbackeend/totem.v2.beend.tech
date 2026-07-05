@@ -389,22 +389,22 @@ export default function SurveyWeb() {
                 onClick={() => handleAnswer(val)}
                 className="flex flex-row items-center gap-4 p-5 rounded-[3rem] border-2 border-b-[6px] text-left transition-all group shadow-sm"
                 style={{
-                  backgroundColor: isSelected ? `${optColor}20` : '#ffffff',
-                  borderColor: isSelected ? optColor : `${optColor}40`,
-                  borderBottomColor: isSelected ? optColor : `${optColor}30`,
+                  backgroundColor: isSelected ? `${optColor}15` : '#ffffff',
+                  borderColor: optColor,
+                  borderBottomColor: optColor,
                 }}
               >
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
-                  style={{ backgroundColor: isSelected ? `${optColor}15` : '#f1f5f9' }}
+                  style={{ backgroundColor: isSelected ? optColor : `${optColor}15` }}
                 >
                   <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black transition-all ${
-                    isSelected ? 'scale-110' : ''
-                  }`} style={{ color: isSelected ? optColor : '#94a3b8' }}>
+                    isSelected ? 'scale-110 text-white' : ''
+                  }`} style={{ color: isSelected ? undefined : optColor }}>
                     {isMultipleChoice(q.type) ? (isSelected ? '✓' : '□') : (isSelected ? '●' : '○')}
                   </span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className={`text-xl font-black uppercase tracking-tight block truncate ${
+                  <span className={`text-lg font-black uppercase tracking-tight block truncate ${
                     isSelected ? '' : 'text-slate-700'
                   }`} style={{ color: isSelected ? optColor : undefined }}>
                     {opt.text}
@@ -412,9 +412,9 @@ export default function SurveyWeb() {
                 </div>
                 <div className="shrink-0">
                   <div className="p-1.5 rounded-full group-hover:translate-x-2 transition-transform"
-                    style={{ backgroundColor: isSelected ? `${optColor}15` : '#f1f5f9' }}
+                    style={{ backgroundColor: isSelected ? optColor : `${optColor}15` }}
                   >
-                    <ChevronRight className="w-4 h-4" style={{ color: isSelected ? optColor : '#94a3b8' }} />
+                    <ChevronRight className="w-4 h-4" style={{ color: isSelected ? '#ffffff' : optColor }} />
                   </div>
                 </div>
               </motion.button>
