@@ -18,7 +18,8 @@ import {
   Building2,
   LogOut,
   ChevronLeft,
-  UserCircle2
+  UserCircle2,
+  Star
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -36,7 +37,7 @@ interface Terminal {
 
 interface Question {
   text: string;
-  type: 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador';
+  type: 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador' | 'Avaliação de 1 à 5';
   options?: { text: string; color?: string; image?: string }[];
   required?: boolean;
   allowComment?: boolean;
@@ -313,6 +314,13 @@ export default function Survey() {
       return;
     }
 
+    if (currentQuestion?.type === 'Avaliação de 1 à 5') {
+      const newAnswers = [...answers];
+      newAnswers[currentQuestionIndex] = value;
+      setAnswers(newAnswers);
+      return;
+    }
+
     if (currentQuestion?.allowComment && currentQuestion?.type !== 'Texto Aberto') {
       const newAnswers = [...answers];
       newAnswers[currentQuestionIndex] = value;
@@ -395,12 +403,23 @@ export default function Survey() {
           responses_count: (selectedCampaign.responses_count || 0) + 1
         } as any;
 
-        const ratingAnswer = formattedAnswers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS'].includes(a?.type)) || formattedAnswers[formattedAnswers.length - 1];
+        const ratingAnswer = formattedAnswers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(a?.type)) || formattedAnswers[formattedAnswers.length - 1];
         const lastAnswer = ratingAnswer ? ratingAnswer.answer : null;
 
         if (typeof lastAnswer === 'string' || typeof lastAnswer === 'number') {
           const val = typeof lastAnswer === 'string' ? lastAnswer.toUpperCase() : lastAnswer;
-          if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
+
+          if (ratingAnswer?.type === 'Avaliação de 1 à 5' && typeof val === 'number') {
+            if (val === 5) {
+              updateData.perception_excelente = ((selectedCampaign as any).perception_excelente || 0) + 1;
+            } else if (val === 4) {
+              updateData.perception_bom = ((selectedCampaign as any).perception_bom || 0) + 1;
+            } else if (val === 3) {
+              updateData.perception_regular = ((selectedCampaign as any).perception_regular || 0) + 1;
+            } else {
+              updateData.perception_ruim = ((selectedCampaign as any).perception_ruim || 0) + 1;
+            }
+          } else if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
             updateData.perception_excelente = ((selectedCampaign as any).perception_excelente || 0) + 1;
           } else if (val === 'SATISFEITO' || val === 'BOM' || (typeof val === 'number' && val >= 7 && val <= 8)) {
             updateData.perception_bom = ((selectedCampaign as any).perception_bom || 0) + 1;
@@ -696,7 +715,7 @@ const cardColors = [
                 </div>
               )}
 
-              {(isMultipleChoice(currentQuestion.type) || (currentQuestion.allowComment && currentQuestion.type !== 'Texto Aberto')) && (
+              {(isMultipleChoice(currentQuestion.type) || currentQuestion.type === 'Avaliação de 1 à 5' || (currentQuestion.allowComment && currentQuestion.type !== 'Texto Aberto')) && (
                 <div className="flex justify-center mt-12">
                   <button 
                     onClick={nextQuestion}
@@ -707,7 +726,9 @@ const cardColors = [
                     ) : false}
                     className="bg-[#0b82ff] text-white px-12 py-5 rounded-[5px] font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none transition-all flex items-center gap-3"
                   >
-                    {currentQuestionIndex === selectedCampaign.questions.length - 1 ? 'Finalizar' : 'Avançar'}
+                    {currentQuestion.type === 'Avaliação de 1 à 5'
+                      ? 'CONFIRMAR NOTA'
+                      : (currentQuestionIndex === selectedCampaign.questions.length - 1 ? 'Finalizar' : 'Avançar')}
                     <ChevronRight className="w-6 h-6" />
                   </button>
                 </div>
@@ -853,6 +874,44 @@ const cardColors = [
             <span>Extremamente improvável</span>
             <span>Extremamente provável</span>
           </div>
+        </div>
+      );
+    }
+
+    if (q.type === 'Avaliação de 1 à 5') {
+      const selectedRating = answers[currentQuestionIndex] as number || 0;
+      const starOpts = [
+        { value: 5, label: "Cinco estrelas", color: "#22c55d" },
+        { value: 4, label: "Quatro estrelas", color: "#84cc15" },
+        { value: 3, label: "Três estrelas", color: "#e9b306" },
+        { value: 2, label: "Duas estrelas", color: "#f97316" },
+        { value: 1, label: "Uma estrela", color: "#ef4444" },
+      ];
+      return (
+        <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">
+          {starOpts.map((opt) => {
+            const isFilled = opt.value <= selectedRating;
+            return (
+              <motion.button
+                key={opt.value}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleAnswer(opt.value)}
+                className={`flex flex-col items-center gap-2 sm:gap-4 group shrink min-w-0 flex-1 w-full ${isFilled ? 'scale-110' : ''}`}
+              >
+                <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[6rem] md:max-w-[8rem] mx-auto shrink-0 rounded-2xl sm:rounded-[2.5rem] bg-zinc-900 border-2 flex items-center justify-center transition-all ${isFilled ? 'border-blue-500 shadow-xl shadow-blue-500/20' : 'border-white/5 shadow-sm shadow-black/50 group-hover:shadow-xl group-hover:border-transparent'}`}>
+                  <Star
+                    className={`w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 transition-all ${isFilled ? 'scale-110' : 'group-hover:scale-110'}`}
+                    style={{ color: isFilled ? opt.color : '#555' }}
+                    strokeWidth={isFilled ? 2 : 1.5}
+                    fill={isFilled ? opt.color : 'transparent'}
+                  />
+                </div>
+                <span className="text-xl sm:text-2xl md:text-3xl font-black text-white">{opt.value}</span>
+                <span className={`text-[10px] sm:text-xs font-black uppercase tracking-widest text-center transition-colors ${isFilled ? 'text-blue-500' : 'text-zinc-500 group-hover:text-white'}`}>{opt.label}</span>
+              </motion.button>
+            );
+          })}
         </div>
       );
     }

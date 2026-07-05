@@ -18,7 +18,8 @@ import {
   Clock,
   Laugh,
   Angry,
-  ChevronDown
+  ChevronDown,
+  Star
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
@@ -118,7 +119,12 @@ export default function Feedbacks() {
     'RUIM': { color: '#f97316', icon: Frown, label: 'Ruim' },
     'INSATISFEITO': { color: '#f97316', icon: Frown, label: 'Insatisfeito' },
     'PÉSSIMO': { color: '#ef4444', icon: Angry, label: 'Péssimo' },
-    'MUITO INSATISFEITO': { color: '#ef4444', icon: Angry, label: 'Muito Insatisfeito' }
+    'MUITO INSATISFEITO': { color: '#ef4444', icon: Angry, label: 'Muito Insatisfeito' },
+    '5': { color: '#22c55d', icon: Star, label: '5 estrelas' },
+    '4': { color: '#84cc15', icon: Star, label: '4 estrelas' },
+    '3': { color: '#e9b306', icon: Star, label: '3 estrelas' },
+    '2': { color: '#f97316', icon: Star, label: '2 estrelas' },
+    '1': { color: '#ef4444', icon: Star, label: '1 estrela' }
   };
 
   const getSentimentInfo = (answers: ResponseAnswer[]) => {
@@ -128,6 +134,13 @@ export default function Feedbacks() {
     
     // If it's NPS (number), handle it
     if (typeof lastAnswer === 'number') {
+      // Check if it's a star rating (1-5)
+      if (lastAnswer >= 1 && lastAnswer <= 5) {
+        const starColors: Record<number, string> = { 5: '#22c55d', 4: '#84cc15', 3: '#e9b306', 2: '#f97316', 1: '#ef4444' };
+        const starLabels: Record<number, string> = { 5: '5 estrelas', 4: '4 estrelas', 3: '3 estrelas', 2: '2 estrelas', 1: '1 estrela' };
+        return { color: starColors[lastAnswer], label: starLabels[lastAnswer], icon: Star as any };
+      }
+      
       let color = '#ef4444';
       let label = 'Detrator';
       let icon = Frown;
@@ -149,7 +162,8 @@ export default function Feedbacks() {
 
   const ratingLabels = [
     'EXCELENTE', 'MUITO SATISFEITO', 'BOM', 'SATISFEITO', 'REGULAR', 
-    'RUIM', 'INSATISFEITO', 'PÉSSIMO', 'MUITO INSATISFEITO'
+    'RUIM', 'INSATISFEITO', 'PÉSSIMO', 'MUITO INSATISFEITO',
+    '5', '4', '3', '2', '1'
   ];
 
   const hasTextualContent = (fb: RawResponse) => {

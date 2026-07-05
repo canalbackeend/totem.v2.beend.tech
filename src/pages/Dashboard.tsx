@@ -13,7 +13,7 @@ import {
   LabelList,
   ResponsiveContainer 
 } from 'recharts';
-import { Trophy, Frown, Meh, Smile, Eye, Download, TrendingUp, FileText, Laugh, Angry, X } from 'lucide-react';
+import { Trophy, Frown, Meh, Smile, Eye, Download, TrendingUp, FileText, Laugh, Angry, X, Star } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { toast } from 'sonner';
@@ -426,6 +426,9 @@ export default function Dashboard() {
   if (!primaryQuestion) {
     primaryQuestion = selectedCampaign?.questions?.find((q: any) => q.type === 'SMILE 4');
   }
+  if (!primaryQuestion) {
+    primaryQuestion = selectedCampaign?.questions?.find((q: any) => q.type === 'Avaliação de 1 à 5');
+  }
 
   if (primaryQuestion) {
     const qStats = getQuestionStats(primaryQuestion.text, primaryQuestion.type);
@@ -458,6 +461,11 @@ export default function Dashboard() {
           if (['EXCELENTE', 'BOM'].includes(val) || pAnswer >= 3) topPromotores++;
           else if (['REGULAR'].includes(val) || pAnswer === 2) topNeutros++;
           else if (['RUIM', 'PÉSSIMO'].includes(val) || pAnswer === 1) topDetratores++;
+        } else if (primaryQuestion.type === 'Avaliação de 1 à 5') {
+          const val = Number(pAnswer);
+          if (val >= 4) topPromotores++;
+          else if (val === 3) topNeutros++;
+          else topDetratores++;
         }
       }
     });
@@ -473,7 +481,7 @@ export default function Dashboard() {
   }
 
   // Calculate generic satisfaction for the EVOLUTION line chart (Prioritize Smile, Fallback to NPS)
-  const allSmileQuestions = selectedCampaign?.questions?.filter((q: any) => ['SMILE 4', 'SMILE 5'].includes(q.type)) || [];
+  const allSmileQuestions = selectedCampaign?.questions?.filter((q: any) => ['SMILE 4', 'SMILE 5', 'Avaliação de 1 à 5'].includes(q.type)) || [];
   const hasNpsQuestion = selectedCampaign?.questions?.some((q: any) => q.type === 'NPS');
   
   let totalSatScoreCounter = 0;
@@ -625,7 +633,7 @@ export default function Dashboard() {
       let currentY = 65;
 
       // 3. Questions Loop - Ordered exactly as the Dashboard (all non-NPS first, then NPS at the end)
-      const primaryQ = selectedCampaign.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4'].includes(q.type));
+      const primaryQ = selectedCampaign.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4', 'Avaliação de 1 à 5'].includes(q.type));
       const nonNpsQuestions = (selectedCampaign.questions || []).filter((q: any) => q.type !== 'NPS' && q.type !== 'Texto Aberto');
       const npsQuestion = (selectedCampaign.questions || []).find((q: any) => q.type === 'NPS');
 
@@ -694,6 +702,12 @@ export default function Dashboard() {
             { label: "Regular", count: qStats.distribution['REGULAR'] || 0, color: [234, 179, 8], smiley: 'meh' },
             { label: "Insatisfeito", count: qStats.distribution['INSATISFEITO'] || 0, color: [249, 115, 22], smiley: 'sad' },
             { label: "Muito Insatisfeito", count: qStats.distribution['MUITO INSATISFEITO'] || 0, color: [239, 68, 68], smiley: 'angry' },
+          ] : q.type === 'Avaliação de 1 à 5' ? [
+            { label: "5 estrelas", count: qStats.distribution['5'] || 0, color: [34, 197, 93], smiley: 'happy' },
+            { label: "4 estrelas", count: qStats.distribution['4'] || 0, color: [163, 230, 53], smiley: 'smile' },
+            { label: "3 estrelas", count: qStats.distribution['3'] || 0, color: [234, 179, 8], smiley: 'meh' },
+            { label: "2 estrelas", count: qStats.distribution['2'] || 0, color: [249, 115, 22], smiley: 'sad' },
+            { label: "1 estrela", count: qStats.distribution['1'] || 0, color: [239, 68, 68], smiley: 'angry' },
           ] : [
             { label: "Excelente", count: qStats.distribution['EXCELENTE'] || 0, color: [34, 197, 93], smiley: 'happy' },
             { label: "Bom", count: qStats.distribution['BOM'] || 0, color: [163, 230, 53], smiley: 'smile' },
@@ -1437,6 +1451,12 @@ export default function Dashboard() {
                     { label: "regular", count: stats.distribution['REGULAR'] || 0, color: "#e9b306", icon: Meh },
                     { label: "insatisfeito", count: stats.distribution['INSATISFEITO'] || 0, color: "#f97316", icon: Frown },
                     { label: "Muito Insatisfeito", count: stats.distribution['MUITO INSATISFEITO'] || 0, color: "#ef4444", icon: Angry },
+                  ] : q.type === 'Avaliação de 1 à 5' ? [
+                    { label: "5 estrelas", count: stats.distribution['5'] || 0, color: "#22c55d", icon: Star },
+                    { label: "4 estrelas", count: stats.distribution['4'] || 0, color: "#84cc15", icon: Star },
+                    { label: "3 estrelas", count: stats.distribution['3'] || 0, color: "#e9b306", icon: Star },
+                    { label: "2 estrelas", count: stats.distribution['2'] || 0, color: "#f97316", icon: Star },
+                    { label: "1 estrela", count: stats.distribution['1'] || 0, color: "#ef4444", icon: Star },
                   ] : q.type === 'SMILE 4' ? [
                     { label: "EXCELENTE", count: stats.distribution['EXCELENTE'] || 0, color: "#22c55d", icon: Laugh },
                     { label: "BOM", count: stats.distribution['BOM'] || 0, color: "#84cc15", icon: Smile },
@@ -1477,7 +1497,7 @@ export default function Dashboard() {
                         <h4 className={`text-sm font-bold leading-tight pr-4 ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                           {idx + 1}ª) {q.text}
                         </h4>
-                        {['SMILE 5', 'SMILE 4'].includes(q.type) && (
+                        {['SMILE 5', 'SMILE 4', 'Avaliação de 1 à 5'].includes(q.type) && (
                           <div className="flex flex-col items-end">
                              <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Satisfação</span>
                              <span className="text-sm font-black text-green-500">{formatPercent(stats.satisfaction)}%</span>

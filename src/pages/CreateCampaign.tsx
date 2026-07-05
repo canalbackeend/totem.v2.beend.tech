@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 
-type QuestionType = 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador';
+type QuestionType = 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador' | 'Avaliação de 1 à 5';
 
 interface Question {
   id: string;
@@ -246,6 +246,22 @@ export default function CreateCampaign() {
                 );
               })}
             </div>
+          </div>
+        );
+      case 'Avaliação de 1 à 5':
+        return (
+          <div className="flex justify-between w-full max-w-xl mx-auto mt-6 px-2 gap-2">
+            {[5, 4, 3, 2, 1].map((val) => {
+              const colors = ['#22c55d', '#84cc15', '#e9b306', '#f97316', '#ef4444'];
+              const labels = ['Cinco estrelas', 'Quatro estrelas', 'Três estrelas', 'Duas estrelas', 'Uma estrela'];
+              return (
+                <div key={val} className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                  <Star size={28} className="shrink-0" style={{ color: colors[5 - val], fill: colors[5 - val] }} />
+                  <span className="text-lg font-black text-slate-600">{val}</span>
+                  <span className="text-[10px] text-slate-500 font-bold text-center leading-tight">{labels[5 - val]}</span>
+                </div>
+              );
+            })}
           </div>
         );
       case 'Escolha Única':
@@ -561,6 +577,7 @@ export default function CreateCampaign() {
                                 <option value="SMILE 5">Smile 5</option>
                                 <option value="SMILE 4">Smile 4</option>
                                 <option value="NPS">NPS</option>
+                                <option value="Avaliação de 1 à 5">Avaliação de 1 à 5</option>
                                 <option value="Escolha Única">Escolha Única</option>
                                 <option value="Múltipla Escolha">Múltipla Escolha</option>
                                 <option value="Texto Aberto">Texto Aberto</option>

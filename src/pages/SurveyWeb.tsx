@@ -12,7 +12,8 @@ import {
   Timer,
   Loader2,
   Building2,
-  UserCircle2
+  UserCircle2,
+  Star
 } from 'lucide-react';
 
 interface Terminal {
@@ -26,7 +27,7 @@ interface Terminal {
 
 interface Question {
   text: string;
-  type: 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador';
+  type: 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador' | 'Avaliação de 1 à 5';
   options?: { text: string; color?: string; image?: string; value: any }[];
   required?: boolean;
   allowComment?: boolean;
@@ -137,6 +138,13 @@ export default function SurveyWeb() {
       return;
     }
 
+    if (currentQuestion?.type === 'Avaliação de 1 à 5') {
+      const newAnswers = [...answers];
+      newAnswers[currentQuestionIndex] = value;
+      setAnswers(newAnswers);
+      return;
+    }
+
     if (currentQuestion?.allowComment && currentQuestion?.type !== 'Texto Aberto') {
       const newAnswers = [...answers];
       newAnswers[currentQuestionIndex] = value;
@@ -225,7 +233,19 @@ export default function SurveyWeb() {
 
       if (typeof lastAnswer === 'string' || typeof lastAnswer === 'number') {
         const val = typeof lastAnswer === 'string' ? lastAnswer.toUpperCase() : lastAnswer;
-        if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
+
+        const isStarType = campaign.questions.find((q, i) => i === finalAnswers.length - 1)?.type === 'Avaliação de 1 à 5';
+        if (isStarType && typeof val === 'number') {
+          if (val === 5) {
+            updateData.perception_excelente = ((campaign as any).perception_excelente || 0) + 1;
+          } else if (val === 4) {
+            updateData.perception_bom = ((campaign as any).perception_bom || 0) + 1;
+          } else if (val === 3) {
+            updateData.perception_regular = ((campaign as any).perception_regular || 0) + 1;
+          } else {
+            updateData.perception_ruim = ((campaign as any).perception_ruim || 0) + 1;
+          }
+        } else if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
           updateData.perception_excelente = ((campaign as any).perception_excelente || 0) + 1;
         } else if (val === 'SATISFEITO' || val === 'BOM' || (typeof val === 'number' && val >= 7 && val <= 8)) {
           updateData.perception_bom = ((campaign as any).perception_bom || 0) + 1;
@@ -362,6 +382,46 @@ export default function SurveyWeb() {
             <span className="text-[10px] font-bold text-red-500 uppercase tracking-wider">0 = Nada provável</span>
             <span className="text-[10px] font-bold text-green-500 uppercase tracking-wider">10 = Muito provável</span>
           </div>
+        </div>
+      );
+    }
+
+    if (q.type === 'Avaliação de 1 à 5') {
+      const selectedRating = answers[currentQuestionIndex] as number || 0;
+      const starOpts = [
+        { value: 5, label: "Cinco estrelas", color: "#22c55d" },
+        { value: 4, label: "Quatro estrelas", color: "#84cc15" },
+        { value: 3, label: "Três estrelas", color: "#e9b306" },
+        { value: 2, label: "Duas estrelas", color: "#f97316" },
+        { value: 1, label: "Uma estrela", color: "#ef4444" },
+      ];
+      return (
+        <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">
+          {starOpts.map((opt) => {
+            const isFilled = opt.value <= selectedRating;
+            return (
+              <motion.button
+                key={opt.value}
+                whileHover={{ scale: 1.1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleAnswer(opt.value)}
+                className={`flex flex-col items-center gap-2 sm:gap-4 group shrink min-w-0 flex-1 w-full ${isFilled ? 'scale-110' : ''}`}
+              >
+                <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[6rem] md:max-w-[8rem] mx-auto shrink-0 rounded-2xl sm:rounded-[2.5rem] border-2 flex items-center justify-center transition-all shadow-sm ${
+                  isFilled ? 'border-blue-500 shadow-xl shadow-blue-500/20 bg-white' : 'border-slate-200 bg-white group-hover:border-slate-300'
+                }`}>
+                  <Star
+                    className={`w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 transition-all ${isFilled ? 'scale-110' : 'group-hover:scale-110'}`}
+                    style={{ color: isFilled ? opt.color : '#d1d5db' }}
+                    strokeWidth={isFilled ? 2 : 1.5}
+                    fill={isFilled ? opt.color : 'transparent'}
+                  />
+                </div>
+                <span className="text-xl sm:text-2xl md:text-3xl font-black text-slate-700">{opt.value}</span>
+                <span className={`text-[10px] sm:text-xs font-black uppercase tracking-widest text-center transition-colors ${isFilled ? 'text-blue-500' : 'text-slate-400 group-hover:text-slate-600'}`}>{opt.label}</span>
+              </motion.button>
+            );
+          })}
         </div>
       );
     }
@@ -551,18 +611,19 @@ export default function SurveyWeb() {
                 </div>
               )}
 
-              {(isMultipleChoice(currentQuestion.type) || (currentQuestion.type as any) === 'Texto Aberto' || (currentQuestion.allowComment && (currentQuestion.type as any) !== 'Texto Aberto')) && (
+              {(isMultipleChoice(currentQuestion.type) || currentQuestion.type === 'Avaliação de 1 à 5' || (currentQuestion.type as any) === 'Texto Aberto' || (currentQuestion.allowComment && (currentQuestion.type as any) !== 'Texto Aberto')) && (
                 <div className="flex justify-center mt-8 w-full max-w-2xl mx-auto">
                   <button 
                     onClick={nextQuestion}
                     disabled={currentQuestion.required ? (
                       isMultipleChoice(currentQuestion.type) 
                         ? !hasMultipleChoiceValue(answers[currentQuestionIndex])
+                        : currentQuestion.type === 'Avaliação de 1 à 5' ? !answers[currentQuestionIndex]
                         : currentQuestion.type === 'Texto Aberto' ? !currentComment.trim() : !answers[currentQuestionIndex]
                     ) : false}
                     className="w-full sm:w-auto px-12 py-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm uppercase tracking-widest shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
                   >
-                    Avançar
+                    {currentQuestion.type === 'Avaliação de 1 à 5' ? 'CONFIRMAR NOTA' : 'Avançar'}
                   </button>
                 </div>
               )}

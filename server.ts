@@ -1574,7 +1574,7 @@ app.post("/api/responses", async (req, res) => {
 
     // Automatically update the campaign's responses_count and perceptions
     const answers = req.body.answers || [];
-    const ratingAnswer = answers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS'].includes(a?.type)) || answers[answers.length - 1];
+    const ratingAnswer = answers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(a?.type)) || answers[answers.length - 1];
     const lastAnswer = ratingAnswer ? ratingAnswer.answer : null;
 
     let updateData: any = {
@@ -1583,7 +1583,18 @@ app.post("/api/responses", async (req, res) => {
 
     if (lastAnswer !== null && lastAnswer !== undefined && (typeof lastAnswer === 'string' || typeof lastAnswer === 'number')) {
       const val = typeof lastAnswer === 'string' ? lastAnswer.toUpperCase() : lastAnswer;
-      if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
+
+      if (ratingAnswer?.type === 'Avaliação de 1 à 5' && typeof val === 'number') {
+        if (val === 5) {
+          updateData.perception_excelente = (campaign.perception_excelente || 0) + 1;
+        } else if (val === 4) {
+          updateData.perception_bom = (campaign.perception_bom || 0) + 1;
+        } else if (val === 3) {
+          updateData.perception_regular = (campaign.perception_regular || 0) + 1;
+        } else {
+          updateData.perception_ruim = (campaign.perception_ruim || 0) + 1;
+        }
+      } else if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
         updateData.perception_excelente = (campaign.perception_excelente || 0) + 1;
       } else if (val === 'SATISFEITO' || val === 'BOM' || (typeof val === 'number' && val >= 7 && val <= 8)) {
         updateData.perception_bom = (campaign.perception_bom || 0) + 1;

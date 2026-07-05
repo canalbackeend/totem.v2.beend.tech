@@ -26,7 +26,8 @@ import {
   ArrowRight,
   Users,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Star
 } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -164,7 +165,7 @@ export default function SecureReport() {
       const hasResponses = dayResponses.length > 0;
       
       let dayScore = 0;
-      const primaryQ = campaign?.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4'].includes(q.type));
+      const primaryQ = campaign?.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4', 'Avaliação de 1 à 5'].includes(q.type));
       
       if (hasResponses && primaryQ) {
         let relevantAnswers: any[] = [];
@@ -198,6 +199,10 @@ export default function SecureReport() {
             if (npsCount > 0) {
               dayScore = ((promotores - detratores) / npsCount) * 100;
             }
+          } else if (primaryQ.type === 'Avaliação de 1 à 5') {
+            const nums = relevantAnswers.map(Number).filter((n: any) => !isNaN(n));
+            const avg = nums.length > 0 ? nums.reduce((a: number, b: number) => a + b, 0) / nums.length : 0;
+            dayScore = (avg / 5) * 100;
           } else {
             let scoreValue = 0;
             relevantAnswers.forEach(ans => {
@@ -402,7 +407,7 @@ export default function SecureReport() {
       }
 
       // 3. Questions Loop - Ordered exactly as the Dashboard (all non-NPS first, then NPS at the end)
-      const primaryQ = campaign?.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4'].includes(q.type));
+      const primaryQ = campaign?.questions?.find((q: any) => ['NPS', 'SMILE 5', 'SMILE 4', 'Avaliação de 1 à 5'].includes(q.type));
       const nonNpsQuestions = (campaign.questions || []).filter((q: any) => q.type !== 'NPS' && q.type !== 'Texto Aberto');
       const npsQuestion = (campaign.questions || []).find((q: any) => q.type === 'NPS');
 
@@ -471,6 +476,12 @@ export default function SecureReport() {
             { label: "Regular", count: qStats.distribution['REGULAR'] || 0, color: [234, 179, 8], smiley: 'meh' },
             { label: "Insatisfeito", count: qStats.distribution['INSATISFEITO'] || 0, color: [249, 115, 22], smiley: 'sad' },
             { label: "Muito Insatisfeito", count: qStats.distribution['MUITO INSATISFEITO'] || 0, color: [239, 68, 68], smiley: 'angry' },
+          ] : q.type === 'Avaliação de 1 à 5' ? [
+            { label: "5 estrelas", count: qStats.distribution['5'] || 0, color: [34, 197, 93], smiley: 'happy' },
+            { label: "4 estrelas", count: qStats.distribution['4'] || 0, color: [163, 230, 53], smiley: 'smile' },
+            { label: "3 estrelas", count: qStats.distribution['3'] || 0, color: [234, 179, 8], smiley: 'meh' },
+            { label: "2 estrelas", count: qStats.distribution['2'] || 0, color: [249, 115, 22], smiley: 'sad' },
+            { label: "1 estrela", count: qStats.distribution['1'] || 0, color: [239, 68, 68], smiley: 'angry' },
           ] : [
             { label: "Excelente", count: qStats.distribution['EXCELENTE'] || 0, color: [34, 197, 93], smiley: 'happy' },
             { label: "Bom", count: qStats.distribution['BOM'] || 0, color: [163, 230, 53], smiley: 'smile' },
@@ -992,6 +1003,14 @@ export default function SecureReport() {
                             { label: "Regular", count: s.distribution['REGULAR'] || 0, color: "#e9b306", icon: Meh },
                             { label: "Insatisfeito", count: s.distribution['INSATISFEITO'] || 0, color: "#f97316", icon: Frown },
                             { label: "Muito Insatisfeito", count: s.distribution['MUITO INSATISFEITO'] || 0, color: "#ef4444", icon: Angry },
+                        ];
+                    } else if (q.type === 'Avaliação de 1 à 5') {
+                        options = [
+                            { label: "5 estrelas", count: s.distribution['5'] || 0, color: "#22c55d", icon: Star },
+                            { label: "4 estrelas", count: s.distribution['4'] || 0, color: "#84cc15", icon: Star },
+                            { label: "3 estrelas", count: s.distribution['3'] || 0, color: "#e9b306", icon: Star },
+                            { label: "2 estrelas", count: s.distribution['2'] || 0, color: "#f97316", icon: Star },
+                            { label: "1 estrela", count: s.distribution['1'] || 0, color: "#ef4444", icon: Star },
                         ];
                     } else if (q.type === 'SMILE 4') {
                         options = [

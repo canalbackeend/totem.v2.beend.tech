@@ -94,8 +94,19 @@ describe("GET /api/responses - filtro por data", () => {
   });
 
   it("deve filtrar por terminal + data combinados", async () => {
+    // Find a date that has data for the chosen terminal
+    const respDates = await prisma.response.findMany({
+      where: { terminal_id: TV_WITH_DATA },
+      select: { created_at: true },
+      orderBy: { created_at: "desc" },
+      take: 1,
+    });
+    const dateStr = respDates[0]?.created_at
+      ? new Date(respDates[0].created_at).toISOString().split("T")[0]
+      : "2026-07-03";
+
     const res = await request(app)
-      .get(`/api/responses?terminal_id=${TV_WITH_DATA}&startDate=2026-07-03&endDate=2026-07-03`)
+      .get(`/api/responses?terminal_id=${TV_WITH_DATA}&startDate=${dateStr}&endDate=${dateStr}`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
@@ -127,8 +138,18 @@ describe("GET /api/campaigns/:id/evolution - filtros (campanha com dados)", () =
   });
 
   it("deve filtrar evolução por data (03-07-2026)", async () => {
+    // Find a date that has data for the chosen campaign
+    const respDate = await prisma.response.findFirst({
+      where: { campaign_id: CAMPAIGN_WITH_DATA },
+      select: { created_at: true },
+      orderBy: { created_at: "desc" },
+    });
+    const dateStr = respDate?.created_at
+      ? new Date(respDate.created_at).toISOString().split("T")[0]
+      : "2026-07-03";
+
     const res = await request(app)
-      .get(`/api/campaigns/${CAMPAIGN_WITH_DATA}/evolution?startDate=2026-07-03&endDate=2026-07-03`)
+      .get(`/api/campaigns/${CAMPAIGN_WITH_DATA}/evolution?startDate=${dateStr}&endDate=${dateStr}`)
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(res.status).toBe(200);
