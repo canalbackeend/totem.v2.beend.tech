@@ -957,6 +957,10 @@ export default function Dashboard() {
             }
           });
           return npsCount > 0 ? ((promotores - detratores) / npsCount) * 100 : 0;
+        } else if (primaryQ.type === 'Avaliação de 1 à 5') {
+          const nums = relevantAnswers.map(Number).filter((n: any) => !isNaN(n));
+          const avg = nums.length > 0 ? nums.reduce((a: number, b: number) => a + b, 0) / nums.length : 0;
+          return (avg / 5) * 100;
         } else {
           let scoreValue = 0;
           relevantAnswers.forEach(ans => {
