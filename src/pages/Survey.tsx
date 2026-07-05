@@ -256,6 +256,9 @@ export default function Survey() {
     if (availableCampaigns.length > 1) {
       setStep('SELECTION');
       setSelectedCampaign(null);
+    } else if (availableCampaigns.length === 0) {
+      setStep('LOGIN');
+      setSelectedCampaign(null);
     } else {
       setStep('SURVEY');
     }
@@ -387,7 +390,7 @@ export default function Survey() {
 
     while (retries > 0 && !success) {
       try {
-        if (!selectedCampaign) return;
+        if (!selectedCampaign || !terminal) return;
 
         const formattedAnswers = selectedCampaign.questions.map((q, idx) => {
           const ansInfo = finalAnswers[idx];

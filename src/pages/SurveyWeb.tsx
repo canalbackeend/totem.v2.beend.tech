@@ -215,7 +215,7 @@ export default function SurveyWeb() {
       });
 
       const collabAns = formattedAnswers.find((a: any) => a.type === 'Colaborador');
-      await api.post('/responses', {
+      await api.post('/public/responses', {
         campaign_id: campaign.id,
         terminal_id: terminal.id,
         answers: formattedAnswers,

@@ -1524,7 +1524,7 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
   }
 });
 
-app.post("/api/responses", async (req, res) => {
+async function handleCreateResponse(req: any, res: any) {
   try {
     const campaignId = req.body.campaign_id;
     if (!campaignId) return res.status(400).json({ error: "campaign_id is required" });
@@ -1615,7 +1615,10 @@ app.post("/api/responses", async (req, res) => {
     console.error("Response creation error:", err);
     res.status(500).json({ error: err.message });
   }
-});
+}
+
+app.post("/api/responses", authenticateToken, handleCreateResponse);
+app.post("/api/public/responses", handleCreateResponse);
 
 // Platform Settings
 app.get("/api/platform-settings/:key", async (req, res) => {

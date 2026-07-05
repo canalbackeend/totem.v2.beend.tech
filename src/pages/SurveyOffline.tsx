@@ -385,6 +385,9 @@ export default function SurveyOffline() {
     if (availableCampaigns.length > 1) {
       setStep('SELECTION');
       setSelectedCampaign(null);
+    } else if (availableCampaigns.length === 0) {
+      setStep('DOWNLOAD');
+      setSelectedCampaign(null);
     } else {
       setStep('SURVEY');
     }
