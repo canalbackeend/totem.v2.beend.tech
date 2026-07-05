@@ -248,12 +248,12 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const user = await prisma.user.findUnique({ where: { email: cleanEmail } });
     if (!user || !user.password) {
-      console.log(`Login failed: user not found or no password for ${cleanEmail}`);
+      console.log(`Login failed: user not found`);
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      console.log(`Login failed: incorrect password for ${cleanEmail}`);
+      console.log(`Login failed: incorrect password`);
       return res.status(401).json({ error: "E-mail ou senha incorretos." });
     }
     if (user.status !== "Ativo") {
@@ -269,7 +269,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 app.post("/api/terminals/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
-  console.log(`[Terminal Login] email=${email}, password=${password ? 'provided' : 'missing'}, body keys=${Object.keys(req.body).join(',')}`);
+  console.log(`[Terminal Login] password=${password ? 'provided' : 'missing'}`);
   try {
     const terminals = await prisma.terminal.findMany({
       where: { email }
@@ -397,13 +397,13 @@ function calculateCampaignMetrics(campaign: any, responses: any[]) {
         const num = Number(ans);
         const isNum = !isNaN(num) && typeof ans !== 'boolean';
 
-        if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM', 'ÓTIMO', '5', '9', '10'].includes(valStr) || (isNum && num >= 9) || (isNum && type === 'SMILE 5' && num === 5) || (isNum && type === 'SMILE 4' && num === 4)) {
+        if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM', 'ÓTIMO', '5', '9', '10'].includes(valStr) || (isNum && num >= 9) || (isNum && type === 'SMILE 5' && num === 5) || (isNum && type === 'SMILE 4' && num === 4) || (isNum && type === 'Avaliação de 1 à 5' && num === 5)) {
           return 100;
-        } else if (['SATISFEITO', 'BOM', '4', '7', '8'].includes(valStr) || (isNum && num >= 7 && num <= 8) || (isNum && type === 'SMILE 5' && num === 4) || (isNum && type === 'SMILE 4' && num === 3)) {
+        } else if (['SATISFEITO', 'BOM', '4', '7', '8'].includes(valStr) || (isNum && num >= 7 && num <= 8) || (isNum && type === 'SMILE 5' && num === 4) || (isNum && type === 'SMILE 4' && num === 3) || (isNum && type === 'Avaliação de 1 à 5' && num === 4)) {
           return 75;
-        } else if (['REGULAR', 'MÉDIO', '3', '5', '6'].includes(valStr) || (isNum && num >= 5 && num <= 6) || (isNum && type === 'SMILE 5' && num === 3) || (isNum && type === 'SMILE 4' && num === 2)) {
+        } else if (['REGULAR', 'MÉDIO', '3', '5', '6'].includes(valStr) || (isNum && num >= 5 && num <= 6) || (isNum && type === 'SMILE 5' && num === 3) || (isNum && type === 'SMILE 4' && num === 2) || (isNum && type === 'Avaliação de 1 à 5' && num === 3)) {
           return 50;
-        } else if (['RUIM', 'PÉSSIMO', 'INSATISFEITO', 'MUITO INSATISFEITO', '2', '1', '0', '4', '3'].includes(valStr) || (isNum && num <= 4) || (isNum && type === 'SMILE 5' && num <= 2) || (isNum && type === 'SMILE 4' && num === 1)) {
+        } else if (['RUIM', 'PÉSSIMO', 'INSATISFEITO', 'MUITO INSATISFEITO', '2', '1', '0', '4', '3'].includes(valStr) || (isNum && num <= 4) || (isNum && type === 'SMILE 5' && num <= 2) || (isNum && type === 'SMILE 4' && num === 1) || (isNum && type === 'Avaliação de 1 à 5' && num <= 2)) {
           return 25;
         }
         return null;
@@ -1670,8 +1670,8 @@ app.patch("/api/platform-settings/:key", authenticateToken, async (req: any, res
 app.get("/api/companies", authenticateToken, async (req: any, res) => {
   if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
   const { page = "1", pageSize = "10" } = req.query;
-  const p = parseInt(page as string);
-  const ps = parseInt(pageSize as string);
+  const p = parseInt(page as string) || 1;
+  const ps = parseInt(pageSize as string) || 10;
   
   try {
     const [companies, count] = await prisma.$transaction([

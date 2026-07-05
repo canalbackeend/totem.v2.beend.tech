@@ -222,46 +222,6 @@ export default function SurveyWeb() {
         collaborator_name: collabAns?.answer || null
       });
 
-      const lastAnswerRaw = finalAnswers[finalAnswers.length - 1];
-      const lastAnswer = (lastAnswerRaw && typeof lastAnswerRaw === 'object' && !Array.isArray(lastAnswerRaw) && 'value' in lastAnswerRaw)
-         ? lastAnswerRaw.value
-         : lastAnswerRaw;
-
-      let updateData: any = {
-        responses_count: (campaign.responses_count || 0) + 1
-      };
-
-      if (typeof lastAnswer === 'string' || typeof lastAnswer === 'number') {
-        const val = typeof lastAnswer === 'string' ? lastAnswer.toUpperCase() : lastAnswer;
-
-        const isStarType = campaign.questions.find((q, i) => i === finalAnswers.length - 1)?.type === 'Avaliação de 1 à 5';
-        if (isStarType && typeof val === 'number') {
-          if (val === 5) {
-            updateData.perception_excelente = ((campaign as any).perception_excelente || 0) + 1;
-          } else if (val === 4) {
-            updateData.perception_bom = ((campaign as any).perception_bom || 0) + 1;
-          } else if (val === 3) {
-            updateData.perception_regular = ((campaign as any).perception_regular || 0) + 1;
-          } else {
-            updateData.perception_ruim = ((campaign as any).perception_ruim || 0) + 1;
-          }
-        } else if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
-          updateData.perception_excelente = ((campaign as any).perception_excelente || 0) + 1;
-        } else if (val === 'SATISFEITO' || val === 'BOM' || (typeof val === 'number' && val >= 7 && val <= 8)) {
-          updateData.perception_bom = ((campaign as any).perception_bom || 0) + 1;
-        } else if (val === 'REGULAR' || (typeof val === 'number' && val >= 5 && val <= 6)) {
-           updateData.perception_regular = ((campaign as any).perception_regular || 0) + 1;
-        } else if (val === 'RUIM' || val === 'PÉSSIMO' || val === 'INSATISFEITO' || val === 'MUITO INSATISFEITO' || (typeof val === 'number' && val <= 4)) {
-          updateData.perception_ruim = ((campaign as any).perception_ruim || 0) + 1;
-        }
-      }
-
-      try {
-        await api.patch(`/campaigns/${campaign.id}`, updateData);
-      } catch (e) {
-        console.warn('Skipped inline campaign PATCH update, backend handled it:', e);
-      }
-
       setStep('THANK_YOU');
 
       if (terminal.redirect_url && terminal.redirect_url.trim() !== '') {

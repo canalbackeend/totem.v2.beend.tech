@@ -408,38 +408,6 @@ export default function Survey() {
           };
         });
 
-        const { id: campId, ...updateData } = {
-          id: selectedCampaign.id,
-          responses_count: (selectedCampaign.responses_count || 0) + 1
-        } as any;
-
-        const ratingAnswer = formattedAnswers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(a?.type)) || formattedAnswers[formattedAnswers.length - 1];
-        const lastAnswer = ratingAnswer ? ratingAnswer.answer : null;
-
-        if (typeof lastAnswer === 'string' || typeof lastAnswer === 'number') {
-          const val = typeof lastAnswer === 'string' ? lastAnswer.toUpperCase() : lastAnswer;
-
-          if (ratingAnswer?.type === 'Avaliação de 1 à 5' && typeof val === 'number') {
-            if (val === 5) {
-              updateData.perception_excelente = ((selectedCampaign as any).perception_excelente || 0) + 1;
-            } else if (val === 4) {
-              updateData.perception_bom = ((selectedCampaign as any).perception_bom || 0) + 1;
-            } else if (val === 3) {
-              updateData.perception_regular = ((selectedCampaign as any).perception_regular || 0) + 1;
-            } else {
-              updateData.perception_ruim = ((selectedCampaign as any).perception_ruim || 0) + 1;
-            }
-          } else if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
-            updateData.perception_excelente = ((selectedCampaign as any).perception_excelente || 0) + 1;
-          } else if (val === 'SATISFEITO' || val === 'BOM' || (typeof val === 'number' && val >= 7 && val <= 8)) {
-            updateData.perception_bom = ((selectedCampaign as any).perception_bom || 0) + 1;
-          } else if (val === 'REGULAR' || (typeof val === 'number' && val >= 5 && val <= 6)) {
-             updateData.perception_regular = ((selectedCampaign as any).perception_regular || 0) + 1;
-          } else if (val === 'RUIM' || val === 'PÉSSIMO' || val === 'INSATISFEITO' || val === 'MUITO INSATISFEITO' || (typeof val === 'number' && val <= 4)) {
-            updateData.perception_ruim = ((selectedCampaign as any).perception_ruim || 0) + 1;
-          }
-        }
-
         // Save response using internal API
         const collabAns = formattedAnswers.find((a: any) => a.type === 'Colaborador');
         await api.post('/responses', {
@@ -449,13 +417,6 @@ export default function Survey() {
           collaborator_name: collabAns?.answer || null
         });
 
-        // Update campaign counts
-        try {
-          await api.patch(`/campaigns/${selectedCampaign.id}`, updateData);
-        } catch (e) {
-          console.warn('Skipped inline campaign PATCH update, backend handled it:', e);
-        }
-        
         success = true;
         setStep('THANK_YOU');
         startRestartCountdown();
