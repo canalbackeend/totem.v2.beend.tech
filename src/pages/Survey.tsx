@@ -245,13 +245,7 @@ export default function Survey() {
     if (inactivityTimerRef.current) clearInterval(inactivityTimerRef.current);
     setRemainingTime(60);
     inactivityTimerRef.current = setInterval(() => {
-      setRemainingTime(prev => {
-        if (prev <= 1) {
-          resetSurvey();
-          return 60;
-        }
-        return prev - 1;
-      });
+      setRemainingTime(prev => Math.max(0, prev - 1));
     }, 1000);
   }, []);
 
@@ -270,9 +264,22 @@ export default function Survey() {
     startInactivityTimer();
   }, [availableCampaigns.length, startInactivityTimer]);
 
+  useEffect(() => {
+    if (remainingTime <= 0 && (step === 'SURVEY' || step === 'SELECTION')) {
+      resetSurvey();
+    }
+  }, [remainingTime, step, resetSurvey]);
+
+  useEffect(() => {
+    return () => {
+      if (inactivityTimerRef.current) clearInterval(inactivityTimerRef.current);
+    };
+  }, []);
+
   const handleTouch = () => {
     if (step === 'SURVEY' || step === 'SELECTION') {
       setRemainingTime(60);
+      if (step === 'SURVEY') startInactivityTimer();
     }
   };
 
