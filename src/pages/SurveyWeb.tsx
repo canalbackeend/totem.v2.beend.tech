@@ -389,7 +389,7 @@ export default function SurveyWeb() {
                 onClick={() => handleAnswer(val)}
                 className="flex flex-row items-center gap-4 p-5 rounded-[3rem] border-2 border-b-[6px] text-left transition-all group shadow-sm"
                 style={{
-                  backgroundColor: isSelected ? `${optColor}15` : '#ffffff',
+                  backgroundColor: isSelected ? `${optColor}25` : `${optColor}8`,
                   borderColor: optColor,
                   borderBottomColor: optColor,
                 }}

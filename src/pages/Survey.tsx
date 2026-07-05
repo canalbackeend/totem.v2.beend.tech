@@ -884,7 +884,7 @@ const cardColors = [
                 onClick={() => handleAnswer(opt.text)}
                 className="flex flex-row items-center gap-4 p-5 rounded-[3rem] border-2 border-b-[6px] text-left transition-all group"
                 style={{
-                  backgroundColor: isSelected ? `${optColor}35` : `${optColor}15`,
+                  backgroundColor: isSelected ? `${optColor}50` : `${optColor}25`,
                   borderColor: optColor,
                   borderBottomColor: optColor,
                 }}
