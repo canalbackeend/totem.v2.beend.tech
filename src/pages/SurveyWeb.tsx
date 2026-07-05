@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
 import {
   CheckCircle2,
+  ChevronRight,
   Frown,
   Meh,
   Smile,
@@ -367,7 +368,7 @@ export default function SurveyWeb() {
 
     if (isSingleChoice(q.type) || isMultipleChoice(q.type)) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-2xl mx-auto">
+        <div className="flex flex-col gap-3 w-full max-w-2xl mx-auto">
           {q.options?.map((opt, idx) => {
             const val = opt.value ?? opt.text;
             const rawAnswer = answers[currentQuestionIndex];
@@ -378,6 +379,7 @@ export default function SurveyWeb() {
             const isSelected = isMultipleChoice(q.type) 
               ? (Array.isArray(currentAnswer) ? currentAnswer.includes(val) : false)
               : currentAnswer === val;
+            const optColor = opt.color || '#3b82f6';
               
             return (
               <motion.button
@@ -385,20 +387,36 @@ export default function SurveyWeb() {
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleAnswer(val)}
-                className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all ${
-                  isSelected 
-                    ? 'bg-blue-50 border-blue-500 shadow-md' 
-                    : 'bg-white border-slate-100 shadow-sm hover:shadow-md hover:border-slate-300'
-                }`}
+                className="flex flex-row items-center gap-4 p-5 rounded-[3rem] border-2 border-b-[6px] text-left transition-all group shadow-sm"
+                style={{
+                  backgroundColor: isSelected ? `${optColor}20` : '#ffffff',
+                  borderColor: isSelected ? optColor : `${optColor}40`,
+                  borderBottomColor: isSelected ? optColor : `${optColor}30`,
+                }}
               >
-                <div className={`w-6 h-6 rounded-md border-2 flex shrink-0 items-center justify-center transition-colors ${
-                  isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-slate-200 text-transparent'
-                }`}>
-                  <CheckCircle2 size={16} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                  style={{ backgroundColor: isSelected ? `${optColor}15` : '#f1f5f9' }}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                    isSelected ? 'scale-110' : ''
+                  }`} style={{ color: isSelected ? optColor : '#94a3b8' }}>
+                    {isMultipleChoice(q.type) ? (isSelected ? '✓' : '□') : (isSelected ? '●' : '○')}
+                  </span>
                 </div>
-                <span className={`text-md font-bold text-left w-full ${isSelected ? 'text-blue-700' : 'text-slate-700'}`}>
-                  {opt.text}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <span className={`text-xl font-black uppercase tracking-tight block truncate ${
+                    isSelected ? '' : 'text-slate-700'
+                  }`} style={{ color: isSelected ? optColor : undefined }}>
+                    {opt.text}
+                  </span>
+                </div>
+                <div className="shrink-0">
+                  <div className="p-1.5 rounded-full group-hover:translate-x-2 transition-transform"
+                    style={{ backgroundColor: isSelected ? `${optColor}15` : '#f1f5f9' }}
+                  >
+                    <ChevronRight className="w-4 h-4" style={{ color: isSelected ? optColor : '#94a3b8' }} />
+                  </div>
+                </div>
               </motion.button>
             );
           })}

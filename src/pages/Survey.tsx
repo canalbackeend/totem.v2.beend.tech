@@ -869,11 +869,12 @@ const cardColors = [
       }
       
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl mx-auto">
+        <div className="flex flex-col gap-3 w-full max-w-2xl mx-auto">
           {(q.options || []).map((opt, idx) => {
             const isSelected = isMultipleChoice(q.type) 
               ? currentAnswers.includes(opt.text)
               : currentTextAnswer === opt.text;
+            const optColor = opt.color || '#3b82f6';
 
             return (
               <motion.button
@@ -881,20 +882,34 @@ const cardColors = [
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => handleAnswer(opt.text)}
-                className={`flex items-center gap-4 p-6 rounded-[2rem] border-2 transition-all text-left ${
-                  isSelected 
-                    ? 'bg-blue-500/10 border-blue-500 shadow-lg shadow-blue-500/10' 
-                    : 'bg-zinc-900 border-white/5'
-                }`}
+                className="flex flex-row items-center gap-4 p-5 rounded-[3rem] border-2 border-b-[6px] text-left transition-all group"
+                style={{
+                  backgroundColor: isSelected ? `${optColor}35` : `${optColor}15`,
+                  borderColor: isSelected ? optColor : `${optColor}50`,
+                  borderBottomColor: isSelected ? optColor : `${optColor}40`,
+                }}
               >
-                <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center transition-colors ${
-                  isSelected ? 'bg-blue-500 border-blue-500 text-white' : 'bg-black border-white/10 text-transparent'
-                }`}>
-                  <CheckCircle2 size={16} />
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors"
+                  style={{ backgroundColor: `${optColor}25` }}
+                >
+                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                    isSelected ? 'scale-110' : ''
+                  }`} style={{ color: optColor }}>
+                    {isMultipleChoice(q.type) ? (isSelected ? '✓' : '□') : (isSelected ? '●' : '○')}
+                  </span>
                 </div>
-                <span className={`text-xl font-black uppercase tracking-tight ${isSelected ? 'text-blue-500' : 'text-zinc-300'}`}>
-                  {opt.text}
-                </span>
+                <div className="flex-1 min-w-0">
+                  <span className="text-xl font-black uppercase tracking-tight block truncate text-white">
+                    {opt.text}
+                  </span>
+                </div>
+                <div className="shrink-0">
+                  <div className="p-1.5 rounded-full group-hover:translate-x-2 transition-transform"
+                    style={{ backgroundColor: `${optColor}25` }}
+                  >
+                    <ChevronRight className="w-4 h-4" style={{ color: optColor }} />
+                  </div>
+                </div>
               </motion.button>
             );
           })}
