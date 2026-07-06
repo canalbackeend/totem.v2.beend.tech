@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { api } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
+import { useTheme } from '../contexts/ThemeContext';
 import {
   CheckCircle2,
   ChevronRight,
@@ -64,6 +65,8 @@ const hasMultipleChoiceValue = (ans: any) => {
 
 export default function SurveyWeb() {
   const { terminalId, campaignId } = useParams();
+  const { theme } = useTheme();
+  const isDarkMode = theme === 'dark';
   const [loading, setLoading] = useState(true);
   const [terminal, setTerminal] = useState<Terminal | null>(null);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -275,14 +278,14 @@ export default function SurveyWeb() {
                 onClick={() => handleAnswer(opt.value)}
                 className={`flex flex-col items-center gap-2 group shrink min-w-0 flex-1 w-full ${isSelected ? 'scale-105' : ''}`}
               >
-                <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[5rem] md:max-w-[6rem] mx-auto shrink-0 rounded-2xl bg-white border-2 flex items-center justify-center transition-all ${isSelected ? 'border-blue-500 shadow-xl' : 'border-slate-100 shadow-sm hover:shadow-md'}`}>
+                <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[5rem] md:max-w-[6rem] mx-auto shrink-0 rounded-2xl border-2 flex items-center justify-center transition-all ${isSelected ? 'border-blue-500 shadow-xl' : (isDarkMode ? 'border-zinc-700 bg-zinc-900 shadow-sm' : 'border-slate-100 bg-white shadow-sm hover:shadow-md')}`}>
                   <opt.icon
                     className={`w-8 h-8 sm:w-10 sm:h-10 transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}
                     style={{ color: opt.color }}
                     strokeWidth={1.5}
                   />
                 </div>
-                <span className={`text-[10px] sm:text-xs font-bold text-center leading-tight transition-colors line-clamp-2 ${isSelected ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-800'}`}>
+                <span className={`text-[10px] sm:text-xs font-bold text-center leading-tight transition-colors line-clamp-2 ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-zinc-400 group-hover:text-zinc-200' : 'text-slate-500 group-hover:text-slate-800')}`}>
                   {opt.label}
                 </span>
               </motion.button>
@@ -310,14 +313,14 @@ export default function SurveyWeb() {
                 onClick={() => handleAnswer(opt.value)}
                 className={`flex flex-col items-center gap-2 group shrink min-w-0 flex-1 w-full ${isSelected ? 'scale-105' : ''}`}
               >
-                <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[5rem] md:max-w-[7rem] mx-auto shrink-0 rounded-2xl bg-white border-2 flex items-center justify-center transition-all ${isSelected ? 'border-blue-500 shadow-xl' : 'border-slate-100 shadow-sm hover:shadow-md'}`}>
+                <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[5rem] md:max-w-[7rem] mx-auto shrink-0 rounded-2xl border-2 flex items-center justify-center transition-all ${isSelected ? 'border-blue-500 shadow-xl' : (isDarkMode ? 'border-zinc-700 bg-zinc-900 shadow-sm' : 'border-slate-100 bg-white shadow-sm hover:shadow-md')}`}>
                   <opt.icon
                     className={`w-8 h-8 sm:w-10 sm:h-10 transition-transform ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}
                     style={{ color: opt.color }}
                     strokeWidth={1.5}
                   />
                 </div>
-                <span className={`text-[10px] sm:text-xs font-bold text-center leading-tight transition-colors line-clamp-2 ${isSelected ? 'text-blue-600' : 'text-slate-500 group-hover:text-slate-800'}`}>
+                <span className={`text-[10px] sm:text-xs font-bold text-center leading-tight transition-colors line-clamp-2 ${isSelected ? 'text-blue-600' : (isDarkMode ? 'text-zinc-400 group-hover:text-zinc-200' : 'text-slate-500 group-hover:text-slate-800')}`}>
                   {opt.label}
                 </span>
               </motion.button>
@@ -341,7 +344,7 @@ export default function SurveyWeb() {
                   whileHover={{ scale: 1.05, y: -2 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => handleAnswer(num)}
-                  className={`flex-1 max-w-[60px] aspect-square rounded-xl border-2 shadow-sm flex items-center justify-center text-lg sm:text-xl font-black transition-all min-w-0 shrink ${isSelected ? 'scale-110 shadow-lg ring-2 ring-offset-1' : 'border-slate-100 bg-white hover:shadow-md hover:border-transparent'}`}
+                  className={`flex-1 max-w-[60px] aspect-square rounded-xl border-2 shadow-sm flex items-center justify-center text-lg sm:text-xl font-black transition-all min-w-0 shrink ${isSelected ? 'scale-110 shadow-lg ring-2 ring-offset-1' : (isDarkMode ? 'border-zinc-700 bg-zinc-900 text-white hover:shadow-md hover:border-transparent' : 'border-slate-100 bg-white hover:shadow-md hover:border-transparent')}`}
                   style={{ color, ...isSelected ? { borderColor: color, backgroundColor: '#f8fafc', '--tw-ring-color': color } as React.CSSProperties : {} }}
                 >
                   {num}
@@ -379,7 +382,7 @@ export default function SurveyWeb() {
                 className={`flex flex-col items-center gap-2 sm:gap-4 group shrink min-w-0 flex-1 w-full ${isFilled ? 'scale-110' : ''}`}
               >
                 <div className={`w-full aspect-square max-w-[4rem] sm:max-w-[6rem] md:max-w-[8rem] mx-auto shrink-0 rounded-2xl sm:rounded-[2.5rem] border-2 flex items-center justify-center transition-all shadow-sm ${
-                  isFilled ? 'border-blue-500 shadow-xl shadow-blue-500/20 bg-white' : 'border-slate-200 bg-white group-hover:border-slate-300'
+                  isFilled ? 'border-blue-500 shadow-xl shadow-blue-500/20' : (isDarkMode ? 'border-zinc-700 bg-zinc-900 group-hover:border-zinc-600' : 'border-slate-200 bg-white group-hover:border-slate-300')
                 }`}>
                   <Star
                     className={`w-8 h-8 sm:w-12 sm:h-12 md:w-16 md:h-16 transition-all ${isFilled ? 'scale-110' : 'group-hover:scale-110'}`}
@@ -388,8 +391,8 @@ export default function SurveyWeb() {
                     fill={isFilled ? opt.color : 'transparent'}
                   />
                 </div>
-                <span className="text-xl sm:text-2xl md:text-3xl font-black text-slate-700">{opt.value}</span>
-                <span className={`text-[10px] sm:text-xs font-black uppercase tracking-widest text-center transition-colors ${isFilled ? 'text-blue-500' : 'text-slate-400 group-hover:text-slate-600'}`}>{opt.label}</span>
+                <span className={`text-xl sm:text-2xl md:text-3xl font-black ${isDarkMode ? 'text-white' : 'text-slate-700'}`}>{opt.value}</span>
+                <span className={`text-[10px] sm:text-xs font-black uppercase tracking-widest text-center transition-colors ${isFilled ? 'text-blue-500' : (isDarkMode ? 'text-zinc-500 group-hover:text-zinc-300' : 'text-slate-400 group-hover:text-slate-600')}`}>{opt.label}</span>
               </motion.button>
             );
           })}
@@ -436,7 +439,7 @@ export default function SurveyWeb() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <span className={`text-lg font-black uppercase tracking-tight block truncate ${
-                    isSelected ? '' : 'text-slate-700'
+                    isSelected ? '' : (isDarkMode ? 'text-zinc-200' : 'text-slate-700')
                   }`} style={{ color: isSelected ? optColor : undefined }}>
                     {opt.text}
                   </span>
@@ -470,18 +473,18 @@ export default function SurveyWeb() {
                 className="flex flex-col items-center gap-2 group w-24 sm:w-32"
               >
                 <div className={`w-20 h-20 sm:w-28 sm:h-28 rounded-full border-4 overflow-hidden transition-all shadow-sm ${
-                  isSelected ? 'border-blue-500 shadow-md' : 'border-slate-100 group-hover:border-slate-300'
+                  isSelected ? 'border-blue-500 shadow-md' : (isDarkMode ? 'border-zinc-700 group-hover:border-zinc-500' : 'border-slate-100 group-hover:border-slate-300')
                 }`}>
                   {opt.image ? (
                     <img src={opt.image} alt={opt.text} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   ) : (
-                    <div className="w-full h-full bg-slate-100 flex items-center justify-center">
-                      <UserCircle2 size={48} className="text-slate-400" />
+                    <div className={`w-full h-full flex items-center justify-center ${isDarkMode ? 'bg-zinc-800' : 'bg-slate-100'}`}>
+                      <UserCircle2 size={48} className={`${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`} />
                     </div>
                   )}
                 </div>
                 <span className={`text-xs sm:text-sm font-bold text-center truncate w-full ${
-                  isSelected ? 'text-blue-600' : 'text-slate-600'
+                  isSelected ? 'text-blue-600' : (isDarkMode ? 'text-zinc-400' : 'text-slate-600')
                 }`}>
                   {opt.text}
                 </span>
@@ -498,7 +501,7 @@ export default function SurveyWeb() {
           <textarea 
             value={currentComment}
             onChange={(e) => setCurrentComment(e.target.value)}
-            className="w-full h-40 bg-white border-2 border-slate-200 text-slate-800 rounded-2xl p-6 text-lg focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all resize-none shadow-sm"
+            className={`w-full h-40 border-2 rounded-2xl p-6 text-lg focus:outline-none focus:border-blue-500 focus:ring-4 transition-all resize-none shadow-sm ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white focus:ring-blue-500/20' : 'bg-white border-slate-200 text-slate-800 focus:ring-blue-100'}`}
             placeholder="Digite sua resposta aqui..."
           />
         </div>
@@ -513,29 +516,29 @@ export default function SurveyWeb() {
     const progress = ((currentQuestionIndex) / (campaign?.questions.length || 1)) * 100;
 
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900 font-sans">
-        <header className="p-4 md:p-6 flex items-center justify-between border-b border-slate-200 bg-white shadow-sm">
+      <div className={`min-h-screen flex flex-col font-sans ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
+        <header className={`p-4 md:p-6 flex items-center justify-between border-b shadow-sm ${isDarkMode ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-3">
             {terminal?.logo_url ? (
               <img src={terminal.logo_url} alt="Logo" className="h-10 w-auto object-contain" referrerPolicy="no-referrer" />
             ) : (
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <Building2 className="text-blue-600 w-5 h-5" />
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-100'}`}>
+                <Building2 className={`w-5 h-5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
               </div>
             )}
             <div>
-              <h2 className="text-lg font-black text-slate-800 uppercase tracking-tight">{terminal?.company_name || 'Pesquisa'}</h2>
-              <p className="text-slate-500 text-[10px] font-bold uppercase tracking-widest">{campaign?.name}</p>
+              <h2 className={`text-lg font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{terminal?.company_name || 'Pesquisa'}</h2>
+              <p className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>{campaign?.name}</p>
             </div>
           </div>
           <div className="flex flex-col items-end">
-            <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Progresso</span>
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Progresso</span>
             <span className="text-sm font-black text-blue-600">{currentQuestionIndex + 1} / {campaign?.questions.length}</span>
           </div>
         </header>
 
         {/* Progress Bar */}
-        <div className="h-1.5 w-full bg-slate-200">
+        <div className={`h-1.5 w-full ${isDarkMode ? 'bg-zinc-900' : 'bg-slate-200'}`}>
           <motion.div 
             className="h-full bg-blue-500"
             initial={{ width: 0 }}
@@ -555,13 +558,13 @@ export default function SurveyWeb() {
               className="w-full max-w-4xl flex flex-col items-center justify-center gap-8 md:gap-12"
             >
               <div className="text-center space-y-3 max-w-3xl">
-                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-[10px] font-bold uppercase tracking-widest rounded-full mb-2">
+                <span className={`inline-block px-3 py-1 text-[10px] font-bold uppercase tracking-widest rounded-full mb-2 ${isDarkMode ? 'bg-blue-500/20 text-blue-400' : 'bg-blue-100 text-blue-700'}`}>
                   Pergunta {currentQuestionIndex + 1}
                 </span>
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-slate-800 leading-tight">
+                <h1 className={`text-2xl md:text-3xl lg:text-4xl font-black leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
                   {currentQuestion.text}
                 </h1>
-                <p className="text-slate-500 font-bold uppercase tracking-widest text-[11px]">Por favor, escolha uma das opções abaixo</p>
+                <p className={`font-bold uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Por favor, escolha uma das opções abaixo</p>
               </div>
 
               <div className="w-full">
@@ -571,11 +574,11 @@ export default function SurveyWeb() {
               {(currentQuestion.allowComment && currentQuestion.type !== 'Texto Aberto') && (
                 <div className="flex justify-center mt-6 w-full max-w-2xl mx-auto">
                   <div className="w-full">
-                    <label className="block text-center text-slate-500 text-[10px] font-bold uppercase tracking-widest mb-2">Comentário Adicional (Opcional)</label>
+                    <label className={`block text-center text-[10px] font-bold uppercase tracking-widest mb-2 ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Comentário Adicional (Opcional)</label>
                     <textarea 
                       value={currentComment}
                       onChange={(e) => setCurrentComment(e.target.value)}
-                      className="w-full bg-white border-2 border-slate-200 text-slate-800 rounded-xl p-4 text-base focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all resize-none shadow-sm h-24"
+                      className={`w-full border-2 rounded-xl p-4 text-base focus:outline-none focus:border-blue-500 focus:ring-4 transition-all resize-none shadow-sm h-24 ${isDarkMode ? 'bg-zinc-900 border-zinc-700 text-white focus:ring-blue-500/20' : 'bg-white border-slate-200 text-slate-800 focus:ring-blue-100'}`}
                       placeholder="Quer deixar mais algum detalhe? (opcional)"
                     />
                   </div>
@@ -606,15 +609,15 @@ export default function SurveyWeb() {
   };
 
   const renderThankYou = () => (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-center space-y-8 text-slate-800 font-sans">
-      <div className="flex flex-col items-center gap-6 max-w-md w-full p-8 bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100">
+    <div className={`min-h-screen flex flex-col items-center justify-center p-6 text-center space-y-8 font-sans ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`}>
+      <div className={`flex flex-col items-center gap-6 max-w-md w-full p-8 rounded-3xl shadow-xl border ${isDarkMode ? 'bg-zinc-900 border-zinc-800 shadow-black/30' : 'bg-white border-slate-100 shadow-slate-200/50'}`}>
         <motion.div 
           initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: 1, rotate: 0 }}
           transition={{ type: 'spring', damping: 10, stiffness: 100 }}
-          className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center border border-green-200"
+          className={`w-24 h-24 rounded-full flex items-center justify-center border ${isDarkMode ? 'bg-green-500/20 border-green-500/30' : 'bg-green-100 border-green-200'}`}
         >
-          <CheckCircle2 className="w-12 h-12 text-green-600" />
+          <CheckCircle2 className={`w-12 h-12 ${isDarkMode ? 'text-green-400' : 'text-green-600'}`} />
         </motion.div>
 
         {terminal?.logo_url && (
@@ -629,13 +632,13 @@ export default function SurveyWeb() {
         )}
 
         <div className="space-y-3 mt-4">
-          <h2 className="text-3xl font-black tracking-tight text-slate-900">Obrigado!</h2>
-          <p className="text-slate-500 font-medium text-sm">Sua opinião é muito importante para nós e foi registrada com sucesso.</p>
+          <h2 className={`text-3xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>Obrigado!</h2>
+          <p className={`font-medium text-sm ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Sua opinião é muito importante para nós e foi registrada com sucesso.</p>
         </div>
         
         {terminal?.redirect_url && terminal.redirect_url.trim() !== '' && (
           <div className="mt-8">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-2">
+            <span className={`text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
               <Loader2 className="w-3 h-3 animate-spin"/> Redirecionando...
             </span>
           </div>
@@ -645,7 +648,7 @@ export default function SurveyWeb() {
   );
 
   const renderSelection = () => (
-    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800 font-sans">
+    <div className={`min-h-screen flex flex-col items-center justify-center p-6 font-sans ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`}>
       <div className="w-full max-w-lg space-y-8">
         <div className="text-center space-y-2">
           {terminal?.logo_url ? (
@@ -653,10 +656,10 @@ export default function SurveyWeb() {
           ) : (
             <Building2 className="w-16 h-16 mx-auto text-blue-500 mb-4" />
           )}
-          <h1 className="text-3xl font-black tracking-tight text-slate-900">
+          <h1 className={`text-3xl font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
             {terminal?.company_name || 'Pesquisa'}
           </h1>
-          <p className="text-slate-500 font-bold text-sm">
+          <p className={`font-bold text-sm ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>
             Selecione uma campanha para avaliar
           </p>
         </div>
@@ -671,15 +674,15 @@ export default function SurveyWeb() {
                 setCampaign(camp);
                 setStep('SURVEY');
               }}
-              className="w-full p-5 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left flex items-center justify-between group"
+              className={`w-full p-5 rounded-2xl border-2 transition-all text-left flex items-center justify-between group ${isDarkMode ? 'bg-zinc-900 border-zinc-700 hover:border-blue-500 hover:shadow-lg hover:shadow-blue-500/10' : 'bg-white border-slate-200 hover:border-blue-500 hover:shadow-lg'}`}
             >
               <div>
-                <h3 className="font-black text-slate-800 text-lg">{camp.name}</h3>
-                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
+                <h3 className={`font-black text-lg ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>{camp.name}</h3>
+                <p className={`text-xs font-bold uppercase tracking-widest mt-1 ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
                   {camp.questions?.length || 0} perguntas
                 </p>
               </div>
-              <ChevronRight className="w-6 h-6 text-slate-300 group-hover:text-blue-500 transition-colors" />
+              <ChevronRight className={`w-6 h-6 transition-colors ${isDarkMode ? 'text-zinc-600 group-hover:text-blue-400' : 'text-slate-300 group-hover:text-blue-500'}`} />
             </motion.button>
           ))}
         </div>
@@ -688,13 +691,13 @@ export default function SurveyWeb() {
   );
 
   const renderError = () => (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center text-slate-800 font-sans">
+    <div className={`min-h-screen flex items-center justify-center p-6 text-center font-sans ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-800'}`}>
       <div className="max-w-md space-y-4">
-        <Frown size={48} className="mx-auto text-slate-400" />
+        <Frown size={48} className={`mx-auto ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`} />
         <h2 className="text-2xl font-black">Pesquisa Indisponível</h2>
-        <p className="text-slate-500">Não foi possível carregar a pesquisa ou ela não está mais ativa no momento.</p>
+        <p className={`${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Não foi possível carregar a pesquisa ou ela não está mais ativa no momento.</p>
         {errorMsg && (
-          <p className="text-[10px] text-slate-400 font-mono mt-4 pt-4 border-t border-slate-200">
+          <p className={`text-[10px] font-mono mt-4 pt-4 border-t ${isDarkMode ? 'text-zinc-600 border-zinc-800' : 'text-slate-400 border-slate-200'}`}>
             Log: {errorMsg}
           </p>
         )}
@@ -704,9 +707,9 @@ export default function SurveyWeb() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+      <div className={`min-h-screen flex flex-col items-center justify-center ${isDarkMode ? 'bg-black' : 'bg-slate-50'}`}>
         <Loader2 className="w-12 h-12 animate-spin text-blue-500" />
-        <p className="mt-4 text-xs font-bold text-slate-500 uppercase tracking-widest">Carregando pesquisa...</p>
+        <p className={`mt-4 text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-400' : 'text-slate-500'}`}>Carregando pesquisa...</p>
       </div>
     );
   }
