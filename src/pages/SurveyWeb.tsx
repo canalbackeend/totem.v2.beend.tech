@@ -108,9 +108,8 @@ export default function SurveyWeb() {
         setCampaign(campData);
         setStep('SURVEY');
       } else {
-        const terminalCampaignNames = (termData.campaigns || "").split(',').map((c: string) => c.trim()).filter(Boolean);
-        const allCampaignsData = await api.get('/survey/campaigns');
-        const activeCampaigns = (allCampaignsData || []).filter((c: any) => c.status === 'Ativo' && terminalCampaignNames.includes(c.name));
+        const terminalCampaignsData = await api.get(`/survey/terminal/${terminalId}/campaigns`);
+        const activeCampaigns = terminalCampaignsData || [];
         
         if (activeCampaigns.length === 0) {
           throw new Error('Nenhuma campanha ativa vinculada a este terminal.');

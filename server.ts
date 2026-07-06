@@ -2369,6 +2369,31 @@ app.get("/api/survey/campaign/:id", async (req, res) => {
   }
 });
 
+app.get("/api/survey/terminal/:id/campaigns", async (req, res) => {
+  try {
+    const terminal = await prisma.terminal.findUnique({
+      where: { id: req.params.id }
+    });
+    if (!terminal || !terminal.campaigns) {
+      return res.json([]);
+    }
+
+    const campaignNames = terminal.campaigns.split(',').map((c: string) => c.trim()).filter(Boolean);
+
+    const allCampaigns = await prisma.campaign.findMany({
+      where: {
+        user_id: terminal.user_id,
+        status: 'Ativo'
+      }
+    });
+
+    const matched = allCampaigns.filter(c => campaignNames.includes(c.name));
+    res.json(matched);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Cron concurrency guard
 let cronRunning = false;
 
