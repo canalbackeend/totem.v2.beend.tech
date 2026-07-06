@@ -69,7 +69,8 @@ export default function SurveyWeb() {
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const [step, setStep] = useState<'LOADING' | 'SURVEY' | 'THANK_YOU' | 'ERROR'>('LOADING');
+  const [step, setStep] = useState<'LOADING' | 'SELECTION' | 'SURVEY' | 'THANK_YOU' | 'ERROR'>('LOADING');
+  const [availableCampaigns, setAvailableCampaigns] = useState<Campaign[]>([]);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<any[]>([]);
   const [currentComment, setCurrentComment] = useState("");
@@ -79,7 +80,7 @@ export default function SurveyWeb() {
   }, [terminalId, campaignId]);
 
   const fetchData = async () => {
-    if (!terminalId || !campaignId) {
+    if (!terminalId) {
       setStep('ERROR');
       return;
     }
@@ -87,7 +88,6 @@ export default function SurveyWeb() {
     setLoading(true);
     setErrorMsg(null);
     try {
-      // Fetch Terminal
       const termData = await api.get(`/survey/terminal/${terminalId}`);
       if (!termData) {
          throw new Error('Terminal não encontrado.');
@@ -95,18 +95,30 @@ export default function SurveyWeb() {
 
       setTerminal(termData);
 
-      // Fetch Campaign
-      const campData = await api.get(`/survey/campaign/${campaignId}`);
-      if (!campData) {
-        throw new Error('Campanha não encontrada.');
+      if (campaignId) {
+        const campData = await api.get(`/survey/campaign/${campaignId}`);
+        if (!campData) {
+          throw new Error('Campanha não encontrada.');
+        }
+        
+        if (campData.status !== 'Ativo') {
+          throw new Error('Esta campanha não está mais ativa.');
+        }
+        
+        setCampaign(campData);
+        setStep('SURVEY');
+      } else {
+        const terminalCampaignNames = (termData.campaigns || "").split(',').map((c: string) => c.trim()).filter(Boolean);
+        const allCampaignsData = await api.get('/survey/campaigns');
+        const activeCampaigns = (allCampaignsData || []).filter((c: any) => c.status === 'Ativo' && terminalCampaignNames.includes(c.name));
+        
+        if (activeCampaigns.length === 0) {
+          throw new Error('Nenhuma campanha ativa vinculada a este terminal.');
+        }
+        
+        setAvailableCampaigns(activeCampaigns);
+        setStep('SELECTION');
       }
-      
-      if (campData.status !== 'Ativo') {
-        throw new Error('Esta campanha não está mais ativa.');
-      }
-      
-      setCampaign(campData);
-      setStep('SURVEY');
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Erro desconhecido');
@@ -633,6 +645,49 @@ export default function SurveyWeb() {
     </div>
   );
 
+  const renderSelection = () => (
+    <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-6 text-slate-800 font-sans">
+      <div className="w-full max-w-lg space-y-8">
+        <div className="text-center space-y-2">
+          {terminal?.logo_url ? (
+            <img src={terminal.logo_url} alt="Logo" className="h-16 mx-auto object-contain mb-4" referrerPolicy="no-referrer" />
+          ) : (
+            <Building2 className="w-16 h-16 mx-auto text-blue-500 mb-4" />
+          )}
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">
+            {terminal?.company_name || 'Pesquisa'}
+          </h1>
+          <p className="text-slate-500 font-bold text-sm">
+            Selecione uma campanha para avaliar
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          {availableCampaigns.map((camp) => (
+            <motion.button
+              key={camp.id}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                setCampaign(camp);
+                setStep('SURVEY');
+              }}
+              className="w-full p-5 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-500 hover:shadow-lg transition-all text-left flex items-center justify-between group"
+            >
+              <div>
+                <h3 className="font-black text-slate-800 text-lg">{camp.name}</h3>
+                <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
+                  {camp.questions?.length || 0} perguntas
+                </p>
+              </div>
+              <ChevronRight className="w-6 h-6 text-slate-300 group-hover:text-blue-500 transition-colors" />
+            </motion.button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
   const renderError = () => (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 text-center text-slate-800 font-sans">
       <div className="max-w-md space-y-4">
@@ -658,6 +713,7 @@ export default function SurveyWeb() {
   }
 
   switch (step) {
+    case 'SELECTION': return renderSelection();
     case 'SURVEY': return renderSurvey();
     case 'THANK_YOU': return renderThankYou();
     case 'ERROR': return renderError();

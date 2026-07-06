@@ -53,6 +53,7 @@ export default function App() {
           <Route path="/survey" element={<Survey />} />
           <Route path="/survey-offline" element={<SurveyOffline />} />
           <Route path="/survey-web/:terminalId/:campaignId" element={<SurveyWeb />} />
+          <Route path="/survey-web/:terminalId" element={<SurveyWeb />} />
           <Route path="/relatorio-seguro/:token?" element={<SecureReport />} />
           <Route path="/download" element={<ApkDownload />} />
           

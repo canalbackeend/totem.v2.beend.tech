@@ -407,48 +407,25 @@ export default function Terminals() {
 
                     {/* Action Buttons */}
                     <div className={`flex items-center gap-2 border-l pl-6 transition-colors ${isDarkMode ? 'border-white/5' : 'border-slate-100'}`}>
-                      {(() => {
-                        const termCampaigns = (term.campaigns || "").split(',').map(c => c.trim());
-                        const activeCamps = campaignsList.filter(c => termCampaigns.includes(c.name));
-                        if (activeCamps.length > 1) {
-                          return (
-                            <div className="relative">
-                              <select
-                                onChange={(e) => {
-                                  if (e.target.value) {
-                                    window.open(`${window.location.origin}/survey-web/${term.id}/${e.target.value}`, '_blank');
-                                    e.target.value = '';
-                                  }
-                                }}
-                                className={`appearance-none p-2 rounded-md text-xs font-bold cursor-pointer outline-none transition-colors ${isDarkMode ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 border border-white/10' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200'}`}
-                                style={{ paddingRight: '1.5rem', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center', backgroundSize: '12px' }}
-                              >
-                                <option value="">Visualizar</option>
-                                {activeCamps.map((camp: any) => (
-                                  <option key={camp.id} value={camp.id}>{camp.name}</option>
-                                ))}
-                              </select>
-                            </div>
-                          );
-                        }
-                        return (
-                          <motion.button 
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            title="Visualizar"
-                            onClick={() => {
-                              if (activeCamps.length > 0) {
-                                window.open(`${window.location.origin}/survey-web/${term.id}/${activeCamps[0].id}`, '_blank');
-                              } else {
-                                toast.error('Nenhuma campanha vinculada encontrada.');
-                              }
-                            }}
-                            className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-zinc-600 hover:text-blue-500 hover:bg-white/5' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-50'}`}
-                          >
-                            <Eye size={18} />
-                          </motion.button>
-                        );
-                      })()}
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        title="Visualizar"
+                        onClick={() => {
+                          const termCampaigns = (term.campaigns || "").split(',').map(c => c.trim());
+                          const activeCamps = campaignsList.filter(c => termCampaigns.includes(c.name));
+                          if (activeCamps.length === 1) {
+                            window.open(`${window.location.origin}/survey-web/${term.id}/${activeCamps[0].id}`, '_blank');
+                          } else if (activeCamps.length > 1) {
+                            window.open(`${window.location.origin}/survey-web/${term.id}`, '_blank');
+                          } else {
+                            toast.error('Nenhuma campanha vinculada encontrada.');
+                          }
+                        }}
+                        className={`p-2 rounded-full transition-colors ${isDarkMode ? 'text-zinc-600 hover:text-blue-500 hover:bg-white/5' : 'text-slate-400 hover:text-blue-500 hover:bg-slate-50'}`}
+                      >
+                        <Eye size={18} />
+                      </motion.button>
                       
                       <motion.button 
                         whileHover={{ scale: 1.1 }}
