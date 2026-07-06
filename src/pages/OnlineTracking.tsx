@@ -33,7 +33,7 @@ interface TrackingTerminal {
   plano: string;
   admissao: string;
   vencimento: string;
-  campanha: string;
+  campanhas: string[];
   terminal: string;
   dataUltimoRegistro: string | null;
   status: 'online' | 'offline';
@@ -142,7 +142,7 @@ export default function OnlineTracking() {
       const absoluteLatest = latestInteractionByTerminal[t.id];
       const isOnline = absoluteLatest ? isToday(parseISO(absoluteLatest.created_at)) : false;
       
-      let termCampaigns = t.campaigns || 'N/A';
+      const termCampaigns = t.campaigns ? t.campaigns.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
       
       const userProfile = profilesMap[t.user_id] || {};
       const responsavel = userProfile.empresa || 'N/A';
@@ -170,7 +170,7 @@ export default function OnlineTracking() {
         plano: planStatus,
         admissao: t.created_at ? format(parseISO(t.created_at), 'dd/MM/yyyy') : 'N/A',
         vencimento,
-        campanha: termCampaigns,
+        campanhas: termCampaigns,
         terminal: t.name,
         dataUltimoRegistro: latestInPeriod ? format(parseISO(latestInPeriod.created_at), 'dd/MM/yyyy HH:mm') : null,
         status: (isOnline ? 'online' : 'offline') as 'online' | 'offline'
@@ -189,7 +189,7 @@ export default function OnlineTracking() {
       filteredData = tData.filter(d => 
         d.terminal.toLowerCase().includes(q) || 
         d.responsavel.toLowerCase().includes(q) ||
-        d.campanha.toLowerCase().includes(q)
+        d.campanhas.some((c: string) => c.toLowerCase().includes(q))
       );
     }
 
@@ -370,10 +370,15 @@ export default function OnlineTracking() {
                               <span className={`w-2 h-2 rounded-full ${item.status === 'online' ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
                               {item.terminal}
                             </span>
-                            <span className={`text-[10px] font-bold flex items-center gap-1 mt-1 ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>
-                              <Tag size={10} />
-                              {item.campanha}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {item.campanhas.length > 0 ? item.campanhas.map((c: string, cIdx: number) => (
+                                <span key={cIdx} className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isDarkMode ? 'bg-zinc-800 text-zinc-400' : 'bg-slate-100 text-slate-500'}`}>
+                                  {c}
+                                </span>
+                              )) : (
+                                <span className={`text-[10px] font-bold ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>N/A</span>
+                              )}
+                            </div>
                           </div>
                         </td>
                       <td className="px-6 py-5">

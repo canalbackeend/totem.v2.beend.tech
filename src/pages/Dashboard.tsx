@@ -271,8 +271,7 @@ export default function Dashboard() {
                 try {
                   terminalCampaignNames = JSON.parse(terminalCampaignNames);
                 } catch (e) {
-                  // If it's just a raw value or empty
-                  terminalCampaignNames = terminalCampaignNames ? [terminalCampaignNames] : [];
+                  terminalCampaignNames = terminalCampaignNames ? terminalCampaignNames.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
                 }
               }
               const namesArray = Array.isArray(terminalCampaignNames) ? terminalCampaignNames : [];
@@ -784,7 +783,7 @@ export default function Dashboard() {
             doc.setFillColor(242, 244, 246);
             doc.rect(barStartX, currentY, barW, 4, 'F');
 
-            const ratio = qStats.respondentCount > 0 ? (opt.count / qStats.respondentCount) : 0;
+            const ratio = qStats.count > 0 ? (opt.count / qStats.count) : 0;
             if (ratio > 0) {
               const col = categoricalColors[oIdx % categoricalColors.length];
               doc.setFillColor(col[0], col[1], col[2]);
