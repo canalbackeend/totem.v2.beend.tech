@@ -2,7 +2,7 @@ import { motion } from 'motion/react';
 import { Plus, Search, Filter, Calendar, Users, CheckCircle2, Pencil, RotateCcw, Trash2, XCircle, Smile, Meh, Frown, Copy } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -33,6 +33,8 @@ export default function Campaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [visibleCount, setVisibleCount] = useState(5);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const fetchCampaigns = async () => {
     if (!user) return;
@@ -65,6 +67,24 @@ export default function Campaigns() {
       document.removeEventListener('visibilitychange', handleFocus);
     };
   }, [user, location.pathname]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount(prev => {
+          const filtered = campaigns.filter(camp =>
+            camp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (camp.company_name && camp.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+          );
+          return prev < filtered.length ? prev + 5 : prev;
+        });
+      }
+    }, { rootMargin: '100px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [campaigns, searchTerm]);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Ativo' ? 'Inativo' : 'Ativo';
@@ -192,7 +212,7 @@ export default function Campaigns() {
             ) : campaigns.filter(camp => 
               camp.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
               (camp.company_name && camp.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
-            ).map((camp, idx) => {
+            ).slice(0, visibleCount).map((camp, idx) => {
               const primaryQ = camp.questions?.find((q: any) => ['SMILE 4', 'SMILE 5', 'NPS'].includes(q.type));
               const qType = primaryQ?.type;
               const columns = qType === 'SMILE 5'
@@ -339,6 +359,12 @@ export default function Campaigns() {
                 </motion.div>
               );
             })}
+            {campaigns.filter(camp =>
+              camp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (camp.company_name && camp.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+            ).length > visibleCount && (
+              <div ref={sentinelRef} className="h-4" />
+            )}
           </div>
         </div>
       </main>

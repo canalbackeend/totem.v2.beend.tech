@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -67,6 +67,8 @@ export default function Feedbacks() {
   const [endDate, setEndDate] = useState<string>('');
   const [selectedTerminalId, setSelectedTerminalId] = useState<string>('all');
   const [activeShortcut, setActiveShortcut] = useState<number | null>(null);
+  const [visibleCount, setVisibleCount] = useState(5);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -185,6 +187,18 @@ export default function Feedbacks() {
   };
 
   const filteredFeedbacks = (feedbacks || []).filter(fb => hasTextualContent(fb));
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount(prev => prev < filteredFeedbacks.length ? prev + 5 : prev);
+      }
+    }, { rootMargin: '100px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [filteredFeedbacks]);
 
   const handleExportCSV = () => {
     if (!feedbacks || feedbacks.length === 0) {
@@ -393,7 +407,7 @@ export default function Feedbacks() {
                 <p className="font-bold uppercase tracking-widest text-xs">Nenhum feedback encontrado</p>
               </div>
             ) : (
-              filteredFeedbacks.map((fb, idx) => {
+              filteredFeedbacks.slice(0, visibleCount).map((fb, idx) => {
                 const sentiment = getSentimentInfo(fb.answers);
                 const firstComment = fb.answers.find(a => a.comment)?.comment;
 
@@ -485,6 +499,9 @@ export default function Feedbacks() {
                   </motion.div>
                 );
               })
+            )}
+            {filteredFeedbacks.length > visibleCount && (
+              <div ref={sentinelRef} className="h-4" />
             )}
           </div>
         </div>

@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -56,6 +56,8 @@ export default function Terminals() {
   const [terminalPassword, setTerminalPassword] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [visibleCount, setVisibleCount] = useState(5);
+  const sentinelRef = useRef<HTMLDivElement>(null);
 
   const fetchTerminalsAndCampaigns = async () => {
     if (!user) return;
@@ -96,6 +98,25 @@ export default function Terminals() {
       document.removeEventListener('visibilitychange', handleFocus);
     };
   }, [user]);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) {
+        setVisibleCount(prev => {
+          const filtered = terminals.filter(term =>
+            term.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (term.campaigns && term.campaigns.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (term.company_name && term.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+          );
+          return prev < filtered.length ? prev + 5 : prev;
+        });
+      }
+    }, { rootMargin: '100px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [terminals, searchTerm]);
 
   const toggleStatus = async (id: string, currentStatus: string) => {
     const newStatus = currentStatus === 'Ativo' ? 'Inativo' : 'Ativo';
@@ -327,7 +348,7 @@ export default function Terminals() {
                 term.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 (term.campaigns && term.campaigns.toLowerCase().includes(searchTerm.toLowerCase())) ||
                 (term.company_name && term.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
-              ).map((term, idx) => (
+              ).slice(0, visibleCount).map((term, idx) => (
                 <motion.div
                   key={term.id}
                   initial={{ opacity: 0, x: -20 }}
@@ -480,6 +501,13 @@ export default function Terminals() {
                   </div>
                 </motion.div>
               ))
+            )}
+            {terminals.filter(term =>
+              term.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+              (term.campaigns && term.campaigns.toLowerCase().includes(searchTerm.toLowerCase())) ||
+              (term.company_name && term.company_name.toLowerCase().includes(searchTerm.toLowerCase()))
+            ).length > visibleCount && (
+              <div ref={sentinelRef} className="h-4" />
             )}
           </div>
         </div>
