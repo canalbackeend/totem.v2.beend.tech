@@ -16,6 +16,7 @@ import { createClient } from "@supabase/supabase-js";
 dotenv.config();
 
 const app = express();
+app.set('trust proxy', 1);
 const PORT = 3000;
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
@@ -98,11 +99,13 @@ const authenticateToken = (req: any, res: any, next: any) => {
 
 async function ensureAdminExists() {
   try {
+    console.log(`Checking admin user: ${ADMIN_EMAIL}`);
     const admin = await prisma.user.findUnique({
       where: { email: ADMIN_EMAIL }
     });
 
     if (!admin) {
+      console.log(`Admin ${ADMIN_EMAIL} not found, creating...`);
       const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
       await prisma.user.create({
         data: {
@@ -115,6 +118,8 @@ async function ensureAdminExists() {
         }
       });
       console.log(`Master admin created: ${ADMIN_EMAIL}`);
+    } else {
+      console.log(`Admin ${ADMIN_EMAIL} already exists`);
     }
   } catch (err) {
     console.error("Error ensuring admin exists:", err);
@@ -2415,6 +2420,30 @@ cron.schedule("* * * * *", () => {
   sendDailyReports(targetTimeStr).finally(() => { cronRunning = false; });
 }, {
   timezone: "America/Sao_Paulo"
+});
+
+// Emergency admin reset (useful when admin is locked out after deploy)
+app.post("/api/admin/reset-admin", async (req, res) => {
+  try {
+    const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
+    await prisma.user.upsert({
+      where: { email: ADMIN_EMAIL },
+      update: { password: hashedPassword, status: "Ativo" },
+      create: {
+        email: ADMIN_EMAIL,
+        password: hashedPassword,
+        nome: "Administrador Master",
+        empresa: "beend.tech",
+        role: "Administrador",
+        status: "Ativo"
+      }
+    });
+    console.log(`Admin reset/created: ${ADMIN_EMAIL}`);
+    res.json({ message: "Admin resetado com sucesso" });
+  } catch (err: any) {
+    console.error("Admin reset error:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.post("/api/admin/trigger-reports", authenticateToken, async (req: any, res) => {
