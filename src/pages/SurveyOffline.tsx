@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { api } from '../lib/api';
+import { api, setAuthToken } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Terminal as TerminalIcon, 
@@ -157,15 +157,111 @@ export default function SurveyOffline() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
+    let cancelled = false
+
+    const checkConnectivity = async () => {
+      try {
+        const res = await fetch('/api/health', { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+        if (!cancelled) setIsOnline(res.ok)
+      } catch {
+        if (!cancelled) setIsOnline(false)
+      }
+    }
+
+    checkConnectivity()
+    const healthInterval = setInterval(checkConnectivity, 15000)
+
+    const handleOnline = () => checkConnectivity()
+    const handleOffline = () => setIsOnline(false)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setIsOnline(navigator.onLine)
+        checkConnectivity()
+      }
+    }
+
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
+      cancelled = true
+      clearInterval(healthInterval)
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [])
+
+  const syncResponses = async (manual = false) => {
+    if (!isOnline) {
+      if (manual) toast.error('Conexão offline. Sincronização indisponível.');
+      return;
+    }
+
+    let successCount = 0
+    let totalCount = 0
+    try {
+      const unsynced = await db.responses.where('synced').equals(0).toArray()
+      totalCount = unsynced.length
+      if (totalCount === 0) {
+        if (manual) toast.info('Todas as respostas já estão sincronizadas.')
+        return
+      }
+
+      setSyncing(true)
+      for (const res of unsynced) {
+        try {
+          await api.post('/responses', {
+            campaign_id: res.campaign_id,
+            terminal_id: res.terminal_id,
+            answers: res.answers,
+            created_at: res.created_at,
+            collaborator_name: (res as any).collaborator_name || null
+          })
+          await db.responses.update(res.id!, { synced: 1 })
+          successCount++
+        } catch (err) {
+          console.error('Failed to sync response:', err)
+        }
+      }
+    } catch (err) {
+      console.error('Unexpected sync error:', err)
+      if (manual) toast.error('Erro inesperado na sincronização.')
+    } finally {
+      setSyncing(false)
+    }
+
+    if (successCount > 0) {
+      if (manual) {
+        const msg = successCount === totalCount
+          ? `${successCount} respostas sincronizadas com sucesso!`
+          : `${successCount} de ${totalCount} respostas sincronizadas. Algumas falharam.`
+        toast.success(msg)
+      } else {
+        console.log(`${successCount}/${totalCount} responses synced in background.`)
+      }
+    }
+  }
+
+  const prevOnlineRef = useRef(isOnline)
+
+  useEffect(() => {
+    if (isOnline && !prevOnlineRef.current) {
+      syncResponses()
+    }
+    prevOnlineRef.current = isOnline
+  }, [isOnline])
+
+  // Background sync every 30s
+  useEffect(() => {
+    const syncInterval = setInterval(() => {
+      if (isOnline && !syncing) {
+        syncResponses()
+      }
+    }, 30000)
+    return () => clearInterval(syncInterval)
+  }, [isOnline, syncing])
 
   const [tapCount, setTapCount] = useState(0);
 
@@ -194,16 +290,6 @@ export default function SurveyOffline() {
       return () => clearTimeout(t);
     }
   }, [tapCount]);
-
-  // Offline Sync Background task
-  useEffect(() => {
-    const syncInterval = setInterval(() => {
-      if (isOnline && !syncing) {
-        syncResponses();
-      }
-    }, 30000); // Check every 30s
-    return () => clearInterval(syncInterval);
-  }, [isOnline, syncing]);
 
   // Pulse pending count
   useEffect(() => {
@@ -241,46 +327,6 @@ export default function SurveyOffline() {
     };
     init();
   }, []);
-
-  const syncResponses = async (manual = false) => {
-    if (!isOnline) {
-      if (manual) toast.error('Conexão offline. Sincronização indisponível.');
-      return;
-    }
-    
-    const unsynced = await db.responses.where('synced').equals(0).toArray();
-    if (unsynced.length === 0) {
-      if (manual) toast.info('Todas as respostas já estão sincronizadas.');
-      return;
-    }
-
-    setSyncing(true);
-    let successCount = 0;
-    for (const res of unsynced) {
-      try {
-        await api.post('/responses', {
-          campaign_id: res.campaign_id,
-          terminal_id: res.terminal_id,
-          answers: res.answers,
-          created_at: res.created_at,
-          collaborator_name: (res as any).collaborator_name || null
-        });
-        await db.responses.update(res.id!, { synced: 1 });
-        successCount++;
-      } catch (err) {
-        console.error('Failed to sync response:', err);
-        if (manual) toast.error(`Erro ao sincronizar: ${successCount} enviadas, algumas falharam.`);
-        break; 
-      }
-    }
-    setSyncing(false);
-    
-    if (successCount > 0 && manual) {
-      toast.success(`${successCount} respostas sincronizadas com sucesso!`);
-    } else if (successCount > 0) {
-      console.log(`${successCount} responses synced in background.`);
-    }
-  };
 
   const downloadData = async () => {
     if (!isOnline) {
@@ -361,7 +407,7 @@ export default function SurveyOffline() {
       await db.terminal.clear();
       await db.terminal.add(term);
       setTerminal(term);
-      localStorage.setItem('access_token', data.access_token);
+      setAuthToken(data.access_token);
       setStep('DOWNLOAD');
     } catch (err: any) {
       toast.error('Credenciais inválidas ou erro de conexão');
