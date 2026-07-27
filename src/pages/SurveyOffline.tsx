@@ -150,11 +150,14 @@ export default function SurveyOffline() {
   const [currentComment, setCurrentComment] = useState("");
   const [loginForm, setLoginForm] = useState({ email: '', password: '' });
   const [pendingResponses, setPendingResponses] = useState(0);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   const [remainingTime, setRemainingTime] = useState(60);
   const [restartCountdown, setRestartCountdown] = useState(3);
   const inactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const syncRunningRef = useRef(false)
+  const componentMountedRef = useRef(true)
 
   useEffect(() => {
     let cancelled = false
@@ -182,7 +185,6 @@ export default function SurveyOffline() {
     const handleOffline = () => setIsOnline(false)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        setIsOnline(navigator.onLine)
         checkConnectivity()
       }
     }
@@ -201,24 +203,40 @@ export default function SurveyOffline() {
     }
   }, [])
 
+  useEffect(() => {
+    return () => { componentMountedRef.current = false }
+  }, [])
+
   const syncResponses = async (manual = false) => {
     if (!isOnline) {
       if (manual) toast.error('Conexão offline. Sincronização indisponível.');
       return;
     }
 
+    if (syncRunningRef.current) {
+      if (manual) toast.info('Sincronização já em andamento...');
+      return;
+    }
+
+    syncRunningRef.current = true
     let successCount = 0
     let totalCount = 0
+    let hasPermanentError = false
+    let permanentErrorMsg = ''
+    let hasRateLimit = false
     try {
       const unsynced = await db.responses.where('synced').equals(0).toArray()
       totalCount = unsynced.length
       if (totalCount === 0) {
+        setAuthError(null)
         if (manual) toast.info('Todas as respostas já estão sincronizadas.')
         return
       }
 
       setSyncing(true)
       for (const res of unsynced) {
+        if (!componentMountedRef.current || hasRateLimit) break
+
         try {
           await api.post('/responses', {
             campaign_id: res.campaign_id,
@@ -229,15 +247,45 @@ export default function SurveyOffline() {
           })
           await db.responses.update(res.id!, { synced: 1 })
           successCount++
-        } catch (err) {
-          console.error('Failed to sync response:', err)
+        } catch (err: any) {
+          const msg = err?.message || ''
+          if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('Muitas requisições')) {
+            hasRateLimit = true
+            console.warn('Rate limit hit. Pausing sync momentarily.')
+            if (manual) toast.warning('Limite de requisições atingido. Aguardando...')
+            break
+          } else if (msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('Token') || msg.includes('expirado') || msg.includes('bloqueada') || msg.includes('bloqueado')) {
+            hasPermanentError = true
+            permanentErrorMsg = msg
+            console.error('Permanent sync error (auth/expiration):', msg)
+          } else {
+            console.error('Transient sync error (network):', msg)
+          }
         }
+
+        await new Promise(r => setTimeout(r, 300))
       }
     } catch (err) {
       console.error('Unexpected sync error:', err)
       if (manual) toast.error('Erro inesperado na sincronização.')
     } finally {
       setSyncing(false)
+      syncRunningRef.current = false
+    }
+
+    if (!componentMountedRef.current) return
+
+    if (hasPermanentError) {
+      setAuthError(permanentErrorMsg)
+      if (manual) {
+        toast.error('Erro de autenticação ou expiração. Faça login novamente.', { duration: 8000 })
+      }
+    } else {
+      setAuthError(null)
+    }
+
+    if (hasRateLimit && !isOnline) {
+      if (manual) toast.warning('Sincronização pausada por limite de requisições.')
     }
 
     if (successCount > 0) {
@@ -304,6 +352,17 @@ export default function SurveyOffline() {
       return () => clearTimeout(t);
     }
   }, [tapCount]);
+
+  const handleReLogin = () => {
+    setAuthToken(null)
+    localStorage.removeItem('access_token')
+    localStorage.removeItem('terminal_session')
+    setTerminal(null)
+    setSelectedCampaign(null)
+    setStep('LOGIN')
+    setAuthError(null)
+    toast.info('Token limpo. Faça login novamente.', { duration: 5000 })
+  }
 
   // Pulse pending count
   useEffect(() => {
@@ -422,6 +481,7 @@ export default function SurveyOffline() {
       await db.terminal.add(term);
       setTerminal(term);
       setAuthToken(data.access_token);
+      setAuthError(null);
       setStep('DOWNLOAD');
     } catch (err: any) {
       toast.error('Credenciais inválidas ou erro de conexão');
@@ -1138,6 +1198,25 @@ const cardColors = [
               animate={{ width: `${progress}%` }}
               className="absolute inset-y-0 left-0 bg-blue-600 shadow-lg"
             />
+          </div>
+        )}
+
+        {authError && (
+          <div className="flex items-center justify-between gap-4 px-5 py-3 bg-red-500/10 border border-red-500/30 rounded-2xl">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0" />
+              <span className="text-[10px] font-black text-red-400 uppercase tracking-wider truncate">
+                {authError.includes('expirado') ? 'ACESSO EXPIRADO' :
+                 authError.includes('bloqueada') || authError.includes('bloqueado') ? 'CONTA BLOQUEADA' :
+                 'ERRO DE AUTENTICAÇÃO'}
+              </span>
+            </div>
+            <button
+              onClick={handleReLogin}
+              className="shrink-0 text-[9px] font-black text-white bg-red-600 hover:bg-red-700 px-4 py-2 rounded-xl uppercase tracking-wider transition-colors"
+            >
+              Refazer Login
+            </button>
           </div>
         )}
         
