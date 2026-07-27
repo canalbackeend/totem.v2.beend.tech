@@ -158,13 +158,20 @@ export default function SurveyOffline() {
 
   useEffect(() => {
     let cancelled = false
+    let healthAbort: AbortController | null = null
 
     const checkConnectivity = async () => {
+      healthAbort?.abort()
+      healthAbort = new AbortController()
+      const timer = setTimeout(() => healthAbort!.abort(), 5000)
+
       try {
-        const res = await fetch('/api/health', { method: 'HEAD', signal: AbortSignal.timeout(5000) })
+        const res = await fetch('/api/health', { method: 'HEAD', signal: healthAbort.signal })
         if (!cancelled) setIsOnline(res.ok)
       } catch {
         if (!cancelled) setIsOnline(false)
+      } finally {
+        clearTimeout(timer)
       }
     }
 
@@ -187,6 +194,7 @@ export default function SurveyOffline() {
     return () => {
       cancelled = true
       clearInterval(healthInterval)
+      healthAbort?.abort()
       window.removeEventListener('online', handleOnline)
       window.removeEventListener('offline', handleOffline)
       document.removeEventListener('visibilitychange', handleVisibility)
@@ -244,12 +252,18 @@ export default function SurveyOffline() {
     }
   }
 
+  const mountedRef = useRef(false)
   const prevOnlineRef = useRef(isOnline)
 
   useEffect(() => {
-    if (isOnline && !prevOnlineRef.current) {
-      syncResponses()
+    const justMounted = !mountedRef.current
+    const transitionedOnline = isOnline && !prevOnlineRef.current
+
+    if (justMounted || transitionedOnline) {
+      mountedRef.current = true
+      if (isOnline) syncResponses()
     }
+
     prevOnlineRef.current = isOnline
   }, [isOnline])
 
