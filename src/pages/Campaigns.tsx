@@ -162,24 +162,26 @@ export default function Campaigns() {
           {/* List of Campaigns Header */}
           <div className="mt-8 flex flex-col md:flex-row justify-between items-center gap-4">
             <h2 className={`text-2xl font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>Lista de Campanhas</h2>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/campanhas/nova')}
-              className="bg-[#f39c13] text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-wider uppercase flex items-center space-x-2 shadow-lg shadow-orange-500/20 cursor-pointer"
-            >
-              <Plus size={18} />
-              <span>Criar Campanha</span>
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => navigate('/campanhas/avancada')}
-              className="bg-blue-600 text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-wider uppercase flex items-center space-x-2 shadow-lg shadow-blue-500/20 cursor-pointer"
-            >
-              <GitBranch size={18} />
-              <span>Campanha Avançada</span>
-            </motion.button>
+            <div className="flex items-center gap-3">
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/campanhas/nova')}
+                className="bg-[#f39c13] text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-wider uppercase flex items-center space-x-2 shadow-lg shadow-orange-500/20 cursor-pointer"
+              >
+                <Plus size={18} />
+                <span>Criar Campanha</span>
+              </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => navigate('/campanhas/avancada')}
+                className="bg-blue-600 text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-wider uppercase flex items-center space-x-2 shadow-lg shadow-blue-500/20 cursor-pointer"
+              >
+                <GitBranch size={18} />
+                <span>Campanha Avançada</span>
+              </motion.button>
+            </div>
           </div>
 
           {/* Filters & Search */}
