@@ -17,6 +17,7 @@ import { Layout } from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Campaigns from './pages/Campaigns';
 import CreateCampaign from './pages/CreateCampaign';
+import AdvancedCampaign from './pages/AdvancedCampaign';
 import Terminals from './pages/Terminals';
 import Feedbacks from './pages/Feedbacks';
 import Questions from './pages/Questions';
@@ -66,6 +67,8 @@ export default function App() {
                 <Route path="campanhas" element={<Campaigns />} />
                 <Route path="campanhas/nova" element={<CreateCampaign />} />
                 <Route path="campanhas/editar/:id" element={<CreateCampaign />} />
+                <Route path="campanhas/avancada" element={<AdvancedCampaign />} />
+                <Route path="campanhas/avancada/:id" element={<AdvancedCampaign />} />
                 <Route path="terminais" element={<Terminals />} />
                 <Route path="perguntas" element={<Questions />} />
                 <Route path="respostas" element={<Responses />} />

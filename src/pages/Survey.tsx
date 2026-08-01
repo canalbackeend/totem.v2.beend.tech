@@ -22,6 +22,7 @@ import {
   Star
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { getNextQuestionIndex } from '../lib/flow';
 
 type SurveyStep = 'LOGIN' | 'SELECTION' | 'SURVEY' | 'THANK_YOU';
 
@@ -49,6 +50,7 @@ interface Campaign {
   questions: Question[];
   status: string;
   responses_count?: number;
+  thank_you_message?: string;
 }
 
 const isMultipleChoice = (type?: string) => {
@@ -346,8 +348,10 @@ export default function Survey() {
     setAnswers(newAnswers);
     setCurrentComment("");
 
-    const nextIndex = currentQuestionIndex + 1;
-    if (selectedCampaign && nextIndex < selectedCampaign.questions.length) {
+    const nextIndex = selectedCampaign
+      ? getNextQuestionIndex(selectedCampaign.questions, currentQuestionIndex, newAnswers)
+      : null;
+    if (nextIndex !== null) {
       setCurrentQuestionIndex(nextIndex);
       setCurrentComment("");
       setRemainingTime(60); 
@@ -369,8 +373,10 @@ export default function Survey() {
       setAnswers(finalAnswers);
     }
 
-    const nextIndex = currentQuestionIndex + 1;
-    if (selectedCampaign && nextIndex < selectedCampaign.questions.length) {
+    const nextIndex = selectedCampaign
+      ? getNextQuestionIndex(selectedCampaign.questions, currentQuestionIndex, finalAnswers)
+      : null;
+    if (nextIndex !== null) {
       setCurrentComment("");
       setCurrentQuestionIndex(nextIndex);
       setRemainingTime(60);
@@ -1038,7 +1044,7 @@ const cardColors = [
 
       <div className="space-y-4">
         <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter uppercase leading-none">
-          Obrigado pelo seu feedback!
+          {selectedCampaign?.thank_you_message || 'Obrigado pelo seu feedback!'}
         </h1>
         <p className="text-zinc-500 font-bold uppercase tracking-[0.4em] text-sm">
           Sua opinião é muito importante para nós.

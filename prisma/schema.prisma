@@ -96,6 +96,7 @@ model Campaign {
   is_global           Boolean   @default(false) 
   report_email        String?   
   report_time         String    @default("08:00") 
+  thank_you_message   String?   
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 
