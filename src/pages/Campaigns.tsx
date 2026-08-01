@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { Plus, Search, Filter, Calendar, Users, CheckCircle2, Pencil, RotateCcw, Trash2, XCircle, Smile, Meh, Frown, Copy } from 'lucide-react';
+import { Plus, Search, Filter, Calendar, Users, CheckCircle2, Pencil, RotateCcw, Trash2, XCircle, Smile, Meh, Frown, Copy, GitBranch } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
 import { useState, useEffect, useRef } from 'react';
@@ -171,6 +171,15 @@ export default function Campaigns() {
               <Plus size={18} />
               <span>Criar Campanha</span>
             </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/campanhas/avancada')}
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-md font-bold text-sm tracking-wider uppercase flex items-center space-x-2 shadow-lg shadow-blue-500/20 cursor-pointer"
+            >
+              <GitBranch size={18} />
+              <span>Campanha Avançada</span>
+            </motion.button>
           </div>
 
           {/* Filters & Search */}
@@ -324,6 +333,18 @@ export default function Campaigns() {
                     >
                       <Pencil size={18} />
                     </motion.button>
+
+                    {(camp.questions || []).some((q: any) => q && q.branch) && (
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        title="Editar Fluxo (Modo Avançado)"
+                        onClick={() => navigate(`/campanhas/avancada/${camp.id}`)}
+                        className={`p-2 rounded-full transition-colors cursor-pointer ${isDarkMode ? 'text-zinc-500 hover:bg-white/5 hover:text-blue-500' : 'text-slate-400 hover:bg-slate-50 hover:text-blue-500'}`}
+                      >
+                        <GitBranch size={18} />
+                      </motion.button>
+                    )}
 
                     <motion.button 
                       whileHover={{ scale: 1.1 }}

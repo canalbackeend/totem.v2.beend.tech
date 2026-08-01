@@ -1,6 +1,6 @@
 import { Bell, Settings, User, LogOut, HelpCircle, ShoppingCart, Shield, Wifi, Building2, Globe, Sun, Moon, FileText } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
 
@@ -10,6 +10,8 @@ export const Navbar = () => {
   const { signOut, user, profile, isAdmin, isTerminal } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const isDarkMode = theme === 'dark';
+  const location = useLocation();
+  const isFullWidth = location.pathname.startsWith('/campanhas/avancada');
 
   const handleLogout = async () => {
     try {
@@ -23,7 +25,7 @@ export const Navbar = () => {
   };
   return (
     <nav className={`z-20 transition-colors duration-300 ${isDarkMode ? 'bg-zinc-900 border-b border-white/5 shadow-none' : 'bg-white shadow-[0_10px_30px_rgba(0,0,0,0.04)]'}`}>
-      <div className="max-w-[1170px] mx-auto py-4 flex justify-between items-center px-6 min-[1170px]:px-0">
+      <div className={`${isFullWidth ? 'w-full px-6 min-[1170px]:px-10' : 'max-w-[1170px] mx-auto px-6 min-[1170px]:px-0'} py-4 flex justify-between items-center`}>
         <Link to="/" className="flex flex-col group">
           <span className={`text-2xl md:text-3xl font-bold tracking-tighter font-logo lowercase flex items-start leading-none transition-transform group-hover:scale-[1.02] origin-left ${isDarkMode ? 'text-white' : 'text-black'}`}>
             beend.tech<span className="text-[10px] md:text-[12px] mt-0.5 ml-0.5 font-sans uppercase">®</span>

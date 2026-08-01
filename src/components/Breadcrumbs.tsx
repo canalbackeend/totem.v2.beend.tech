@@ -18,6 +18,7 @@ export const Breadcrumbs: React.FC = () => {
   const [currentDate, setCurrentDate] = useState('');
   const location = useLocation();
   const pathnames = location.pathname.split('/').filter((x) => x);
+  const isFullWidth = location.pathname.startsWith('/campanhas/avancada');
 
   useEffect(() => {
     const formatter = new Intl.DateTimeFormat('pt-BR', {
@@ -32,8 +33,8 @@ export const Breadcrumbs: React.FC = () => {
   }, []);
 
   return (
-    <div className="mt-8 pb-0">
-      <div className="max-w-[1170px] mx-auto flex flex-col md:flex-row justify-between items-start md:items-center text-sm md:text-base space-y-3 md:space-y-0 px-6 min-[1170px]:px-0">
+    <div className={isFullWidth ? "mt-4" : "mt-8 pb-0"}>
+      <div className={`${isFullWidth ? 'w-full px-6 min-[1170px]:px-10 py-4' : 'max-w-[1170px] mx-auto px-6 min-[1170px]:px-0'} flex flex-col md:flex-row justify-between items-center text-sm md:text-base space-y-3 md:space-y-0`}>
         <div className="flex items-center space-x-2 text-slate-400 overflow-x-auto w-full md:w-auto scrollbar-hide">
           <Link to="/" className="hover:text-[#0b82ff] cursor-pointer transition-colors whitespace-nowrap">Dashboard</Link>
           
