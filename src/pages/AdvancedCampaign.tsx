@@ -140,8 +140,25 @@ function smileOptionIcon(q: Question, optText: string): ReactNode {
   return null;
 }
 
+function npsOptionIcon(q: Question, optText: string): ReactNode {
+  const t = (q.type || "").toLowerCase();
+  if (t !== "nps") return null;
+  const value = parseInt((optText || "").trim(), 10);
+  if (isNaN(value)) return null;
+  if (value <= 6) return <Frown className="w-3.5 h-3.5 text-[#ef4444]" />;
+  if (value <= 8) return <Meh className="w-3.5 h-3.5 text-[#e9b306]" />;
+  return <Laugh className="w-3.5 h-3.5 text-[#22c55d]" />;
+}
+
 function edgeId(source: string, handle: string, target: string) {
   return `e_${source}_${handle}_${target}`;
+}
+
+function normalizeOptions(questionNodes: Question[]): Question[] {
+  return questionNodes.map((q) => ({
+    ...q,
+    options: (q.options || []).map((o, i) => ({ ...o, id: o.id || `legacy_${i}` })),
+  }));
 }
 
 // ---------- Custom nodes ----------
@@ -195,11 +212,12 @@ function QuestionNode({ data, selected }: { data: FlowNodeData; selected?: boole
         )}
         {showOptionRows && options.map((opt) => {
           if (perOption) {
-            const mapped = data.rules?.[opt.text];
+            const mapped = data.rules?.[opt.id];
             return (
               <div key={opt.id} className={`relative flex items-center justify-between gap-2 rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
                 <span className="flex items-center gap-1.5 min-w-0">
                   {smileOptionIcon(q, opt.text)}
+                  {npsOptionIcon(q, opt.text)}
                   {starOptionIcon(q, opt.text)}
                   {!locked && opt.color && <span className={`w-2.5 h-2.5 rounded-full shrink-0 border ${isDarkMode ? "border-white/10" : "border-black/10"}`} style={{ background: opt.color }} />}
                   <span className={`text-[10px] truncate ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{opt.text || "(vazio)"}</span>
@@ -208,7 +226,7 @@ function QuestionNode({ data, selected }: { data: FlowNodeData; selected?: boole
                 <Handle
                   type="source"
                   position={Position.Right}
-                  id={opt.text}
+                  id={opt.id}
                   style={{ background: mapped ? "#22c55e" : "#ef4444", width: 8, height: 8 }}
                 />
               </div>
@@ -305,8 +323,9 @@ function EditorInner() {
   };
 
   const buildNodesFromGraph = (questionNodes: Question[], startId: string, endMessage?: string) => {
-    const positions = layout(questionNodes, startId);
-    const qNodes: FlowNodeType[] = questionNodes.map((q) => ({
+    const normalized = normalizeOptions(questionNodes);
+    const positions = layout(normalized, startId);
+    const qNodes: FlowNodeType[] = normalized.map((q) => ({
       id: q.id,
       type: "question",
       position: positions.get(q.id) || { x: 400, y: 200 },
@@ -322,17 +341,26 @@ function EditorInner() {
   };
 
   const buildEdgesFromGraph = (graph: ReturnType<typeof buildFlowGraph>) => {
+    const normalized = normalizeOptions(graph.questionNodes);
     const startEdge =
       graph.startId && graph.questionNodes.some((n) => n.id === graph.startId)
         ? [{ id: edgeId(START_ID, "out", graph.startId), source: START_ID, sourceHandle: "out", target: graph.startId, targetHandle: "in" }]
         : [];
-    const qEdges: Edge[] = graph.edges.map((e: FlowEdge) => ({
-      id: edgeId(e.sourceId, e.optionText ?? "next", e.targetId),
-      source: e.sourceId,
-      sourceHandle: e.optionText ?? "next",
-      target: e.targetId === END ? END_ID : e.targetId,
-      targetHandle: "in",
-    }));
+    const qEdges: Edge[] = graph.edges.map((e: FlowEdge) => {
+      let sourceHandle = e.optionText ?? "next";
+      if (e.optionText !== undefined) {
+        const sourceQ = normalized.find((n) => n.id === e.sourceId);
+        const opt = sourceQ?.options?.find((o) => o.text === e.optionText);
+        if (opt) sourceHandle = opt.id;
+      }
+      return {
+        id: edgeId(e.sourceId, sourceHandle, e.targetId),
+        source: e.sourceId,
+        sourceHandle,
+        target: e.targetId === END ? END_ID : e.targetId,
+        targetHandle: "in",
+      };
+    });
     return [...startEdge, ...qEdges];
   };
 
@@ -349,7 +377,7 @@ function EditorInner() {
       if (!perOption) {
         validHandles.add(`${n.id}::next`);
       } else {
-        for (const o of q.options || []) validHandles.add(`${n.id}::${o.text}`);
+        for (const o of q.options || []) validHandles.add(`${n.id}::${o.id}`);
       }
     }
     return edges.filter((e) => validHandles.has(`${e.source}::${e.sourceHandle || ""}`));
@@ -481,12 +509,12 @@ function EditorInner() {
     setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, question: q } } : n)));
 
     const newPerOption = branchesPerOption(q);
-    const newOptTexts = new Set((q.options || []).map((o) => o.text));
+    const newOptIds = new Set((q.options || []).map((o) => o.id));
     setEdges((eds) =>
       eds.filter((e) => {
         if (e.source !== nodeId) return true;
         if (e.sourceHandle === "next") return !newPerOption;
-        return !!newPerOption && e.sourceHandle && newOptTexts.has(e.sourceHandle);
+        return !!newPerOption && e.sourceHandle && newOptIds.has(e.sourceHandle);
       })
     );
   };
@@ -505,6 +533,7 @@ function EditorInner() {
   };
 
   const renameOption = (nodeId: string, optionId: string, text: string, oldText: string) => {
+    void oldText;
     setNodes((ns) =>
       ns.map((n) => {
         if (n.id !== nodeId || n.data.kind !== "question") return n;
@@ -514,15 +543,9 @@ function EditorInner() {
         return { ...n, data: { ...n.data, question: q } };
       })
     );
-    setEdges((eds) =>
-      eds.map((e) => (e.source === nodeId && e.sourceHandle === oldText ? { ...e, sourceHandle: text } : e))
-    );
   };
 
   const removeOption = (nodeId: string, optionId: string) => {
-    const current = nodes.find((n) => n.id === nodeId);
-    const q = current?.data.question as Question | undefined;
-    const removedText = q?.options?.find((o) => o.id === optionId)?.text;
     setNodes((ns) =>
       ns.map((n) => {
         if (n.id !== nodeId || n.data.kind !== "question") return n;
@@ -532,9 +555,7 @@ function EditorInner() {
         return { ...n, data: { ...n.data, question } };
       })
     );
-    if (removedText) {
-      setEdges((eds) => eds.filter((e) => !(e.source === nodeId && e.sourceHandle === removedText)));
-    }
+    setEdges((eds) => eds.filter((e) => !(e.source === nodeId && e.sourceHandle === optionId)));
   };
 
   const changeOptionColor = (nodeId: string, optionId: string, color: string) => {
@@ -583,7 +604,9 @@ function EditorInner() {
       if (e.sourceHandle === "next") {
         flowEdges.push({ sourceId: e.source, targetId: target });
       } else if (e.sourceHandle) {
-        flowEdges.push({ sourceId: e.source, optionText: e.sourceHandle, targetId: target });
+        const opt = sourceQ.options?.find((o) => o.id === e.sourceHandle);
+        if (!opt) continue;
+        flowEdges.push({ sourceId: e.source, optionText: opt.text, targetId: target });
       }
     }
     return serializeFlow({ startId, questionNodes, edges: flowEdges, endMessage: thankYouMessage.trim() });
@@ -703,7 +726,7 @@ function EditorInner() {
             <Background variant={BackgroundVariant.Dots} gap={22} size={1} />
             <Controls />
           </ReactFlow>
-          <div className={`absolute bottom-3 right-3 z-[9999] pointer-events-none select-none flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isDarkMode ? "bg-zinc-800/80 text-amber-400 border-white/10" : "bg-white/80 text-amber-600 border-zinc-200"}`}>
+          <div className={`absolute top-3 right-3 z-[9999] pointer-events-none select-none flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${isDarkMode ? "bg-zinc-800/80 text-amber-400 border-white/10" : "bg-white/80 text-amber-600 border-zinc-200"}`}>
             <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
             Beta
           </div>
@@ -880,7 +903,7 @@ function QuestionPanel({
             )}
           </div>
           {question.options?.map((opt, i) => {
-            const mapped = rules[opt.text];
+            const mapped = rules[opt.id];
             const targetId = mapped === END ? END_ID : mapped;
             return (
               <div key={opt.id} className={`border rounded-md p-2 space-y-2 ${isDarkMode ? "border-white/10" : "border-zinc-100"}`}>
@@ -921,7 +944,7 @@ function QuestionPanel({
                     <span className="text-[10px] text-zinc-400 whitespace-nowrap">ir para:</span>
                     <select
                       value={targetId || ""}
-                      onChange={(e) => onWire(nodeId, opt.text, e.target.value)}
+                      onChange={(e) => onWire(nodeId, opt.id, e.target.value)}
                       className={`flex-1 min-w-0 border rounded px-2 py-1 text-sm ${isDarkMode ? "bg-zinc-800 text-white" : "bg-white"} ${targetId ? "border-emerald-200" : "border-red-300"}`}
                     >
                       <option value="">Selecione...</option>
