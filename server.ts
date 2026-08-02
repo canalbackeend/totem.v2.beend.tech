@@ -40,6 +40,7 @@ if (!ADMIN_PASSWORD) {
   console.error("FATAL: ADMIN_PASSWORD environment variable is required. Set a strong password for the admin account.");
   process.exit(1);
 }
+const ADMIN_RESET_SECRET = process.env.ADMIN_RESET_SECRET || ADMIN_PASSWORD;
 
 const prisma = new PrismaClient();
 
@@ -72,12 +73,32 @@ app.use(express.urlencoded({ limit: "1mb", extended: false }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Muitas tentativas. Tente novamente mais tarde." } });
 const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
+const publicResponseLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
 
 function whitelist(obj: any, allowed: string[]) {
   const safe: any = {};
   for (const key of allowed) {
     if (obj[key] !== undefined) safe[key] = obj[key];
   }
+  return safe;
+}
+
+// Remove sensitive fields from objects before sending them to clients
+function publicUser(user: any) {
+  if (!user) return user;
+  const { password, ...safe } = user;
+  return safe;
+}
+
+function publicTerminal(terminal: any) {
+  if (!terminal) return terminal;
+  const { password, ...safe } = terminal;
+  return safe;
+}
+
+function publicCompany(company: any) {
+  if (!company) return company;
+  const { password, ...safe } = company;
   return safe;
 }
 
@@ -183,7 +204,7 @@ async function syncCompaniesToUsers() {
   }
 }
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authLimiter, async (req, res) => {
   const { email, password, nome, empresa } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
@@ -227,7 +248,7 @@ app.post("/api/auth/register", async (req, res) => {
     });
 
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ user, session: { access_token: token } });
+    res.json({ user: publicUser(user), session: { access_token: token } });
   } catch (err: any) {
     console.error("Register error:", err);
     if (err.code === 'P2002') {
@@ -237,14 +258,10 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
-// Apply rate limiter to auth routes
-app.use("/api/auth/register", authLimiter);
-app.use("/api/auth/login", authLimiter);
-
 // Global API rate limiter
 app.use("/api", apiLimiter);
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
@@ -265,7 +282,7 @@ app.post("/api/auth/login", async (req, res) => {
       return res.status(403).json({ error: "Conta bloqueada. Entre em contato com o suporte." });
     }
     const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
-    res.json({ message: "Login OK", user, session: { access_token: token } });
+    res.json({ message: "Login OK", user: publicUser(user), session: { access_token: token } });
   } catch (err: any) {
     console.error("Login error:", err);
     res.status(500).json({ error: "Erro na conexão com o servidor." });
@@ -341,7 +358,7 @@ app.get("/api/auth/me", authenticateToken, async (req: any, res) => {
     if (!userRole) return res.status(404).json({ error: "User not found" });
     
     const userData = {
-      ...userRole,
+      ...publicUser(userRole),
       terminal_id: req.user.terminal_id
     };
 
@@ -874,7 +891,7 @@ app.get("/api/proxy-image", async (req: any, res: any) => {
   if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
     return res.status(400).json({ error: "Protocolo não permitido" });
   }
-  if (ALLOWED_PROXY_DOMAINS.length > 0 && !ALLOWED_PROXY_DOMAINS.some(d => parsed.hostname.endsWith(d))) {
+  if (ALLOWED_PROXY_DOMAINS.length > 0 && !ALLOWED_PROXY_DOMAINS.some(d => parsed.hostname === d)) {
     return res.status(403).json({ error: "Domínio não autorizado" });
   }
   try {
@@ -1535,6 +1552,25 @@ async function handleCreateResponse(req: any, res: any) {
     const campaignId = req.body.campaign_id;
     if (!campaignId) return res.status(400).json({ error: "campaign_id is required" });
 
+    if (typeof campaignId !== "string" || !req.body.answers || !Array.isArray(req.body.answers)) {
+      return res.status(400).json({ error: "Payload inválido" });
+    }
+
+    const sanitizeAnswers = (answers: any[]) =>
+      answers.slice(0, 100).map((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return null;
+        const safe: any = {};
+        if (typeof item.type === "string") safe.type = item.type.slice(0, 100);
+        if (typeof item.text === "string") safe.text = item.text.slice(0, 1000);
+        if (typeof item.question_id === "string") safe.question_id = item.question_id.slice(0, 100);
+        const answer = item.answer;
+        if (typeof answer === "string") safe.answer = answer.slice(0, 2000);
+        else if (typeof answer === "number") safe.answer = answer;
+        else if (typeof answer === "boolean") safe.answer = answer;
+        return safe;
+      }).filter(Boolean);
+    req.body.answers = sanitizeAnswers(req.body.answers);
+
     const campaign = await prisma.campaign.findUnique({
       where: { id: campaignId },
       include: { user: true }
@@ -1624,7 +1660,7 @@ async function handleCreateResponse(req: any, res: any) {
 }
 
 app.post("/api/responses", authenticateToken, handleCreateResponse);
-app.post("/api/public/responses", handleCreateResponse);
+app.post("/api/public/responses", publicResponseLimiter, handleCreateResponse);
 
 // Platform Settings
 app.get("/api/platform-settings/:key", async (req, res) => {
@@ -1688,7 +1724,7 @@ app.get("/api/companies", authenticateToken, async (req: any, res) => {
       }),
       prisma.company.count()
     ]);
-    res.json({ data: companies, count });
+    res.json({ data: companies.map(publicCompany), count });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1724,7 +1760,7 @@ app.get("/api/companies/:id", authenticateToken, async (req: any, res) => {
   if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
   try {
     const company = await prisma.company.findUnique({ where: { id: req.params.id } });
-    res.json(company);
+    res.json(publicCompany(company));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -1788,7 +1824,7 @@ app.post("/api/companies", authenticateToken, async (req: any, res) => {
       }
     });
 
-    res.json(company);
+    res.json(publicCompany(company));
   } catch (err: any) {
     console.error("Create company error:", err);
     res.status(500).json({ error: "Erro ao criar empresa." });
@@ -1852,7 +1888,7 @@ app.patch("/api/companies/:id", authenticateToken, async (req: any, res) => {
       });
     }
 
-    res.json(company);
+    res.json(publicCompany(company));
   } catch (err: any) {
     console.error("Update company error:", err);
     res.status(500).json({ error: err.message });
@@ -2325,7 +2361,7 @@ app.patch("/api/profiles/:id", authenticateToken, async (req: any, res) => {
       where: { id: req.params.id },
       data: updateData
     });
-    res.json(profile);
+    res.json(publicUser(profile));
   } catch (err: any) {
     console.error("Profile update error:", err);
     res.status(500).json({ error: "Erro ao atualizar perfil." });
@@ -2344,7 +2380,7 @@ app.get("/api/survey/:id", async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: terminal.user_id } });
 
     res.json({
-      ...terminal,
+      ...publicTerminal(terminal),
       company_name: user?.empresa || "Minha Empresa",
       logo_url: user?.logo_url
     });
@@ -2358,7 +2394,7 @@ app.get("/api/survey/terminal/:id", async (req, res) => {
     const terminal = await prisma.terminal.findUnique({
       where: { id: req.params.id }
     });
-    res.json(terminal);
+    res.json(publicTerminal(terminal));
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -2426,6 +2462,10 @@ cron.schedule("* * * * *", () => {
 // Emergency admin reset (useful when admin is locked out after deploy)
 app.post("/api/admin/reset-admin", async (req, res) => {
   try {
+    const secret = req.headers["x-admin-secret"];
+    if (typeof secret !== "string" || secret !== ADMIN_RESET_SECRET) {
+      return res.status(403).json({ error: "Forbidden" });
+    }
     const hashedPassword = await bcrypt.hash(ADMIN_PASSWORD, 10);
     await prisma.user.upsert({
       where: { email: ADMIN_EMAIL },
