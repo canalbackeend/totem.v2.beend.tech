@@ -10,6 +10,7 @@ import {
   Position,
   useNodesState,
   useEdgesState,
+  useUpdateNodeInternals,
   type Connection,
   type Edge,
   type Node,
@@ -290,6 +291,7 @@ function EditorInner() {
 
   const [nodes, setNodes, onNodesChange] = useNodesState<FlowNodeType>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+  const updateNodeInternals = useUpdateNodeInternals();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -565,6 +567,8 @@ function EditorInner() {
 
     setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, question: q } } : n)));
 
+    updateNodeInternals(nodeId);
+
     if (isNps(prev) || isNps(q)) {
       setEdges((eds) => eds.filter((e) => e.source !== nodeId));
       return;
@@ -592,6 +596,7 @@ function EditorInner() {
         return { ...n, data: { ...n.data, question: q } };
       })
     );
+    updateNodeInternals(nodeId);
   };
 
   const renameOption = (nodeId: string, optionId: string, text: string, oldText: string) => {
@@ -618,6 +623,7 @@ function EditorInner() {
       })
     );
     setEdges((eds) => eds.filter((e) => !(e.source === nodeId && e.sourceHandle === optionId)));
+    updateNodeInternals(nodeId);
   };
 
   const changeOptionColor = (nodeId: string, optionId: string, color: string) => {
