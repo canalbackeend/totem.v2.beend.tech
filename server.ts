@@ -1017,7 +1017,7 @@ app.post("/api/campaigns", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
     const campaign = await prisma.campaign.create({
-      data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message"]), user_id: req.user.id }
+      data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "flow_layout"]), user_id: req.user.id }
     });
     res.json(campaign);
   } catch (err: any) {
@@ -1039,7 +1039,7 @@ app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
     }
     const campaign = await prisma.campaign.update({
       where: { id: req.params.id },
-      data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message"])
+      data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "flow_layout"])
     });
 
     // Propagate name change to terminals that store campaign names

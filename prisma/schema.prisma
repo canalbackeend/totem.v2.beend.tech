@@ -97,6 +97,7 @@ model Campaign {
   report_email        String?   
   report_time         String    @default("08:00") 
   thank_you_message   String?   
+  flow_layout         Json      @default("{}")
   created_at          DateTime  @default(now())
   updated_at          DateTime  @updatedAt
 

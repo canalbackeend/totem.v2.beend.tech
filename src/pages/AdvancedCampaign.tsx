@@ -350,21 +350,21 @@ function EditorInner() {
     return positions;
   };
 
-  const buildNodesFromGraph = (questionNodes: Question[], startId: string, endMessage?: string) => {
+  const buildNodesFromGraph = (questionNodes: Question[], startId: string, endMessage?: string, savedLayout?: Record<string, { x: number; y: number }>) => {
     const normalized = normalizeOptions(questionNodes);
     const positions = layout(normalized, startId);
     const qNodes: FlowNodeType[] = normalized.map((q) => ({
       id: q.id,
       type: "question",
-      position: positions.get(q.id) || { x: 400, y: 200 },
+      position: savedLayout?.[q.id] || positions.get(q.id) || { x: 400, y: 200 },
       data: { kind: "question", question: q },
     }));
     const startPos = { x: 20, y: 60 + (positions.get(startId)?.y ?? 0) };
     const maxX = qNodes.reduce((m, n) => Math.max(m, n.position.x), 320) + 320;
     return [
-      { id: START_ID, type: "start", position: startPos, data: { kind: "start" } },
+      { id: START_ID, type: "start", position: savedLayout?.[START_ID] || startPos, data: { kind: "start" } },
       ...qNodes,
-      { id: END_ID, type: "end", position: { x: maxX, y: 60 + (positions.get(startId)?.y ?? 0) }, data: { kind: "end", endMessage } },
+      { id: END_ID, type: "end", position: savedLayout?.[END_ID] || { x: maxX, y: 60 + (positions.get(startId)?.y ?? 0) }, data: { kind: "end", endMessage } },
     ] as FlowNodeType[];
   };
 
@@ -462,7 +462,7 @@ function EditorInner() {
         setPrivacyText(data.privacy_text || "");
         setThankYouMessage(data.thank_you_message || "");
         const graph = buildFlowGraph(data.questions || [], data.thank_you_message || "");
-        const loadedNodes = buildNodesFromGraph(graph.questionNodes, graph.startId, graph.endMessage);
+        const loadedNodes = buildNodesFromGraph(graph.questionNodes, graph.startId, graph.endMessage, data.flow_layout?.nodes);
         setNodes(loadedNodes);
         setEdges(cleanInvalidEdges(buildEdgesFromGraph(graph), loadedNodes));
       } catch (err) {
@@ -724,6 +724,9 @@ function EditorInner() {
         type: "Externa",
         questions,
         thank_you_message,
+        flow_layout: {
+          nodes: Object.fromEntries(nodes.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])),
+        },
       };
       if (isEdit) {
         await api.patch(`/campaigns/${id}`, payload);
