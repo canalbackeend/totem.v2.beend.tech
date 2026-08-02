@@ -140,14 +140,18 @@ function smileOptionIcon(q: Question, optText: string): ReactNode {
   return null;
 }
 
-function npsOptionIcon(q: Question, optText: string): ReactNode {
-  const t = (q.type || "").toLowerCase();
-  if (t !== "nps") return null;
-  const value = parseInt((optText || "").trim(), 10);
-  if (isNaN(value)) return null;
-  if (value <= 6) return <Frown className="w-3.5 h-3.5 text-[#ef4444]" />;
-  if (value <= 8) return <Meh className="w-3.5 h-3.5 text-[#e9b306]" />;
-  return <Laugh className="w-3.5 h-3.5 text-[#22c55d]" />;
+const NPS_GROUPS = [
+  { label: "0-6", min: 0, max: 6, icon: <Frown className="w-3.5 h-3.5 text-[#ef4444]" />, color: "#ef4444" },
+  { label: "7-8", min: 7, max: 8, icon: <Meh className="w-3.5 h-3.5 text-[#e9b306]" />, color: "#e9b306" },
+  { label: "9-10", min: 9, max: 10, icon: <Laugh className="w-3.5 h-3.5 text-[#22c55d]" />, color: "#22c55d" },
+] as const;
+
+function isNps(q: Question | undefined | null): boolean {
+  return (q?.type || "").toLowerCase() === "nps";
+}
+
+function npsGroupOf(value: number): (typeof NPS_GROUPS)[number] | undefined {
+  return NPS_GROUPS.find((g) => value >= g.min && value <= g.max);
 }
 
 function edgeId(source: string, handle: string, target: string) {
@@ -207,43 +211,65 @@ function QuestionNode({ data, selected }: { data: FlowNodeData; selected?: boole
         {q?.text?.trim() ? q.text : "(sem texto)"}
       </div>
       <div className="mt-2 space-y-1">
-        {showOptionRows && options.length === 0 && (
-          <div className="text-[9px] text-amber-600 font-bold">Nenhuma opção — adicione no painel</div>
-        )}
-        {showOptionRows && options.map((opt) => {
-          if (perOption) {
-            const mapped = data.rules?.[opt.id];
+        {isNps(q) ? (
+          NPS_GROUPS.map((g) => {
+            const mapped = data.rules?.[g.label];
             return (
-              <div key={opt.id} className={`relative flex items-center justify-between gap-2 rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
+              <div key={g.label} className={`relative flex items-center justify-between gap-2 rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
                 <span className="flex items-center gap-1.5 min-w-0">
-                  {smileOptionIcon(q, opt.text)}
-                  {npsOptionIcon(q, opt.text)}
-                  {starOptionIcon(q, opt.text)}
-                  {!locked && opt.color && <span className={`w-2.5 h-2.5 rounded-full shrink-0 border ${isDarkMode ? "border-white/10" : "border-black/10"}`} style={{ background: opt.color }} />}
-                  <span className={`text-[10px] truncate ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{opt.text || "(vazio)"}</span>
+                  {g.icon}
+                  <span className={`text-[10px] font-bold truncate ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{g.label}</span>
                 </span>
                 <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mapped ? "bg-emerald-500" : "bg-red-500"}`} title={mapped ? "Conectado" : "Sem destino"} />
                 <Handle
                   type="source"
                   position={Position.Right}
-                  id={opt.id}
+                  id={g.label}
                   style={{ background: mapped ? "#22c55e" : "#ef4444", width: 8, height: 8 }}
                 />
               </div>
             );
-          }
-          return (
-            <div key={opt.id} className={`flex items-center gap-1.5 rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
-              <span className={`w-2 h-2 rounded-full shrink-0 border ${isDarkMode ? "border-white/10" : "border-black/10"}`} style={{ background: opt.color || "#3b82f6" }} />
-              <span className={`text-[10px] truncate ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{opt.text || "(vazio)"}</span>
-            </div>
-          );
-        })}
-        {!perOption && (
-          <div className={`relative flex items-center justify-between rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
-            <span className={`text-[10px] ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>{showOptionRows ? "Continua →" : "Resposta livre"}</span>
-            <Handle type="source" position={Position.Right} id="next" style={{ background: data.defaultNext ? "#22c55e" : "#ef4444", width: 8, height: 8 }} />
-          </div>
+          })
+        ) : (
+          <>
+            {showOptionRows && options.length === 0 && (
+              <div className="text-[9px] text-amber-600 font-bold">Nenhuma opção — adicione no painel</div>
+            )}
+            {showOptionRows && options.map((opt) => {
+              if (perOption) {
+                const mapped = data.rules?.[opt.id];
+                return (
+                  <div key={opt.id} className={`relative flex items-center justify-between gap-2 rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
+                    <span className="flex items-center gap-1.5 min-w-0">
+                      {smileOptionIcon(q, opt.text)}
+                      {starOptionIcon(q, opt.text)}
+                      {!locked && opt.color && <span className={`w-2.5 h-2.5 rounded-full shrink-0 border ${isDarkMode ? "border-white/10" : "border-black/10"}`} style={{ background: opt.color }} />}
+                      <span className={`text-[10px] truncate ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{opt.text || "(vazio)"}</span>
+                    </span>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mapped ? "bg-emerald-500" : "bg-red-500"}`} title={mapped ? "Conectado" : "Sem destino"} />
+                    <Handle
+                      type="source"
+                      position={Position.Right}
+                      id={opt.id}
+                      style={{ background: mapped ? "#22c55e" : "#ef4444", width: 8, height: 8 }}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <div key={opt.id} className={`flex items-center gap-1.5 rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
+                  <span className={`w-2 h-2 rounded-full shrink-0 border ${isDarkMode ? "border-white/10" : "border-black/10"}`} style={{ background: opt.color || "#3b82f6" }} />
+                  <span className={`text-[10px] truncate ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{opt.text || "(vazio)"}</span>
+                </div>
+              );
+            })}
+            {!perOption && (
+              <div className={`relative flex items-center justify-between rounded px-2 py-1 ${isDarkMode ? "bg-zinc-800/80" : "bg-zinc-50"}`}>
+                <span className={`text-[10px] ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>{showOptionRows ? "Continua →" : "Resposta livre"}</span>
+                <Handle type="source" position={Position.Right} id="next" style={{ background: data.defaultNext ? "#22c55e" : "#ef4444", width: 8, height: 8 }} />
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -346,21 +372,48 @@ function EditorInner() {
       graph.startId && graph.questionNodes.some((n) => n.id === graph.startId)
         ? [{ id: edgeId(START_ID, "out", graph.startId), source: START_ID, sourceHandle: "out", target: graph.startId, targetHandle: "in" }]
         : [];
-    const qEdges: Edge[] = graph.edges.map((e: FlowEdge) => {
+    const mapTarget = (targetId: string) => (targetId === END ? END_ID : targetId);
+    const qEdges: Edge[] = [];
+    const npsHandled = new Set<string>();
+
+    for (const e of graph.edges) {
+      const sourceQ = normalized.find((n) => n.id === e.sourceId);
+      if (isNps(sourceQ)) {
+        if (!npsHandled.has(e.sourceId)) {
+          npsHandled.add(e.sourceId);
+          for (const g of NPS_GROUPS) {
+            const groupEdges = graph.edges.filter(
+              (fe) =>
+                fe.sourceId === e.sourceId &&
+                fe.optionText !== undefined &&
+                npsGroupOf(parseInt(fe.optionText, 10))?.label === g.label
+            );
+            if (groupEdges.length === 0) continue;
+            const targetId = groupEdges[0].targetId;
+            qEdges.push({
+              id: edgeId(e.sourceId, g.label, targetId),
+              source: e.sourceId,
+              sourceHandle: g.label,
+              target: mapTarget(targetId),
+              targetHandle: "in",
+            });
+          }
+        }
+        continue;
+      }
       let sourceHandle = e.optionText ?? "next";
       if (e.optionText !== undefined) {
-        const sourceQ = normalized.find((n) => n.id === e.sourceId);
         const opt = sourceQ?.options?.find((o) => o.text === e.optionText);
         if (opt) sourceHandle = opt.id;
       }
-      return {
+      qEdges.push({
         id: edgeId(e.sourceId, sourceHandle, e.targetId),
         source: e.sourceId,
         sourceHandle,
-        target: e.targetId === END ? END_ID : e.targetId,
+        target: mapTarget(e.targetId),
         targetHandle: "in",
-      };
-    });
+      });
+    }
     return [...startEdge, ...qEdges];
   };
 
@@ -373,6 +426,10 @@ function EditorInner() {
       }
       if (n.data.kind === "end") continue;
       const q = n.data.question as Question;
+      if (isNps(q)) {
+        for (const g of NPS_GROUPS) validHandles.add(`${n.id}::${g.label}`);
+        continue;
+      }
       const perOption = branchesPerOption(q);
       if (!perOption) {
         validHandles.add(`${n.id}::next`);
@@ -508,6 +565,11 @@ function EditorInner() {
 
     setNodes((ns) => ns.map((n) => (n.id === nodeId ? { ...n, data: { ...n.data, question: q } } : n)));
 
+    if (isNps(prev) || isNps(q)) {
+      setEdges((eds) => eds.filter((e) => e.source !== nodeId));
+      return;
+    }
+
     const newPerOption = branchesPerOption(q);
     const newOptIds = new Set((q.options || []).map((o) => o.id));
     setEdges((eds) =>
@@ -601,6 +663,14 @@ function EditorInner() {
       const sourceQ = questionNodes.find((n) => n.id === e.source);
       if (!sourceQ) continue;
       const target = e.target === END_ID ? END : e.target;
+      if (isNps(sourceQ)) {
+        const group = NPS_GROUPS.find((g) => g.label === e.sourceHandle);
+        if (!group) continue;
+        for (let v = group.min; v <= group.max; v++) {
+          flowEdges.push({ sourceId: e.source, optionText: String(v), targetId: target });
+        }
+        continue;
+      }
       if (e.sourceHandle === "next") {
         flowEdges.push({ sourceId: e.source, targetId: target });
       } else if (e.sourceHandle) {
@@ -889,7 +959,37 @@ function QuestionPanel({
         </label>
       </div>
 
-      {showOptions ? (
+      {isNps(question) ? (
+        <div className="space-y-3">
+          <p className={`text-xs font-semibold ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Rotas de saída</p>
+          {NPS_GROUPS.map((g) => {
+            const mapped = rules[g.label];
+            const targetId = mapped === END ? END_ID : mapped;
+            return (
+              <div key={g.label} className={`border rounded-md p-2 flex items-center gap-2 ${isDarkMode ? "border-white/10" : "border-zinc-100"}`}>
+                <span className="flex items-center gap-1.5 min-w-0">
+                  {g.icon}
+                  <span className={`text-sm font-bold truncate min-w-0 ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>{g.label}</span>
+                </span>
+                <span className="text-[10px] text-zinc-400 whitespace-nowrap">ir para:</span>
+                <select
+                  value={targetId || ""}
+                  onChange={(e) => onWire(nodeId, g.label, e.target.value)}
+                  className={`flex-1 min-w-0 border rounded px-2 py-1 text-sm ${isDarkMode ? "bg-zinc-800 text-white" : "bg-white"} ${targetId ? "border-emerald-200" : "border-red-300"}`}
+                >
+                  <option value="">Selecione...</option>
+                  <option value={END_ID}>Finalizar pesquisa</option>
+                  {questionTargets
+                    .filter((t) => t.id !== nodeId)
+                    .map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                </select>
+              </div>
+            );
+          })}
+        </div>
+      ) : showOptions ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className={`text-xs font-semibold ${isDarkMode ? "text-zinc-400" : "text-zinc-500"}`}>Opções</p>
