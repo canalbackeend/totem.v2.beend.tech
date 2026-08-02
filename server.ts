@@ -68,7 +68,7 @@ app.use(helmet({
   } : false,
 }));
 app.use(cors({ origin: process.env.APP_URL || "http://localhost:5173", credentials: true }));
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: false }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Muitas tentativas. Tente novamente mais tarde." } });
@@ -100,6 +100,27 @@ function publicCompany(company: any) {
   if (!company) return company;
   const { password, ...safe } = company;
   return safe;
+}
+
+// Wrap async route handlers so rejected promises reach the error middleware
+const asyncHandler = (fn: any) => (req: any, res: any, next: any) =>
+  Promise.resolve(fn(req, res, next)).catch(next);
+
+// Parse terminal.campaigns which may be stored as CSV or JSON array
+function parseCampaignList(value: any): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter((c: any) => typeof c === "string");
+  if (typeof value !== "string") return [];
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed.filter((c: any) => typeof c === "string");
+    } catch {
+      // fall through to CSV parsing
+    }
+  }
+  return trimmed.split(",").map((c: string) => c.trim()).filter(Boolean);
 }
 
 // Auth Middleware
@@ -291,7 +312,6 @@ app.post("/api/auth/login", authLimiter, async (req, res) => {
 
 app.post("/api/terminals/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
-  console.log(`[Terminal Login] password=${password ? 'provided' : 'missing'}`);
   try {
     const terminals = await prisma.terminal.findMany({
       where: { email }
@@ -489,12 +509,24 @@ function calculateCampaignMetrics(campaign: any, responses: any[]) {
 }
 
 // Health check
-app.get("/api/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
-    timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV
-  });
+app.get("/api/health", async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      database: "ok"
+    });
+  } catch (err) {
+    console.error("Health check database error:", err);
+    res.status(503).json({
+      status: "error",
+      timestamp: new Date().toISOString(),
+      env: process.env.NODE_ENV,
+      database: "error"
+    });
+  }
 });
 
 // Dashboard Stats
@@ -744,22 +776,23 @@ async function sendDailyReports(targetTimeStr?: string) {
     const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
 
     for (const campaign of campaignsToSend) {
-      // 2. Generate secure token
-      const token = crypto.randomBytes(32).toString("hex");
-      const expiresAt = new Date();
-      expiresAt.setHours(expiresAt.getHours() + 720); // Extends token validity to 30 days (720 hours) for seamless link access 
+      try {
+        // 2. Generate secure token
+        const token = crypto.randomBytes(32).toString("hex");
+        const expiresAt = new Date();
+        expiresAt.setHours(expiresAt.getHours() + 720); // Extends token validity to 30 days (720 hours) for seamless link access 
 
-      // 3. Save token
-      await prisma.reportToken.create({
-        data: {
-          token,
-          campaign_id: campaign.id,
-          expires_at: expiresAt
-        }
-      });
+        // 3. Save token
+        await prisma.reportToken.create({
+          data: {
+            token,
+            campaign_id: campaign.id,
+            expires_at: expiresAt
+          }
+        });
 
-      // 4. Send email
-      const reportLink = `${appUrl}/relatorio-seguro/${token}`;
+        // 4. Send email
+        const reportLink = `${appUrl}/relatorio-seguro/${token}`;
       
       const mailOptions = {
         from: `"Totem been.tech" <${process.env.GMAIL_USER}>`,
@@ -796,6 +829,9 @@ async function sendDailyReports(targetTimeStr?: string) {
         console.log(`Relatório enviado para ${campaign.report_email} (Campanha: ${campaign.id})`);
       } catch (mailError) {
         console.error(`Erro ao enviar e-mail para ${campaign.report_email}:`, mailError);
+      }
+      } catch (campaignError) {
+        console.error(`Erro na campanha ${campaign.id} (${campaign.name}):`, campaignError);
       }
     }
   } catch (err) {
@@ -952,14 +988,9 @@ app.get("/api/campaigns", authenticateToken, async (req: any, res) => {
     if (req.user.terminal_id) {
       const terminal = await prisma.terminal.findUnique({ where: { id: req.user.terminal_id } });
       if (terminal && terminal.campaigns) {
-        let assigned: string[] = [];
-        try {
-          assigned = JSON.parse(terminal.campaigns);
-        } catch (e) {
-          assigned = terminal.campaigns.split(',').map(c => c.trim()).filter(Boolean);
-        }
+        const assigned = parseCampaignList(terminal.campaigns);
         
-        if (Array.isArray(assigned) && assigned.length > 0) {
+        if (assigned.length > 0) {
           // If query names already present, intersect them
           if (where.name) {
             const currentNames = (where.name.in as string[]);
@@ -1068,9 +1099,7 @@ app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
       });
       for (const term of affectedTerminals) {
         if (!term.campaigns) continue;
-        const updated = term.campaigns
-          .split(',')
-          .map((c: string) => c.trim())
+        const updated = parseCampaignList(term.campaigns)
           .map((c: string) => c === oldName ? newName : c)
           .join(',');
         if (updated !== term.campaigns) {
@@ -2420,7 +2449,7 @@ app.get("/api/survey/terminal/:id/campaigns", async (req, res) => {
       return res.json([]);
     }
 
-    const campaignNames = terminal.campaigns.split(',').map((c: string) => c.trim()).filter(Boolean);
+    const campaignNames = parseCampaignList(terminal.campaigns);
 
     const allCampaigns = await prisma.campaign.findMany({
       where: {
@@ -2440,21 +2469,25 @@ app.get("/api/survey/terminal/:id/campaigns", async (req, res) => {
 let cronRunning = false;
 
 // Schedule task to run every minute and check the time
-cron.schedule("* * * * *", () => {
+cron.schedule("* * * * *", async () => {
   if (cronRunning) return;
   cronRunning = true;
-  const now = new Date();
-  
-  // Format as HH:mm in America/Sao_Paulo timezone
-  const formatter = new Intl.DateTimeFormat('pt-BR', {
-    timeZone: 'America/Sao_Paulo',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-  
-  const targetTimeStr = formatter.format(now);
-  sendDailyReports(targetTimeStr).finally(() => { cronRunning = false; });
+  try {
+    const now = new Date();
+    
+    // Format as HH:mm in America/Sao_Paulo timezone
+    const formatter = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Sao_Paulo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+    
+    const targetTimeStr = formatter.format(now);
+    await sendDailyReports(targetTimeStr);
+  } finally {
+    cronRunning = false;
+  }
 }, {
   timezone: "America/Sao_Paulo"
 });
@@ -2524,9 +2557,21 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
+
+  const shutdown = (signal: string) => {
+    console.log(`Recebido ${signal}. Encerrando servidor graciosamente...`);
+    server.close(async () => {
+      await prisma.$disconnect();
+      process.exit(0);
+    });
+    // Force exit if close hangs (e.g. open keep-alive connections)
+    setTimeout(() => process.exit(0), 10000).unref();
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
 // Centralized error handler
@@ -2535,8 +2580,16 @@ app.use((err: any, req: any, res: any, next: any) => {
   res.status(500).json({ error: "Erro interno do servidor." });
 });
 
+// Log async rejections instead of crashing silently
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled promise rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught exception:", err);
+});
+
 if (!process.env.VITEST) {
   startServer();
 }
 
-export { app };
+export { app, parseCampaignList };
