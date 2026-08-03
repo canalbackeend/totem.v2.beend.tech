@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '../lib/db';
+import { getNextQuestionIndex } from '../lib/flow';
 
 const cacheImage = async (url: string): Promise<string | null> => {
   if (!url) return null;
@@ -584,8 +585,10 @@ export default function SurveyOffline() {
     setAnswers(newAnswers);
     setCurrentComment("");
 
-    const nextIndex = currentQuestionIndex + 1;
-    if (selectedCampaign && nextIndex < selectedCampaign.questions.length) {
+    const nextIndex = selectedCampaign
+      ? getNextQuestionIndex(selectedCampaign.questions, currentQuestionIndex, newAnswers)
+      : null;
+    if (selectedCampaign && nextIndex !== null) {
       setCurrentQuestionIndex(nextIndex);
       setRemainingTime(60); 
     } else {
@@ -606,8 +609,10 @@ export default function SurveyOffline() {
       setAnswers(finalAnswers);
     }
 
-    const nextIndex = currentQuestionIndex + 1;
-    if (selectedCampaign && nextIndex < selectedCampaign.questions.length) {
+    const nextIndex = selectedCampaign
+      ? getNextQuestionIndex(selectedCampaign.questions, currentQuestionIndex, finalAnswers)
+      : null;
+    if (selectedCampaign && nextIndex !== null) {
       setCurrentComment("");
       setCurrentQuestionIndex(nextIndex);
       setRemainingTime(60);
