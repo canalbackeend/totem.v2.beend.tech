@@ -1590,12 +1590,20 @@ async function handleCreateResponse(req: any, res: any) {
         if (!item || typeof item !== "object" || Array.isArray(item)) return null;
         const safe: any = {};
         if (typeof item.type === "string") safe.type = item.type.slice(0, 100);
+        if (typeof item.question === "string") safe.question = item.question.slice(0, 1000);
         if (typeof item.text === "string") safe.text = item.text.slice(0, 1000);
         if (typeof item.question_id === "string") safe.question_id = item.question_id.slice(0, 100);
+        if (typeof item.comment === "string") safe.comment = item.comment.slice(0, 2000);
         const answer = item.answer;
         if (typeof answer === "string") safe.answer = answer.slice(0, 2000);
         else if (typeof answer === "number") safe.answer = answer;
         else if (typeof answer === "boolean") safe.answer = answer;
+        else if (Array.isArray(answer)) {
+          safe.answer = answer
+            .slice(0, 50)
+            .map((a: any) => (typeof a === "string" ? a.slice(0, 500) : a))
+            .filter((a: any) => typeof a === "string" || typeof a === "number");
+        }
         return safe;
       }).filter(Boolean);
     req.body.answers = sanitizeAnswers(req.body.answers);
