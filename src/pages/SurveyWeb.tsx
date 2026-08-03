@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { getNextQuestionIndex } from '../lib/flow';
 import { api } from '../lib/api';
 import { motion, AnimatePresence } from 'motion/react';
 import { toast } from 'sonner';
@@ -171,10 +172,12 @@ export default function SurveyWeb() {
     setAnswers(newAnswers);
     setCurrentComment("");
 
-    const nextIndex = currentQuestionIndex + 1;
-    if (campaign && nextIndex < campaign.questions.length) {
-      setCurrentQuestionIndex(nextIndex);
+    const nextIndex = campaign
+      ? getNextQuestionIndex(campaign.questions, currentQuestionIndex, newAnswers)
+      : null;
+    if (nextIndex !== null) {
       setCurrentComment("");
+      setCurrentQuestionIndex(nextIndex);
     } else {
       finishSurvey(newAnswers);
     }
@@ -197,8 +200,10 @@ export default function SurveyWeb() {
       setAnswers(finalAnswers);
     }
 
-    const nextIndex = currentQuestionIndex + 1;
-    if (campaign && nextIndex < campaign.questions.length) {
+    const nextIndex = campaign
+      ? getNextQuestionIndex(campaign.questions, currentQuestionIndex, finalAnswers)
+      : null;
+    if (nextIndex !== null) {
       setCurrentComment("");
       setCurrentQuestionIndex(nextIndex);
     } else {
@@ -264,7 +269,7 @@ export default function SurveyWeb() {
         { icon: Frown, color: '#fb923c', value: 'Insatisfeito', label: 'Insatisfeito' },
         { icon: Meh, color: '#facc15', value: 'Regular', label: 'Regular' },
         { icon: Smile, color: '#4ade80', value: 'Satisfeito', label: 'Satisfeito' },
-        { icon: Smile, color: '#16a34a', value: 'Muito Satisfeito', label: 'Muito Satisfeito' }
+        { icon: Smile, color: '#16a34a', value: 'Muito satisfeito', label: 'Muito satisfeito' }
       ];
       return (
         <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">
@@ -296,10 +301,10 @@ export default function SurveyWeb() {
 
     if (q.type === 'SMILE 4') {
       const options = [
-        { icon: Frown, color: '#ef4444', value: 'Ruim', label: 'Ruim' },
-        { icon: Meh, color: '#facc15', value: 'Regular', label: 'Regular' },
-        { icon: Smile, color: '#4ade80', value: 'Bom', label: 'Bom' },
-        { icon: Smile, color: '#3b82f6', value: 'Excelente', label: 'Excelente' }
+        { icon: Frown, color: '#ef4444', value: 'RUIM', label: 'Ruim' },
+        { icon: Meh, color: '#facc15', value: 'REGULAR', label: 'Regular' },
+        { icon: Smile, color: '#4ade80', value: 'BOM', label: 'Bom' },
+        { icon: Smile, color: '#3b82f6', value: 'EXCELENTE', label: 'Excelente' }
       ];
       return (
         <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">
