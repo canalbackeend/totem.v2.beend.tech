@@ -51,7 +51,7 @@ model Company {
   vencimento    String?
   status        String    @default("Ativo")
   logo_url      String?
-  password      String?   
+  password      String?   /// Deprecated: nunca mais escrita pelo app (register comentou, whitelists ignoram). Mantida apenas para compatibilidade com dados legados. Segurança fica em User.password.
   max_terminals Int       @default(5) 
   created_at    DateTime  @default(now())
   updated_at    DateTime  @updatedAt

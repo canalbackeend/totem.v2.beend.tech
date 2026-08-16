@@ -12,6 +12,7 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { createClient } from "@supabase/supabase-js";
+import { getSatisfactionScore, getPerceptionKey } from "./src/lib/metrics";
 
 dotenv.config();
 
@@ -431,26 +432,6 @@ function calculateCampaignMetrics(campaign: any, responses: any[]) {
       }
 
       // General Satisfaction (CSAT) Logic
-      // Helper to map values
-      const getSatisfactionScore = (ans: any, type: string) => {
-        if (ans === null || ans === undefined || ans === '') return null;
-        
-        const valStr = String(ans).trim().toUpperCase();
-        const num = Number(ans);
-        const isNum = !isNaN(num) && typeof ans !== 'boolean';
-
-        if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM', 'ÓTIMO', '5', '9', '10'].includes(valStr) || (isNum && num >= 9) || (isNum && type === 'SMILE 5' && num === 5) || (isNum && type === 'SMILE 4' && num === 4) || (isNum && type === 'Avaliação de 1 à 5' && num === 5)) {
-          return 100;
-        } else if (['SATISFEITO', 'BOM', '4', '7', '8'].includes(valStr) || (isNum && num >= 7 && num <= 8) || (isNum && type === 'SMILE 5' && num === 4) || (isNum && type === 'SMILE 4' && num === 3) || (isNum && type === 'Avaliação de 1 à 5' && num === 4)) {
-          return 75;
-        } else if (['REGULAR', 'MÉDIO', '3', '5', '6'].includes(valStr) || (isNum && num >= 5 && num <= 6) || (isNum && type === 'SMILE 5' && num === 3) || (isNum && type === 'SMILE 4' && num === 2) || (isNum && type === 'Avaliação de 1 à 5' && num === 3)) {
-          return 50;
-        } else if (['RUIM', 'PÉSSIMO', 'INSATISFEITO', 'MUITO INSATISFEITO', '2', '1', '0', '4', '3'].includes(valStr) || (isNum && num <= 4) || (isNum && type === 'SMILE 5' && num <= 2) || (isNum && type === 'SMILE 4' && num === 1) || (isNum && type === 'Avaliação de 1 à 5' && num <= 2)) {
-          return 25;
-        }
-        return null;
-      };
-
       const score = getSatisfactionScore(a.answer, qType || '');
       if (score !== null) {
         totalSatSum += score;
@@ -1212,18 +1193,8 @@ app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res)
         const answers = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
         if (Array.isArray(answers)) {
           for (const a of answers) {
-            const val = String(a.answer || a.value || "").toUpperCase();
-            let score = 0;
-            if (["MUITO SATISFEITO", "EXCELENTE", "MUITO BOM"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) >= 9)) {
-              score = 100;
-            } else if (["SATISFEITO", "BOM"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) >= 7 && (a.answer || a.value) <= 8)) {
-              score = 75;
-            } else if (["REGULAR"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) >= 5 && (a.answer || a.value) <= 6)) {
-              score = 50;
-            } else if (["RUIM", "PÉSSIMO", "INSATISFEITO", "MUITO INSATISFEITO"].includes(val) || (typeof (a.answer || a.value) === "number" && (a.answer || a.value) <= 4)) {
-              score = 25;
-            }
-            if (score > 0) {
+            const score = getSatisfactionScore(a.answer ?? a.value, a.type);
+            if (score !== null) {
               dailyData[key].scoreSum += score;
               dailyData[key].answerCount++;
             }
@@ -1661,26 +1632,10 @@ async function handleCreateResponse(req: any, res: any) {
     };
 
     if (lastAnswer !== null && lastAnswer !== undefined && (typeof lastAnswer === 'string' || typeof lastAnswer === 'number')) {
-      const val = typeof lastAnswer === 'string' ? lastAnswer.toUpperCase() : lastAnswer;
-
-      if (ratingAnswer?.type === 'Avaliação de 1 à 5' && typeof val === 'number') {
-        if (val === 5) {
-          updateData.perception_excelente = (campaign.perception_excelente || 0) + 1;
-        } else if (val === 4) {
-          updateData.perception_bom = (campaign.perception_bom || 0) + 1;
-        } else if (val === 3) {
-          updateData.perception_regular = (campaign.perception_regular || 0) + 1;
-        } else {
-          updateData.perception_ruim = (campaign.perception_ruim || 0) + 1;
-        }
-      } else if (val === 'MUITO SATISFEITO' || val === 'EXCELENTE' || val === 'MUITO BOM' || (typeof val === 'number' && val >= 9)) {
-        updateData.perception_excelente = (campaign.perception_excelente || 0) + 1;
-      } else if (val === 'SATISFEITO' || val === 'BOM' || (typeof val === 'number' && val >= 7 && val <= 8)) {
-        updateData.perception_bom = (campaign.perception_bom || 0) + 1;
-      } else if (val === 'REGULAR' || (typeof val === 'number' && val >= 5 && val <= 6)) {
-        updateData.perception_regular = (campaign.perception_regular || 0) + 1;
-      } else if (val === 'RUIM' || val === 'PÉSSIMO' || val === 'INSATISFEITO' || val === 'MUITO INSATISFEITO' || (typeof val === 'number' && val <= 4)) {
-        updateData.perception_ruim = (campaign.perception_ruim || 0) + 1;
+      const perception = getPerceptionKey(lastAnswer, ratingAnswer?.type);
+      if (perception) {
+        const field = `perception_${perception}` as 'perception_excelente' | 'perception_bom' | 'perception_regular' | 'perception_ruim';
+        updateData[field] = (campaign[field] || 0) + 1;
       }
     }
 
