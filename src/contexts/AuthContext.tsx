@@ -66,9 +66,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await api.get('/auth/me');
       if (data.user) {
-        setUser(data.user);
-        setProfile(data.user as Profile);
-        setSession({ access_token: token, user: data.user });
+        const changed = !user || JSON.stringify(user) !== JSON.stringify(data.user);
+        if (changed) {
+          setUser(data.user);
+          setProfile(data.user as Profile);
+          setSession({ access_token: token, user: data.user });
+        }
       } else {
         setAuthToken(null);
       }

@@ -1046,7 +1046,7 @@ app.post("/api/campaigns", authenticateToken, async (req: any, res) => {
   try {
     if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
     const campaign = await prisma.campaign.create({
-      data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "flow_layout"]), user_id: req.user.id }
+      data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "start_image", "end_image", "flow_layout"]), user_id: req.user.id }
     });
     res.json(campaign);
   } catch (err: any) {
@@ -1068,7 +1068,7 @@ app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
     }
     const campaign = await prisma.campaign.update({
       where: { id: req.params.id },
-      data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "flow_layout"])
+      data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "start_image", "end_image", "flow_layout"])
     });
 
     // Propagate name change to terminals that store campaign names
@@ -1251,7 +1251,9 @@ app.post("/api/campaigns/:id/clone", authenticateToken, async (req: any, res) =>
         is_global: false,
         report_email: existing.report_email,
         report_time: existing.report_time,
-        thank_you_message: existing.thank_you_message
+        thank_you_message: existing.thank_you_message,
+        start_image: existing.start_image,
+        end_image: existing.end_image
       }
     });
     res.json(cloned);

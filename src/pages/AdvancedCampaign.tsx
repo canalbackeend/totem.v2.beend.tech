@@ -17,7 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { toast } from "sonner";
-import { Angry, Frown, Laugh, Meh, Smile, Star } from "lucide-react";
+import { Angry, Frown, Laugh, Meh, Smile, Star, Upload, Trash2, Image as ImageIcon } from "lucide-react";
 import { api } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
@@ -303,6 +303,8 @@ function EditorInner() {
   const [reportTime, setReportTime] = useState("08:00");
   const [privacyText, setPrivacyText] = useState("");
   const [thankYouMessage, setThankYouMessage] = useState("");
+  const [startImage, setStartImage] = useState<string | null>(null);
+  const [endImage, setEndImage] = useState<string | null>(null);
 
   // Layout helper
   const layout = (questionNodes: Question[], startId: string) => {
@@ -461,6 +463,8 @@ function EditorInner() {
         setReportTime(data.report_time || "08:00");
         setPrivacyText(data.privacy_text || "");
         setThankYouMessage(data.thank_you_message || "");
+        setStartImage(data.start_image || null);
+        setEndImage(data.end_image || null);
         const graph = buildFlowGraph(data.questions || [], data.thank_you_message || "");
         const loadedNodes = buildNodesFromGraph(graph.questionNodes, graph.startId, graph.endMessage, data.flow_layout?.nodes);
         setNodes(loadedNodes);
@@ -657,6 +661,66 @@ function EditorInner() {
     [nodes]
   );
 
+  const handleUpload = async (target: "start" | "end", file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error("A imagem deve ter no máximo 2MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      const loadingToast = toast.loading("Enviando imagem para o Supabase...");
+      try {
+        const res = await api.post("/upload", {
+          image: base64,
+          folder: "campanhas",
+        });
+        if (target === "start") setStartImage(res.url);
+        else setEndImage(res.url);
+        toast.dismiss(loadingToast);
+        toast.success("Imagem carregada no Supabase!");
+      } catch (err) {
+        toast.dismiss(loadingToast);
+        console.error(err);
+        toast.error("Erro ao salvar imagem no Supabase.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const renderImageField = (target: "start" | "end", label: string, image: string | null, setImage: (v: string | null) => void) => {
+    const dark = isDarkMode;
+    return (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${dark ? "text-zinc-500" : "text-zinc-400"}`}>{label}</span>
+          {image && (
+            <button
+              onClick={() => setImage(null)}
+              className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-red-400 hover:text-red-500 transition-colors"
+              title="Remover imagem"
+            >
+              <Trash2 size={12} /> remover
+            </button>
+          )}
+        </div>
+        {image ? (
+          <div className={`relative w-full h-32 rounded-lg border overflow-hidden ${dark ? "border-white/10 bg-black" : "border-zinc-200 bg-slate-50"}`}>
+            <img src={image} alt={label} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+          </div>
+        ) : (
+          <label className={`flex items-center justify-center gap-3 w-full h-24 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${dark ? "border-zinc-700 bg-black hover:border-blue-500" : "border-zinc-200 bg-slate-50 hover:border-blue-400"}`}>
+            <Upload size={16} className={dark ? "text-zinc-500" : "text-slate-400"} />
+            <span className={`text-[10px] font-bold uppercase tracking-widest ${dark ? "text-zinc-500" : "text-slate-500"}`}>Anexar imagem</span>
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleUpload(target, e.target.files?.[0])} />
+          </label>
+        )}
+        <p className={`text-[9px] font-medium ${dark ? "text-zinc-700" : "text-zinc-400"}`}>JPG, PNG, WebP • máx 2MB</p>
+      </div>
+    );
+  };
+
   const buildPayload = () => {
     const questionNodes = nodes
       .filter((n) => n.data.kind === "question")
@@ -724,6 +788,8 @@ function EditorInner() {
         type: "Externa",
         questions,
         thank_you_message,
+        start_image: startImage,
+        end_image: endImage,
         flow_layout: {
           nodes: Object.fromEntries(nodes.map((n) => [n.id, { x: Math.round(n.position.x), y: Math.round(n.position.y) }])),
         },
@@ -818,6 +884,18 @@ function EditorInner() {
               <p className={`font-bold mb-2 ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>Fluxo da Campanha</p>
               <p>Clique em um node para editar. Conecte cada opção de resposta a uma próxima pergunta ou à tela final.</p>
               <p className={`mt-2 text-xs ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>• Node verde = Início<br />• Node escuro = Finalizar<br />• Conecte arrastando da bolinha colorida da opção</p>
+
+              <div className={`mt-5 mb-3 border-t ${isDarkMode ? "border-white/10" : "border-zinc-100"}`} />
+
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <ImageIcon size={14} className={isDarkMode ? "text-blue-400" : "text-blue-600"} />
+                  <p className={`font-bold ${isDarkMode ? "text-zinc-200" : "text-zinc-700"}`}>Imagens da Campanha</p>
+                </div>
+                <p className={`text-xs ${isDarkMode ? "text-zinc-500" : "text-zinc-400"}`}>Imagens opcionais exibidas no início e no final da pesquisa.</p>
+                {renderImageField("start", "Imagem inicial", startImage, setStartImage)}
+                {renderImageField("end", "Imagem final", endImage, setEndImage)}
+              </div>
             </div>
           ) : selectedKind === "start" ? (
             <div className="space-y-3">

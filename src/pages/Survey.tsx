@@ -24,7 +24,7 @@ import {
 import { toast } from 'sonner';
 import { getNextQuestionIndex } from '../lib/flow';
 
-type SurveyStep = 'LOGIN' | 'SELECTION' | 'SURVEY' | 'THANK_YOU';
+type SurveyStep = 'LOGIN' | 'SELECTION' | 'CAMPAIGN_INTRO' | 'SURVEY' | 'THANK_YOU';
 
 interface Terminal {
   id: string;
@@ -51,6 +51,8 @@ interface Campaign {
   status: string;
   responses_count?: number;
   thank_you_message?: string;
+  start_image?: string | null;
+  end_image?: string | null;
 }
 
 const isMultipleChoice = (type?: string) => {
@@ -187,7 +189,10 @@ export default function Survey() {
       
       if (data && data.length === 1) {
         setSelectedCampaign(data[0]);
-        setStep('SURVEY');
+        setCurrentQuestionIndex(0);
+        setAnswers([]);
+        setCurrentComment("");
+        setStep(data[0].start_image ? 'CAMPAIGN_INTRO' : 'SURVEY');
         startInactivityTimer();
       } else if (data && data.length > 1) {
         setStep('SELECTION');
@@ -262,15 +267,15 @@ export default function Survey() {
       setStep('LOGIN');
       setSelectedCampaign(null);
     } else {
-      setStep('SURVEY');
+      setStep(selectedCampaign?.start_image ? 'CAMPAIGN_INTRO' : 'SURVEY');
     }
     if (inactivityTimerRef.current) clearInterval(inactivityTimerRef.current);
     setRemainingTime(60);
     startInactivityTimer();
-  }, [availableCampaigns.length, startInactivityTimer]);
+  }, [availableCampaigns.length, startInactivityTimer, selectedCampaign?.start_image]);
 
   useEffect(() => {
-    if (remainingTime <= 0 && (step === 'SURVEY' || step === 'SELECTION')) {
+    if (remainingTime <= 0 && (step === 'SURVEY' || step === 'SELECTION' || step === 'CAMPAIGN_INTRO')) {
       resetSurvey();
     }
   }, [remainingTime, step, resetSurvey]);
@@ -282,7 +287,7 @@ export default function Survey() {
   }, []);
 
   const handleTouch = () => {
-    if (step === 'SURVEY' || step === 'SELECTION') {
+    if (step === 'SURVEY' || step === 'SELECTION' || step === 'CAMPAIGN_INTRO') {
       setRemainingTime(60);
       if (step === 'SURVEY') startInactivityTimer();
     }
@@ -290,6 +295,14 @@ export default function Survey() {
 
   const selectCampaign = (camp: Campaign) => {
     setSelectedCampaign(camp);
+    setCurrentQuestionIndex(0);
+    setAnswers([]);
+    setCurrentComment("");
+    setStep(camp.start_image ? 'CAMPAIGN_INTRO' : 'SURVEY');
+    startInactivityTimer();
+  };
+
+  const startSurvey = () => {
     setStep('SURVEY');
     setCurrentQuestionIndex(0);
     setAnswers([]);
@@ -620,6 +633,31 @@ const cardColors = [
     </div>
   );
 
+  const renderCampaignIntro = () => (
+    <div
+      className="min-h-screen bg-black cursor-pointer select-none"
+      onTouchStart={(e) => { e.preventDefault(); handleTouch(); startSurvey(); }}
+      onClick={(e) => { e.preventDefault(); handleTouch(); startSurvey(); }}
+    >
+      {selectedCampaign?.start_image ? (
+        <img
+          src={selectedCampaign.start_image}
+          alt={selectedCampaign.name}
+          className="w-full h-screen object-cover bg-black"
+          referrerPolicy="no-referrer"
+        />
+      ) : (
+        <div className="min-h-screen flex flex-col items-center justify-center gap-6 text-white">
+          <div className="w-20 h-20 border-4 border-[#0b82ff] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-black uppercase tracking-[0.3em] text-zinc-500">Toque para iniciar</p>
+        </div>
+      )}
+      <div className="fixed bottom-10 inset-x-0 flex justify-center">
+        <span className="text-sm font-black text-white uppercase tracking-[0.3em] animate-pulse">TOQUE NA IMAGEM PARA INICIAR</span>
+      </div>
+    </div>
+  );
+
   const renderSurvey = () => {
     if (!selectedCampaign) return null;
     const currentQuestion = selectedCampaign.questions[currentQuestionIndex];
@@ -664,6 +702,7 @@ const cardColors = [
               initial={{ opacity: 0, x: 50 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -50 }}
+              transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
               className="w-full space-y-12"
             >
               <div className="text-center space-y-4">
@@ -1018,7 +1057,37 @@ const cardColors = [
     return null;
   };
 
-  const renderThankYou = () => (
+  const renderThankYou = () => {
+    if (selectedCampaign?.end_image) {
+      return (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.45, ease: 'easeOut' }}
+          className="min-h-screen bg-black select-none"
+        >
+          <img
+            src={selectedCampaign.end_image}
+            alt={selectedCampaign.name}
+            className="w-full h-screen object-cover bg-black"
+            referrerPolicy="no-referrer"
+          />
+          <div className="fixed bottom-10 inset-x-0 flex justify-center">
+            <div className="inline-flex flex-col items-center gap-2 bg-zinc-900/80 px-6 py-3 rounded-2xl border border-white/10 backdrop-blur">
+              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">REINICIANDO EM</span>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 bg-[#0b82ff] rounded-xl flex items-center justify-center text-white text-lg font-black shadow-lg shadow-blue-500/30">
+                  {restartCountdown}
+                </div>
+                <span className="text-xs font-black text-white uppercase">Segundos</span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      );
+    }
+
+    return (
     <div className="min-h-screen bg-black flex flex-col items-center justify-start pt-4 pb-0 px-10 text-center space-y-8 text-white">
       <div className="flex flex-col items-center gap-6 mt-4">
         <motion.div 
@@ -1068,7 +1137,8 @@ const cardColors = [
         <span className="text-[8px] font-black text-zinc-600 uppercase tracking-[0.4em]">feedback systems</span>
       </div>
     </div>
-  );
+    );
+  };
 
   const renderFooter = () => (
     <footer className="fixed bottom-0 left-0 right-0 pt-4 pb-4 px-8 bg-black border-t border-white/5 text-white z-50">
@@ -1095,11 +1165,30 @@ const cardColors = [
     </footer>
   );
 
-  switch (step) {
-    case 'LOGIN': return renderLogin();
-    case 'SELECTION': return renderSelection();
-    case 'SURVEY': return renderSurvey();
-    case 'THANK_YOU': return renderThankYou();
-    default: return renderLogin();
-  }
+  const renderStep = () => {
+    switch (step) {
+      case 'LOGIN': return renderLogin();
+      case 'SELECTION': return renderSelection();
+      case 'CAMPAIGN_INTRO': return renderCampaignIntro();
+      case 'SURVEY': return renderSurvey();
+      case 'THANK_YOU': return renderThankYou();
+      default: return renderLogin();
+    }
+  };
+
+  return (
+    <div className="overflow-x-hidden">
+      <AnimatePresence initial={false} mode="wait">
+        <motion.div
+          key={step}
+          initial={{ opacity: 0, x: 50 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -50 }}
+          transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {renderStep()}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
 }

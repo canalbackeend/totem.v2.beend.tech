@@ -34,11 +34,20 @@ export default function CreateCampaign() {
   const [type, setType] = useState('Externa');
   const [privacyText, setPrivacyText] = useState('');
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [startImageEnabled, setStartImageEnabled] = useState(false);
+  const [endImageEnabled, setEndImageEnabled] = useState(false);
+  const [startImage, setStartImage] = useState<string | null>(null);
+  const [endImage, setEndImage] = useState<string | null>(null);
 
   const defaultPrivacy = "Em total conformidade com a Lei Geral de Proteção de Dados (LGPD - Lei nº 13.709/2018), Seus dados estão protegidos, Não compartilhamos suas informações sem sua autorização.";
 
+  const loadedCampaignRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (isEdit && user) {
+      if (loadedCampaignRef.current === id) return;
+      loadedCampaignRef.current = id;
+
       const fetchCampaign = async () => {
         try {
           const data = await api.get(`/campaigns/${id}`);
@@ -50,6 +59,10 @@ export default function CreateCampaign() {
             setReportTime(data.report_time || '08:00');
             setType(data.type || 'Externa');
             setPrivacyText(data.privacy_text || defaultPrivacy);
+            setStartImageEnabled(!!data.start_image);
+            setEndImageEnabled(!!data.end_image);
+            setStartImage(data.start_image || null);
+            setEndImage(data.end_image || null);
             if (data.questions && Array.isArray(data.questions)) {
               setQuestions(data.questions as Question[]);
             }
@@ -155,6 +168,39 @@ export default function CreateCampaign() {
       } catch (error: any) {
         toast.dismiss(loadingToast);
         console.error('Error uploading collaborator image:', error);
+        toast.error('Erro ao salvar imagem no Supabase.');
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCampaignImageUpload = async (target: 'start' | 'end', file: File | undefined) => {
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('A imagem deve ter no máximo 2MB.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result as string;
+      const loadingToast = toast.loading('Enviando imagem para o Supabase...');
+
+      try {
+        const res = await api.post('/upload', {
+          image: base64,
+          folder: 'campanhas'
+        });
+
+        const uploadedUrl = res.url;
+        if (target === 'start') setStartImage(uploadedUrl);
+        else setEndImage(uploadedUrl);
+        toast.dismiss(loadingToast);
+        toast.success('Imagem carregada no Supabase!');
+      } catch (error: any) {
+        toast.dismiss(loadingToast);
+        console.error('Error uploading campaign image:', error);
         toast.error('Erro ao salvar imagem no Supabase.');
       }
     };
@@ -306,6 +352,33 @@ export default function CreateCampaign() {
     }
   };
 
+  const renderCampaignImageArea = (target: 'start' | 'end', enabled: boolean, image: string | null, setImage: (v: string | null) => void) => {
+    if (!enabled) return null;
+    return (
+      <div className="mt-4">
+        {image ? (
+          <div className={`relative inline-block w-56 h-36 rounded-lg border overflow-hidden ${isDarkMode ? 'border-white/5 bg-black' : 'border-slate-200 bg-slate-50'}`}>
+            <img src={image} alt={target === 'start' ? 'Imagem inicial' : 'Imagem final'} className="w-full h-full object-contain" referrerPolicy="no-referrer" />
+            <button
+              onClick={() => setImage(null)}
+              className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500 text-white shadow-lg hover:bg-red-600 transition-colors"
+              title="Remover imagem"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        ) : (
+          <label className={`flex items-center justify-center gap-3 w-full max-w-sm h-28 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${isDarkMode ? 'border-zinc-700 bg-black hover:border-blue-500' : 'border-slate-200 bg-slate-50 hover:border-blue-400'}`}>
+            <Upload size={18} className={isDarkMode ? 'text-zinc-500' : 'text-slate-400'} />
+            <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Anexar imagem</span>
+            <input type="file" accept="image/*" className="hidden" onChange={(e) => handleCampaignImageUpload(target, e.target.files?.[0])} />
+          </label>
+        )}
+        <p className={`mt-2 text-[10px] font-medium ${isDarkMode ? 'text-zinc-700' : 'text-slate-400'}`}>JPG, PNG, WebP • máx 2MB</p>
+      </div>
+    );
+  };
+
   const handleSave = async () => {
     if (!user) return;
     if (!title) {
@@ -328,6 +401,8 @@ export default function CreateCampaign() {
           privacy_text: privacyText,
           questions: questions,
           type: type,
+          start_image: startImageEnabled && startImage ? startImage : null,
+          end_image: endImageEnabled && endImage ? endImage : null,
         };
 
         if (isEdit) {
@@ -759,6 +834,83 @@ export default function CreateCampaign() {
                   ))}
                 </Reorder.Group>
               )}
+            </div>
+          </motion.div>
+
+          {/* Section 4: Campaign Images */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className={`mt-8 rounded-md shadow-[0_10px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-colors border ${
+              isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-slate-100'
+            }`}
+          >
+            <div className={`p-6 border-b flex items-center gap-3 transition-colors ${isDarkMode ? 'border-white/5 bg-black/20' : 'border-slate-100 bg-slate-50/50'}`}>
+              <div className={`p-2 rounded transition-colors ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>
+                <ImageIcon size={20} />
+              </div>
+              <div>
+                <h2 className={`text-lg font-bold transition-colors ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>4 - Imagens da Campanha</h2>
+                <p className={`text-xs font-medium tracking-wide transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>Imagens opcionais exibidas no início e no final da pesquisa</p>
+              </div>
+            </div>
+            <div className="p-6 space-y-8">
+              <div className="flex items-start gap-4">
+                <label className="flex items-center gap-3 cursor-pointer group pt-1">
+                  <div className={`w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center p-0.5 ${
+                    startImageEnabled
+                      ? (isDarkMode ? 'bg-blue-600 border-blue-600' : 'bg-blue-500 border-blue-500')
+                      : (isDarkMode ? 'border-zinc-800' : 'border-slate-300 group-hover:border-blue-400')
+                  }`}>
+                    {startImageEnabled && <CheckCircle2 size={12} className="text-white" />}
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={startImageEnabled}
+                      onChange={() => {
+                        const next = !startImageEnabled;
+                        setStartImageEnabled(next);
+                        if (!next) setStartImage(null);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>Imagem inicial</span>
+                    <p className={`text-[10px] font-medium transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Tela full-screen antes das perguntas. O respondente toca na imagem para começar.</p>
+                  </div>
+                </label>
+              </div>
+              {renderCampaignImageArea('start', startImageEnabled, startImage, setStartImage)}
+
+              <div className={`h-px transition-colors ${isDarkMode ? 'bg-white/5' : 'bg-slate-50'}`} />
+
+              <div className="flex items-start gap-4">
+                <label className="flex items-center gap-3 cursor-pointer group pt-1">
+                  <div className={`w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center p-0.5 ${
+                    endImageEnabled
+                      ? (isDarkMode ? 'bg-blue-600 border-blue-600' : 'bg-blue-500 border-blue-500')
+                      : (isDarkMode ? 'border-zinc-800' : 'border-slate-300 group-hover:border-blue-400')
+                  }`}>
+                    {endImageEnabled && <CheckCircle2 size={12} className="text-white" />}
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={endImageEnabled}
+                      onChange={() => {
+                        const next = !endImageEnabled;
+                        setEndImageEnabled(next);
+                        if (!next) setEndImage(null);
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-0.5">
+                    <span className={`text-[11px] font-bold uppercase tracking-wider transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>Imagem final</span>
+                    <p className={`text-[10px] font-medium transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>Exibida junto da mensagem de agradecimento.</p>
+                  </div>
+                </label>
+              </div>
+              {renderCampaignImageArea('end', endImageEnabled, endImage, setEndImage)}
             </div>
           </motion.div>
 
