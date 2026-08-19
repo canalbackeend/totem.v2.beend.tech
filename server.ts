@@ -500,7 +500,8 @@ app.get("/api/health", async (req, res) => {
       status: "ok",
       timestamp: new Date().toISOString(),
       env: process.env.NODE_ENV,
-      database: "ok"
+      database: "ok",
+      uptime: Math.round(process.uptime())
     });
   } catch (err) {
     console.error("Health check database error:", err);
@@ -508,7 +509,8 @@ app.get("/api/health", async (req, res) => {
       status: "error",
       timestamp: new Date().toISOString(),
       env: process.env.NODE_ENV,
-      database: "error"
+      database: "error",
+      uptime: Math.round(process.uptime())
     });
   }
 });
