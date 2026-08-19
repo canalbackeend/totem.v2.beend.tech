@@ -731,7 +731,7 @@ async function sendDailyReports(targetTimeStr?: string) {
     const campaigns = await prisma.campaign.findMany({
       where: {
         status: "Ativo",
-        report_email: { not: null }
+        report_email: { not: "" }
       }
     });
 
@@ -757,6 +757,12 @@ async function sendDailyReports(targetTimeStr?: string) {
     const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
 
     for (const campaign of campaignsToSend) {
+      const reportEmail = (campaign.report_email || "").trim();
+      if (!reportEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(reportEmail)) {
+        console.warn(`Campanha ${campaign.id} (${campaign.name}) sem e-mail válido. Pulando envio.`);
+        continue;
+      }
+
       try {
         // 2. Generate secure token
         const token = crypto.randomBytes(32).toString("hex");
@@ -777,7 +783,7 @@ async function sendDailyReports(targetTimeStr?: string) {
       
       const mailOptions = {
         from: `"Totem been.tech" <${process.env.GMAIL_USER}>`,
-        to: campaign.report_email!,
+        to: reportEmail,
         subject: `Relatório Diário: ${campaign.name}`,
         html: `
           <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
