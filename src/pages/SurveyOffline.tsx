@@ -255,7 +255,7 @@ export default function SurveyOffline() {
             console.warn('Rate limit hit. Pausing sync momentarily.')
             if (manual) toast.warning('Limite de requisições atingido. Aguardando...')
             break
-          } else if (msg.includes('401') || msg.includes('403') || msg.includes('Unauthorized') || msg.includes('Token') || msg.includes('expirado') || msg.includes('bloqueada') || msg.includes('bloqueado')) {
+          } else if (msg.includes('401') || msg.includes('403') || msg.includes('Forbidden') || msg.includes('Unauthorized') || msg.includes('Token') || msg.includes('expirado') || msg.includes('bloqueada') || msg.includes('bloqueado')) {
             hasPermanentError = true
             permanentErrorMsg = msg
             console.error('Permanent sync error (auth/expiration):', msg)
