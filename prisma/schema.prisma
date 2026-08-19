@@ -121,6 +121,9 @@ model Response {
   collaborator_name String?
   created_at        DateTime  @default(now())
 
+  @@index([campaign_id, created_at])
+  @@index([terminal_id])
+  @@index([created_at])
   @@map("responses")
 }
 

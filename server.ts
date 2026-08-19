@@ -1567,6 +1567,9 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
       }
     }
 
+    // Limit results to the most recent N to avoid loading the whole table
+    // (huge payloads freeze the event loop with JSON.stringify and exhaust memory).
+    // TODO: move collaborator aggregation to the server for unbounded accuracy.
     const responses = await prisma.response.findMany({
       where,
       include: {
@@ -1574,7 +1577,8 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
         terminal: { select: { name: true } },
         user: { select: { empresa: true } }
       },
-      orderBy: { created_at: "desc" }
+      orderBy: { created_at: "desc" },
+      take: 5000
     });
     res.json(responses);
   } catch (err: any) {
