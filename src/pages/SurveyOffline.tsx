@@ -334,13 +334,18 @@ export default function SurveyOffline() {
       if (newCount >= 6) {
         db.terminal.clear();
         db.campaigns.clear();
-        db.responses.clear();
         localStorage.removeItem('terminal_session');
         setTerminal(null);
         setSelectedCampaign(null);
         setAvailableCampaigns([]);
         setStep('LOGIN');
-        toast.info('Terminal deslogado e dados locais limpos');
+        db.responses.where('synced').equals(0).count().then(pending => {
+          if (pending > 0) {
+            toast.info(`Terminal deslogado. ${pending} respostas pendentes foram mantidas e serão sincronizadas após novo login.`, { duration: 8000 });
+          } else {
+            toast.info('Terminal deslogado e dados locais limpos');
+          }
+        });
         return 0;
       }
       return newCount;
