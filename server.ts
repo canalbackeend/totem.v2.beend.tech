@@ -542,7 +542,9 @@ app.get("/api/dashboard/stats", authenticateToken, async (req: any, res) => {
         },
         include: {
           campaign: true
-        }
+        },
+        orderBy: { created_at: "desc" },
+        take: 5000
       }),
       prisma.user.findUnique({ where: { id: userId } })
     ]);
@@ -626,7 +628,11 @@ app.get("/api/campaigns/:id/metrics", authenticateToken, async (req: any, res: a
       if (end) whereResponses.created_at.lte = new Date(end as string);
     }
 
-    const responses = await prisma.response.findMany({ where: whereResponses });
+    const responses = await prisma.response.findMany({
+      where: whereResponses,
+      orderBy: { created_at: "desc" },
+      take: 5000
+    });
     const metrics = calculateCampaignMetrics(campaign, responses || []);
 
     res.json(metrics);
@@ -1205,7 +1211,8 @@ app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res)
         created_at: true,
         answers: true
       },
-      orderBy: { created_at: "asc" }
+      orderBy: { created_at: "asc" },
+      take: 50000
     });
 
     const dailyData: Record<string, { scoreSum: number; answerCount: number; dates: Date; responseCount: number }> = {};
@@ -1364,7 +1371,11 @@ app.get("/api/admin/tracking", authenticateToken, async (req: any, res) => {
       prisma.company.findMany(),
       prisma.terminal.findMany({ orderBy: { created_at: "desc" } }),
       prisma.campaign.findMany({ select: { id: true, name: true } }),
-      prisma.response.findMany({ select: { terminal_id: true, created_at: true } })
+      prisma.response.findMany({
+        select: { terminal_id: true, created_at: true },
+        orderBy: { created_at: "desc" },
+        take: 100000
+      })
     ]);
 
     res.json({ profiles, companies, terminals, campaigns, responses });
