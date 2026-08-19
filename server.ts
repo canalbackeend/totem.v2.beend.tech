@@ -2466,7 +2466,12 @@ app.get("/api/survey/terminal/:id/campaigns", async (req, res) => {
 // Cron concurrency guard
 let cronRunning = false;
 
+// Ability to disable daily reports via env var (useful for isolation tests)
+// Set ENABLE_DAILY_REPORTS=false in Coolify to turn the daily report cron off.
+const dailyReportsEnabled = process.env.ENABLE_DAILY_REPORTS !== "false";
+
 // Schedule task to run every minute and check the time
+if (dailyReportsEnabled) {
 cron.schedule("* * * * *", async () => {
   if (cronRunning) return;
   cronRunning = true;
@@ -2489,6 +2494,7 @@ cron.schedule("* * * * *", async () => {
 }, {
   timezone: "America/Sao_Paulo"
 });
+}
 
 // Emergency admin reset (useful when admin is locked out after deploy)
 app.post("/api/admin/reset-admin", async (req, res) => {
