@@ -52,6 +52,9 @@ const transporter = nodemailer.createTransport({
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_APP_PASSWORD,
   },
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 app.use(helmet({
@@ -829,28 +832,19 @@ async function sendDailyReports(targetTimeStr?: string) {
       }
     }
 
-    // 5. Send emails with bounded concurrency + per-email timeout
-    const EMAIL_TIMEOUT_MS = 15000;
+    // 5. Send emails with bounded concurrency.
+    // Nodemailer timeouts (socketTimeout/connectionTimeout) handle hangs and close the socket.
     const BATCH_SIZE = 5;
-
-    const sendWithTimeout = (mailOptions: any) =>
-      new Promise((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error("Timeout ao enviar e-mail")), EMAIL_TIMEOUT_MS);
-        transporter.sendMail(mailOptions).then(
-          (v) => { clearTimeout(timer); resolve(v); },
-          (e) => { clearTimeout(timer); reject(e); }
-        );
-      });
 
     for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
       const batch = jobs.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(batch.map(j => sendWithTimeout(j.mailOptions)));
+      const results = await Promise.allSettled(batch.map(j => transporter.sendMail(j.mailOptions)));
       results.forEach((result, idx) => {
         const job = batch[idx];
         if (result.status === "fulfilled") {
           console.log(`Relatório enviado para ${job.to} (Campanha: ${job.id})`);
         } else {
-          console.error(`Erro ao enviar e-mail para ${job.to} (Campanha: ${job.id}):`, result.reason);
+          console.error(`Erro ao enviar e-mail para ${job.to} (Campanha: ${job.id}):`, (result.reason as Error)?.message || result.reason);
         }
       });
     }
