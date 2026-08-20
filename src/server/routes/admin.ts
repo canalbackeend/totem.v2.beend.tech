@@ -15,9 +15,9 @@ export function registerAdminTrackingRoute(app: any) {
       cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays);
 
       const [profiles, companies, terminals, campaigns, responses] = await Promise.all([
-        prisma.user.findMany(),
-        prisma.company.findMany(),
-        prisma.terminal.findMany({ orderBy: { created_at: "desc" } }),
+        prisma.user.findMany({ select: { id: true, email: true, nome: true, empresa: true, cnpj: true, cidade: true, estado: true, telefone: true, plano: true, vencimento: true, status: true, max_terminals: true, role: true, created_at: true } }),
+        prisma.company.findMany({ select: { id: true, empresa: true, email: true, responsavel: true, cnpj: true, cidade: true, estado: true, telefone: true, plano: true, vencimento: true, status: true, max_terminals: true, created_at: true } }),
+        prisma.terminal.findMany({ select: { id: true, user_id: true, name: true, campaigns: true, redirect_url: true, email: true, status: true, last_ping: true, created_at: true, updated_at: true }, orderBy: { created_at: "desc" } }),
         prisma.campaign.findMany({ select: { id: true, name: true } }),
         prisma.response.findMany({
           where: { created_at: { gte: cutoff } },
@@ -36,7 +36,7 @@ export function registerAdminTrackingRoute(app: any) {
 
 // Platform settings live after the responses routes in the original order
 export function registerPlatformSettingsRoutes(app: any) {
-  app.get("/api/platform-settings/:key", async (req, res) => {
+  app.get("/api/platform-settings/:key", authenticateToken, async (req, res) => {
     try {
       const setting = await prisma.platformSettings.findUnique({
         where: { key: req.params.key }

@@ -5,18 +5,31 @@ import { prisma, authenticateToken, whitelist, publicCompany, ADMIN_EMAIL } from
 export function registerCompanyRoutes(app: any) {
   app.get("/api/companies", authenticateToken, async (req: any, res) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
-    const { page = "1", pageSize = "10" } = req.query;
+    const { page = "1", pageSize = "10", search } = req.query;
     const p = parseInt(page as string) || 1;
     const ps = parseInt(pageSize as string) || 10;
+    const where: any = {};
+    if (search) {
+      const term = String(search).trim();
+      if (term) {
+        where.OR = [
+          { empresa: { contains: term, mode: "insensitive" } },
+          { cnpj: { contains: term } },
+          { email: { contains: term, mode: "insensitive" } },
+          { responsavel: { contains: term, mode: "insensitive" } }
+        ];
+      }
+    }
     
     try {
       const [companies, count] = await prisma.$transaction([
         prisma.company.findMany({
+          where,
           orderBy: { created_at: "desc" },
           skip: (p - 1) * ps,
           take: ps
         }),
-        prisma.company.count()
+        prisma.company.count({ where })
       ]);
       res.json({ data: companies.map(publicCompany), count });
     } catch (err: any) {
@@ -63,7 +76,20 @@ export function registerCompanyRoutes(app: any) {
   app.post("/api/companies", authenticateToken, async (req: any, res) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
-      const cleanEmail = String(req.body.email).trim().toLowerCase();
+      const cleanEmail = String(req.body.email || "").trim().toLowerCase();
+      
+      if (!req.body.empresa || typeof req.body.empresa !== "string" || !req.body.empresa.trim()) {
+        return res.status(400).json({ error: "Nome da empresa é obrigatório." });
+      }
+      if (!req.body.responsavel || typeof req.body.responsavel !== "string" || !req.body.responsavel.trim()) {
+        return res.status(400).json({ error: "Responsável é obrigatório." });
+      }
+      if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
+        return res.status(400).json({ error: "E-mail inválido." });
+      }
+      if (req.body.max_terminals !== undefined && (typeof req.body.max_terminals !== "number" || Number.isNaN(req.body.max_terminals))) {
+        return res.status(400).json({ error: "max_terminals deve ser um número." });
+      }
       
       // Check if user already exists
       const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });

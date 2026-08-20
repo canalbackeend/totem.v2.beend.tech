@@ -37,11 +37,12 @@ export default function Companies() {
   const [page, setPage] = useState(1);
   const [pageSize] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchCompanies = async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/companies?page=${page}&pageSize=${pageSize}`);
+      const response = await api.get(`/companies?page=${page}&pageSize=${pageSize}&search=${encodeURIComponent(searchTerm)}`);
       setCompanies(response.data || []);
       setTotalCount(response.count || 0);
     } catch (error: any) {
@@ -68,7 +69,7 @@ export default function Companies() {
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
     };
-  }, [page, pageSize, filter]);
+  }, [page, pageSize, filter, searchTerm]);
   
   const [companyToResetPassword, setCompanyToResetPassword] = useState<{id: string, name: string, email: string} | null>(null);
   const [isResetting, setIsResetting] = useState(false);
@@ -193,6 +194,8 @@ export default function Companies() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
                   <input 
                     placeholder="Buscar empresa ou CNPJ..."
+                    value={searchTerm}
+                    onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                     className={`w-full border rounded-lg py-2 pl-10 pr-4 text-xs font-semibold outline-none transition-all ${
                       isDarkMode 
                         ? 'bg-black border-white/5 text-white focus:border-blue-500' 

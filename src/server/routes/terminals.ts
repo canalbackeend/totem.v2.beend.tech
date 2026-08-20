@@ -70,6 +70,9 @@ export function registerTerminalRoutes(app: any) {
       }
 
       const { password, ...rest } = req.body;
+      if (!rest.name || typeof rest.name !== "string" || !rest.name.trim()) {
+        return res.status(400).json({ error: "Nome do terminal é obrigatório." });
+      }
       const plainPassword = password || "term123";
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 

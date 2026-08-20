@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, whitelist, ADMIN_EMAIL, parseCampaignList } from "../deps";
+import { prisma, authenticateToken, whitelist, ADMIN_EMAIL, parseCampaignList, publicUser } from "../deps";
 import { getSatisfactionScore } from "../../lib/metrics";
 import { calculateCampaignMetrics } from "../metrics";
 
@@ -69,12 +69,12 @@ export function registerCampaignMetricsRoutes(app: any) {
       const campaignId = data.campaign_id;
       const userId = data.campaign?.user_id;
 
-      // Fetch Profile
+      // Fetch Profile (sanitized publicly)
       let profile = null;
       if (userId) {
-        profile = await prisma.user.findUnique({
+        profile = publicUser(await prisma.user.findUnique({
           where: { id: userId }
-        });
+        }));
       }
 
       // Fetch Responses for the period relative to when the report was generated (Yesterday)
@@ -253,8 +253,14 @@ export function registerCampaignRoutes(app: any) {
   app.post("/api/campaigns", authenticateToken, async (req: any, res) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
+      if (!req.body.name || typeof req.body.name !== "string" || !req.body.name.trim()) {
+        return res.status(400).json({ error: "Nome da campanha é obrigatório." });
+      }
+      if (!req.body.type || typeof req.body.type !== "string") {
+        return res.status(400).json({ error: "Tipo da campanha é obrigatório." });
+      }
       const campaign = await prisma.campaign.create({
-        data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "start_image", "end_image", "flow_layout"]), user_id: req.user.id }
+        data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "thank_you_message", "start_image", "end_image", "flow_layout"]), user_id: req.user.id }
       });
       res.json(campaign);
     } catch (err: any) {
@@ -276,7 +282,7 @@ export function registerCampaignRoutes(app: any) {
       }
       const campaign = await prisma.campaign.update({
         where: { id: req.params.id },
-        data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "is_global", "thank_you_message", "start_image", "end_image", "flow_layout"])
+        data: whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "thank_you_message", "start_image", "end_image", "flow_layout"])
       });
 
       // Propagate name change to terminals that store campaign names

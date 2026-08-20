@@ -81,6 +81,12 @@ export function registerProposalRoutes(app: any) {
         final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
       };
 
+      for (const arrKey of ["resources", "items", "images", "image_library"]) {
+        if (req.body[arrKey] !== undefined && req.body[arrKey] !== null && !Array.isArray(req.body[arrKey])) {
+          return res.status(400).json({ error: `${arrKey} deve ser um array` });
+        }
+      }
+
       const proposal = await prisma.proposal.create({
         data: {
           proposal_number: proposalNumber,
@@ -126,15 +132,35 @@ export function registerProposalRoutes(app: any) {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
 
-      const updateData = { ...req.body };
-      if (updateData.items && Array.isArray(updateData.items)) {
+      const ALLOWED = [
+        "client_name", "contact_person", "email", "phone", "cep", "address",
+        "proposal_date", "validity_date", "greeting", "general_description",
+        "implementation_reqs", "technical_support", "warranty", "resources",
+        "payment_terms", "final_considerations", "observations", "plan_type",
+        "monthly_value", "plan_description", "items", "shipping_cost",
+        "images", "image_library", "responsible_name", "responsible_phone"
+      ];
+      const updateData: any = {};
+      for (const key of ALLOWED) {
+        if (req.body[key] !== undefined) updateData[key] = req.body[key];
+      }
+
+      if (updateData.items !== undefined) {
+        if (!Array.isArray(updateData.items)) {
+          return res.status(400).json({ error: "items deve ser um array" });
+        }
         updateData.items = updateData.items.map((item: any) => ({
           ...item,
           total: (parseFloat(item.qty) || 0) * (parseFloat(item.unit_price) || 0)
         }));
       }
-      if (updateData.monthly_value) updateData.monthly_value = parseFloat(updateData.monthly_value);
-      if (updateData.shipping_cost) updateData.shipping_cost = parseFloat(updateData.shipping_cost);
+      for (const arrKey of ["resources", "images", "image_library"]) {
+        if (updateData[arrKey] !== undefined && !Array.isArray(updateData[arrKey])) {
+          return res.status(400).json({ error: `${arrKey} deve ser um array` });
+        }
+      }
+      if (updateData.monthly_value !== undefined) updateData.monthly_value = parseFloat(updateData.monthly_value);
+      if (updateData.shipping_cost !== undefined) updateData.shipping_cost = parseFloat(updateData.shipping_cost);
 
       const proposal = await prisma.proposal.update({
         where: { id: req.params.id },

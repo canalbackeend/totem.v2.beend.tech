@@ -90,7 +90,7 @@ export function registerUploadRoutes(app: any) {
     if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return res.status(400).json({ error: "Protocolo não permitido" });
     }
-    if (ALLOWED_PROXY_DOMAINS.length > 0 && !ALLOWED_PROXY_DOMAINS.some(d => parsed.hostname === d)) {
+    if (!ALLOWED_PROXY_DOMAINS.some((d) => parsed.hostname === d)) {
       return res.status(403).json({ error: "Domínio não autorizado" });
     }
     try {

@@ -19,7 +19,7 @@ export function registerShopRoutes(app: any) {
         return res.status(403).json({ error: "Only master admin can manage products" });
       }
       const product = await prisma.shopProduct.create({
-        data: { ...whitelist(req.body, ["name", "description", "price", "image_url", "features", "popular", "category"]), user_id: req.user.id }
+        data: { ...whitelist(req.body, ["name", "description", "price", "featured_image", "images", "features", "color"]), user_id: req.user.id }
       });
       res.json(product);
     } catch (err: any) {
@@ -35,7 +35,7 @@ export function registerShopRoutes(app: any) {
       }
       const product = await prisma.shopProduct.update({
         where: { id: req.params.id },
-        data: whitelist(req.body, ["name", "description", "price", "image_url", "features", "popular", "category"])
+        data: whitelist(req.body, ["name", "description", "price", "featured_image", "images", "features", "color"])
       });
       res.json(product);
     } catch (err: any) {

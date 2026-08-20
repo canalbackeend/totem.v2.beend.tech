@@ -231,8 +231,7 @@ export default function Campaigns() {
                     { key: 'perception_excelente', label: 'Muito Satisfeito', color: '#22c55d', icon: Smile },
                     { key: 'perception_bom',       label: 'Satisfeito',        color: '#84cc15', icon: Smile },
                     { key: 'perception_regular',   label: 'Regular',          color: '#e9b306', icon: Meh },
-                    { key: 'perception_ruim',      label: 'Insatisfeito',     color: '#ef4444', icon: Frown },
-                    { key: 'perception_ruim',      label: 'Muito Insatisfeito', color: '#ef4444', icon: Frown },
+                    { key: 'perception_ruim',      label: 'Insatisfeito / Muito Insatisfeito', color: '#ef4444', icon: Frown },
                   ]
                 : qType === 'NPS'
                 ? [
