@@ -62,7 +62,9 @@ export default function OnlineTracking() {
       try {
         setLoading(true);
         
-        const data = await api.get('/admin/tracking');
+        const daysMap: Record<string, number> = { today: 1, '7d': 7, '30d': 30, '90d': 90 };
+        const range = daysMap[filter] || 7;
+        const data = await api.get(`/admin/tracking?range=${range}`);
 
         // 1. Map Profiles
         let pMap: Record<string, any> = {};
@@ -106,7 +108,7 @@ export default function OnlineTracking() {
     };
 
     fetchBaseData();
-  }, [user]);
+  }, [user, filter]);
 
   const trackingData = useMemo(() => {
     // Determine the start date for filtering responses visually

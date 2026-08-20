@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -44,8 +44,8 @@ interface RawResponse {
   user_id: string;
   answers: ResponseAnswer[];
   campaign: { 
+    id: string;
     name: string;
-    questions: { text: string; type: string }[];
     status: string;
   };
   terminal: { name: string } | null;
@@ -112,6 +112,12 @@ export default function Feedbacks() {
     fetchMeta();
   }, [user]);
 
+  const questionsPerCampaign = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    (campaigns || []).forEach((c: any) => { map[c.id] = c.questions || []; });
+    return map;
+  }, [campaigns]);
+
   const ratingConfig: Record<string, any> = {
     'EXCELENTE': { color: '#22c55d', icon: Laugh, label: 'Excelente' },
     'MUITO SATISFEITO': { color: '#22c55d', icon: Laugh, label: 'Muito Satisfeito' },
@@ -169,7 +175,7 @@ export default function Feedbacks() {
   ];
 
   const hasTextualContent = (fb: RawResponse) => {
-    const questions = fb.campaign?.questions || [];
+    const questions = questionsPerCampaign[fb.campaign?.id] || [];
     
     return fb.answers.some(a => {
       // 1. Check for explicit comment field
@@ -208,7 +214,7 @@ export default function Feedbacks() {
 
     const allQuestions = new Set<string>();
     feedbacks.forEach((fb: RawResponse) => {
-      (fb.campaign?.questions || []).forEach((q: any) => allQuestions.add(q.text));
+      (questionsPerCampaign[fb.campaign?.id] || []).forEach((q: any) => allQuestions.add(q.text));
     });
     const questionsArray = Array.from(allQuestions);
 
@@ -234,7 +240,7 @@ export default function Feedbacks() {
 
       const answerMap: Record<string, string> = {};
       parsed.forEach((a: any) => {
-        const qInfo = r.campaign?.questions?.find((q: any) => q.text === a.question);
+        const qInfo = questionsPerCampaign[r.campaign?.id]?.find((q: any) => q.text === a.question);
         const isTextOpen = qInfo?.type === 'Texto Aberto';
         answerMap[a.question] = isTextOpen ? a.answer : (a.answer !== null && a.answer !== undefined ? String(a.answer) : '');
       });
@@ -576,12 +582,12 @@ export default function Feedbacks() {
                     {selectedFeedback.answers
                       .filter(ans => {
                         if (ans.comment && ans.comment.trim()) return true;
-                        const q = selectedFeedback.campaign?.questions.find(q => q.text === ans.question);
+                        const q = questionsPerCampaign[selectedFeedback.campaign?.id]?.find(q => q.text === ans.question);
                         const type = ans.type || (q ? q.type : undefined);
                         return type === 'Texto Aberto' && typeof ans.answer === 'string' && ans.answer.trim().length > 0;
                       })
                       .map((ans, idx) => {
-                        const q = selectedFeedback.campaign?.questions.find(q => q.text === ans.question);
+                        const q = questionsPerCampaign[selectedFeedback.campaign?.id]?.find(q => q.text === ans.question);
                         const type = ans.type || (q ? q.type : undefined);
                         return (
                         <div key={idx} className={`space-y-3 relative pl-6 border-l-2 transition-colors ${isDarkMode ? 'border-zinc-800' : 'border-slate-100'}`}>
@@ -636,7 +642,7 @@ export default function Feedbacks() {
                           <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 pb-4">
                             {selectedFeedback.answers
                               .filter(ans => {
-                                const qInfo = selectedFeedback.campaign?.questions.find(q => q.text === ans.question);
+                                const qInfo = questionsPerCampaign[selectedFeedback.campaign?.id]?.find(q => q.text === ans.question);
                                 const isTextual = (ans.comment && ans.comment.trim()) || (qInfo?.type === 'Texto Aberto');
                                 return !isTextual;
                               })

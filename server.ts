@@ -1162,7 +1162,7 @@ app.delete("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
 
 app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res) => {
   try {
-    const days = parseInt(req.query.days as string) || 7;
+    const days = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 365);
     const where: any = { id: req.params.id };
     if (req.user.email !== ADMIN_EMAIL) {
       where.user_id = req.user.id;
@@ -1214,7 +1214,7 @@ app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res)
         answers: true
       },
       orderBy: { created_at: "asc" },
-      take: 50000
+      take: 10000
     });
 
     const dailyData: Record<string, { scoreSum: number; answerCount: number; dates: Date; responseCount: number }> = {};
@@ -1368,12 +1368,17 @@ app.get("/api/admin/tracking", authenticateToken, async (req: any, res) => {
       return res.status(403).json({ error: "Only master admin can access tracking" });
     }
 
+    const rangeDays = Math.min(Math.max(parseInt(req.query.range as string) || 30, 1), 365);
+    const cutoff = new Date();
+    cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays);
+
     const [profiles, companies, terminals, campaigns, responses] = await Promise.all([
       prisma.user.findMany(),
       prisma.company.findMany(),
       prisma.terminal.findMany({ orderBy: { created_at: "desc" } }),
       prisma.campaign.findMany({ select: { id: true, name: true } }),
       prisma.response.findMany({
+        where: { created_at: { gte: cutoff } },
         select: { terminal_id: true, created_at: true },
         orderBy: { created_at: "desc" },
         take: 100000
@@ -1568,16 +1573,7 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
 
     // Company filter only for non-admin users
     if (!isMasterAdmin && !isAdmin) {
-      if (profile?.empresa) {
-        const companyUsers = await prisma.user.findMany({
-          where: { empresa: profile.empresa },
-          select: { id: true }
-        });
-        const userIds = companyUsers.map(u => u.id);
-        where.campaign = { user_id: { in: userIds } };
-      } else {
-        where.campaign = { user_id: userId };
-      }
+      where.campaign = { user_id: userId };
     }
 
     // Limit results to the most recent N to avoid loading the whole table
@@ -1586,7 +1582,7 @@ app.get("/api/responses", authenticateToken, async (req: any, res) => {
     const responses = await prisma.response.findMany({
       where,
       include: {
-        campaign: { select: { name: true, questions: true, status: true, user_id: true } },
+        campaign: { select: { name: true, status: true, user_id: true } },
         terminal: { select: { name: true } },
         user: { select: { empresa: true } }
       },
