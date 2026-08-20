@@ -13,7 +13,8 @@ COPY . .
 
 RUN npx prisma generate
 
-RUN npm run build
+RUN npm run build && \
+    npx esbuild scripts/dedupe-terminals.ts --bundle --platform=node --format=cjs --packages=external --outfile=dist/dedupe-terminals.cjs
 
 # --- Production Stage ---
 FROM node:22-alpine AS production
@@ -45,4 +46,4 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["sh", "-c", "npx prisma db push && node dist/server.cjs"]
+CMD ["sh", "-c", "(npx prisma db push --accept-data-loss || echo 'AVISO: prisma db push falhou (duplicados em terminals.email?). Rode: node dist/dedupe-terminals.cjs e depois npx prisma db push --accept-data-loss') && node dist/server.cjs"]
