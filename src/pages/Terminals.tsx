@@ -52,7 +52,7 @@ export default function Terminals() {
 
   const [modalType, setModalType] = useState<'qrcode' | 'credentials' | 'create' | 'edit' | 'delete' | 'reset-password' | null>(null);
   const [selectedTerminal, setSelectedTerminal] = useState<Terminal | null>(null);
-  const [formData, setFormData] = useState<{name: string, campaigns: string[], redirect_url: string, password: string}>({ name: '', campaigns: [], redirect_url: '', password: '' });
+  const [formData, setFormData] = useState<{name: string, campaigns: string[], redirect_url: string, password: string, email: string}>({ name: '', campaigns: [], redirect_url: '', password: '', email: '' });
   const [terminalPassword, setTerminalPassword] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -149,11 +149,16 @@ export default function Terminals() {
       toast.error('Preencha os campos obrigatórios (Nome e Associadas)');
       return;
     }
+    if (!formData.email.trim()) {
+      toast.error('O login (e-mail) é obrigatório');
+      return;
+    }
     
     const payload: any = {
       name: formData.name,
       campaigns: formData.campaigns.join(','),
-      redirect_url: formData.redirect_url
+      redirect_url: formData.redirect_url,
+      email: formData.email.trim()
     };
     if (formData.password.trim()) {
       payload.password = formData.password.trim();
@@ -187,9 +192,6 @@ export default function Terminals() {
       return;
     }
     
-    // Generate auto credentials
-    const randomId = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    const autoEmail = `ter-${new Date().getFullYear().toString().slice(-2)}-${randomId}@be.end`;
     const autoPassword = formData.password.trim() || 'term123';
 
     toast.promise(
@@ -197,7 +199,6 @@ export default function Terminals() {
         name: formData.name,
         campaigns: formData.campaigns.join(','),
         redirect_url: formData.redirect_url,
-        email: autoEmail,
         password: autoPassword,
         status: 'Ativo'
       }),
@@ -224,7 +225,7 @@ export default function Terminals() {
     setSelectedTerminal(terminal);
     setModalType(type);
     if (type === 'create') {
-      setFormData({ name: '', campaigns: [], redirect_url: '', password: '' });
+      setFormData({ name: '', campaigns: [], redirect_url: '', password: '', email: '' });
       setTerminalPassword(null);
     }
     if (type === 'edit' && terminal) {
@@ -232,7 +233,8 @@ export default function Terminals() {
         name: terminal.name, 
         campaigns: terminal.campaigns ? terminal.campaigns.split(',').map(c => c.trim()) : [], 
         redirect_url: terminal.redirect_url || '',
-        password: ''
+        password: '',
+        email: terminal.email || ''
       });
     }
     if (type === 'reset-password' && terminal) {
@@ -611,6 +613,27 @@ export default function Terminals() {
                           />
                         </div>
 
+                        {modalType === 'edit' && (
+                          <div>
+                            <label className={`block text-[11px] font-black tracking-wider uppercase mb-2 ${isDarkMode ? 'text-zinc-600' : 'text-slate-500'}`}>Login (E-mail)</label>
+                            <input 
+                              type="email" 
+                              name="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              placeholder="ter-12345-678@be.end" 
+                              className={`w-full rounded-lg p-3 text-sm font-medium focus:outline-none focus:ring-1 transition-all ${
+                                isDarkMode 
+                                  ? 'bg-black border border-white/5 text-white focus:border-white/20 focus:ring-white/10' 
+                                  : 'bg-slate-50 border border-slate-200 text-slate-800 focus:border-[#0b82ff] focus:ring-[#0b82ff]'
+                              }`}
+                            />
+                            <span className={`text-[10px] font-medium mt-1 block transition-colors ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>
+                              Use para fazer login no kiosk. Cada terminal precisa de um login único.
+                            </span>
+                          </div>
+                        )}
+
                         <div>
                           <label className={`block text-[11px] font-black tracking-wider uppercase mb-2 ${isDarkMode ? 'text-zinc-600' : 'text-slate-500'}`}>Senha Personalizada</label>
                           <input 
@@ -644,7 +667,7 @@ export default function Terminals() {
                             <div>
                               <h4 className={`text-xs font-black uppercase tracking-wide mb-2 ${isDarkMode ? 'text-blue-400' : 'text-slate-800'}`}>Credenciais Automáticas</h4>
                               <ul className={`text-xs font-medium space-y-1.5 list-disc pl-4 transition-colors ${isDarkMode ? 'text-zinc-500' : 'text-slate-600'}`}>
-                                <li><span className={`font-bold transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-700'}`}>Email:</span> Será gerado automaticamente (ex: ter-26-001@be.end)</li>
+                                <li><span className={`font-bold transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-700'}`}>Email:</span> Será gerado automaticamente (ex: ter-09647-478@be.end)</li>
                                 <li><span className={`font-bold transition-colors ${isDarkMode ? 'text-zinc-400' : 'text-slate-700'}`}>Senha:</span> {formData.password.trim() || 'term123'} (padrão)</li>
                               </ul>
                               <p className={`text-[10px] font-medium mt-3 italic transition-colors ${isDarkMode ? 'text-zinc-700' : 'text-slate-500'}`}>

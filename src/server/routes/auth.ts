@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { prisma, JWT_SECRET, authLimiter, authenticateToken, publicUser } from "../deps";
+import { normalizeEmail } from "../terminal-email";
 
 // Must be registered BEFORE the global /api rate limiter (original ordering)
 export function registerEarlyAuthRoutes(app: any) {
@@ -90,35 +91,34 @@ export function registerAuthRoutes(app: any) {
 
   app.post("/api/terminals/login", authLimiter, async (req, res) => {
     const { email, password } = req.body;
+    if (!email || !password) {
+      return res.status(401).json({ error: "Credenciais de terminal inválidas" });
+    }
     try {
-      const terminals = await prisma.terminal.findMany({
-        where: { email }
+      const terminal = await prisma.terminal.findUnique({
+        where: { email: normalizeEmail(String(email)) }
       });
 
-      let matchedTerminal = null;
-      for (const terminal of terminals) {
-        if (!terminal.password) continue;
-        const isValid = terminal.password.startsWith("$2b$") || terminal.password.startsWith("$2a$")
-          ? await bcrypt.compare(password, terminal.password)
-          : password === terminal.password;
-        if (isValid) {
-          matchedTerminal = terminal;
-          if (!terminal.password.startsWith("$2b$") && !terminal.password.startsWith("$2a$")) {
-            const hashedPassword = await bcrypt.hash(password, 10);
-            await prisma.terminal.update({
-              where: { id: terminal.id },
-              data: { password: hashedPassword }
-            });
-          }
-          break;
-        }
-      }
-
-      if (!matchedTerminal) {
+      if (!terminal || !terminal.password) {
         return res.status(401).json({ error: "Credenciais de terminal inválidas" });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: matchedTerminal.user_id } });
+      const isValid = terminal.password.startsWith("$2b$") || terminal.password.startsWith("$2a$")
+        ? await bcrypt.compare(password, terminal.password)
+        : password === terminal.password;
+      if (!isValid) {
+        return res.status(401).json({ error: "Credenciais de terminal inválidas" });
+      }
+
+      if (!terminal.password.startsWith("$2b$") && !terminal.password.startsWith("$2a$")) {
+        const hashedPassword = await bcrypt.hash(password, 10);
+        await prisma.terminal.update({
+          where: { id: terminal.id },
+          data: { password: hashedPassword }
+        });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: terminal.user_id } });
       
       if (user && user.status !== "Ativo") {
         return res.status(403).json({ error: "Conta bloqueada. Entre em contato com o suporte." });
@@ -132,14 +132,14 @@ export function registerAuthRoutes(app: any) {
       }
 
       // Terminals use a simple token tied to their owner (user_id) but we can put the terminal ID in the token too
-      const token = jwt.sign({ id: matchedTerminal.user_id, terminal_id: matchedTerminal.id, email: matchedTerminal.email }, JWT_SECRET, { expiresIn: "7d" });
+      const token = jwt.sign({ id: terminal.user_id, terminal_id: terminal.id, email: terminal.email }, JWT_SECRET, { expiresIn: "7d" });
       
       res.json({
-        id: matchedTerminal.id,
-        name: matchedTerminal.name,
-        user_id: matchedTerminal.user_id,
-        campaigns: matchedTerminal.campaigns,
-        email: matchedTerminal.email,
+        id: terminal.id,
+        name: terminal.name,
+        user_id: terminal.user_id,
+        campaigns: terminal.campaigns,
+        email: terminal.email,
         company_name: user?.empresa || "Minha Empresa",
         logo_url: user?.logo_url,
         access_token: token

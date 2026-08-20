@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { prisma, authenticateToken, whitelist, ADMIN_EMAIL } from "../deps";
+import { normalizeEmail, isValidEmail, emailInUse, generateUniqueTerminalEmail } from "../terminal-email";
 
 // Terminals
 export function registerTerminalRoutes(app: any) {
@@ -71,12 +72,25 @@ export function registerTerminalRoutes(app: any) {
       const { password, ...rest } = req.body;
       const plainPassword = password || "term123";
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
+
+      let email = normalizeEmail(rest.email || "");
+      if (!email) {
+        email = await generateUniqueTerminalEmail();
+      } else if (!isValidEmail(email)) {
+        return res.status(400).json({ error: "E-mail inválido. Verifique o formato." });
+      } else if (await emailInUse(email)) {
+        return res.status(409).json({ error: "Este login já está em uso por outro terminal." });
+      }
+
       const terminal = await prisma.terminal.create({
-        data: { ...whitelist(rest, ["name", "campaigns", "redirect_url", "email", "status"]), password: hashedPassword, user_id: req.user.id }
+        data: { ...whitelist(rest, ["name", "campaigns", "redirect_url", "status"]), email, password: hashedPassword, user_id: req.user.id }
       });
       const { password: _, ...terminalWithoutHash } = terminal;
       res.json({ ...terminalWithoutHash, password: plainPassword });
     } catch (err: any) {
+      if (err?.code === "P2002") {
+        return res.status(409).json({ error: "Este login já está em uso por outro terminal." });
+      }
       console.error("Terminal create error:", err);
       res.status(500).json({ error: "Erro ao criar terminal." });
     }
@@ -85,22 +99,43 @@ export function registerTerminalRoutes(app: any) {
   app.patch("/api/terminals/:id", authenticateToken, async (req: any, res) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
-      const { password, ...rest } = req.body;
-      const updateData: any = { ...whitelist(rest, ["name", "campaigns", "redirect_url", "email", "status"]) };
-      if (password) {
-        updateData.password = await bcrypt.hash(password, 10);
-      }
       const where: any = { id: req.params.id };
       if (req.user.email !== ADMIN_EMAIL) {
         where.user_id = req.user.id;
       }
+      const existing = await prisma.terminal.findFirst({ where });
+      if (!existing) return res.status(404).json({ error: "Terminal não encontrado" });
+
+      const { password, ...rest } = req.body;
+      const updateData: any = { ...whitelist(rest, ["name", "campaigns", "redirect_url", "status"]) };
+
+      if (rest.email !== undefined) {
+        const email = normalizeEmail(rest.email);
+        if (!email) {
+          return res.status(400).json({ error: "O login não pode ficar vazio." });
+        }
+        if (!isValidEmail(email)) {
+          return res.status(400).json({ error: "E-mail inválido. Verifique o formato." });
+        }
+        if (email !== normalizeEmail(existing.email || "") && (await emailInUse(email, existing.id))) {
+          return res.status(409).json({ error: "Este login já está em uso por outro terminal." });
+        }
+        updateData.email = email;
+      }
+
+      if (password) {
+        updateData.password = await bcrypt.hash(password, 10);
+      }
       const terminal = await prisma.terminal.update({
-        where,
+        where: { id: existing.id },
         data: updateData
       });
       const { password: _, ...terminalWithoutHash } = terminal;
       res.json({ ...terminalWithoutHash, password: password || null });
     } catch (err: any) {
+      if (err?.code === "P2002") {
+        return res.status(409).json({ error: "Este login já está em uso por outro terminal." });
+      }
       console.error("Terminal update error:", err);
       res.status(500).json({ error: "Erro ao atualizar terminal." });
     }
