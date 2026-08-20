@@ -76,7 +76,7 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ limit: "1mb", extended: false }));
 
 const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Muitas tentativas. Tente novamente mais tarde." } });
-const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
+const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, skip: (req) => req.path.startsWith("/api/health"), message: { error: "Muitas requisições. Tente novamente mais tarde." } });
 const publicResponseLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
 
 function whitelist(obj: any, allowed: string[]) {
