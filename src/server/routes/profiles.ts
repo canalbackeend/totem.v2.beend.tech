@@ -4,6 +4,11 @@ import { prisma, authenticateToken, whitelist, publicUser, isMasterAdmin } from 
 // Profile / Profiles
 export function registerProfileRoutes(app: any) {
   app.patch("/api/profiles/:id", authenticateToken, async (req: any, res: any) => {
+    // Terminals must never edit account/profile data. The terminal JWT carries
+    // the owner's user_id in `id`, so without this check a compromised kiosk
+    // could change the owner's password (account takeover).
+    if (req.user.terminal_id) return res.sendStatus(403);
+
     if (req.user.id !== req.params.id && !isMasterAdmin(req)) {
        return res.sendStatus(403);
     }

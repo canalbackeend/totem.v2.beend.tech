@@ -74,6 +74,32 @@ export function publicCompany(company: any) {
   return safe;
 }
 
+// Projeção pública de uma campanha: expõe apenas os campos que o kiosk/survey
+// precisa renderizar. Oculta dados internos (user_id, report_email, contadores,
+// percepções, is_global, timestamps) que não devem vazar em endpoints anônimos.
+export function publicCampaign(campaign: any) {
+  if (!campaign) return campaign;
+  const allowed = [
+    "id",
+    "name",
+    "type",
+    "status",
+    "description",
+    "privacy_text",
+    "thank_you_message",
+    "start_image",
+    "end_image",
+    "flow_layout",
+    "questions",
+    "responses_count",
+  ];
+  const safe: any = {};
+  for (const key of allowed) {
+    if (campaign[key] !== undefined) safe[key] = campaign[key];
+  }
+  return safe;
+}
+
 // Parse do campo terminal.campaigns, que pode ser armazenado como CSV
 // (ex.: "Campanha A,Campanha B") ou como JSON array (ex.: '["A","B"]').
 export function parseCampaignList(value: any): string[] {

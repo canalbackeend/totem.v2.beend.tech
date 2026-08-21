@@ -1,4 +1,4 @@
-import { prisma, publicTerminal, parseCampaignList } from "../deps";
+import { prisma, publicTerminal, publicCampaign, parseCampaignList } from "../deps";
 
 // Survey Specific (Get terminal and campaign by ID/slug)
 export function registerSurveyRoutes(app: any) {
@@ -38,7 +38,8 @@ export function registerSurveyRoutes(app: any) {
       const campaign = await prisma.campaign.findUnique({
         where: { id: req.params.id }
       });
-      res.json(campaign);
+      // Public projection: only expose the fields the kiosk needs to render.
+      res.json(publicCampaign(campaign));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -63,7 +64,7 @@ export function registerSurveyRoutes(app: any) {
       });
 
       const matched = allCampaigns.filter((campaign) => campaignNames.includes(campaign.name));
-      res.json(matched);
+      res.json(matched.map(publicCampaign));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

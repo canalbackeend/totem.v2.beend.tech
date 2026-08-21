@@ -67,6 +67,17 @@ export function registerCampaignMetricsRoutes(app: any) {
         return res.status(404).json({ error: "Token inválido ou expirado" });
       }
 
+      // Single-use: atomically claim the token BEFORE doing any work. Only one
+      // concurrent request with this token can win the updateMany (TOCTOU fix);
+      // a consumed token can never be replayed, even if a later step fails.
+      const consumed = await prisma.reportToken.updateMany({
+        where: { token, is_used: false, expires_at: { gt: new Date() } },
+        data: { is_used: true },
+      });
+      if (consumed.count !== 1) {
+        return res.status(404).json({ error: "Token inválido ou expirado" });
+      }
+
       const campaignId = data.campaign_id;
       const userId = data.campaign?.user_id;
 
@@ -125,22 +136,17 @@ export function registerCampaignMetricsRoutes(app: any) {
       // Calculate Metrics for the main result set
       const metrics = calculateCampaignMetrics(data.campaign, responses || []);
 
-      console.log(`Token validado: ${token}. Campanha: ${campaignId}. Respostas: ${responses.length}. Evolução: ${evolutionData?.length}`);
+      console.log(`Token validado. Campanha: ${campaignId}. Respostas: ${responses.length}. Evolução: ${evolutionData?.length}`);
 
+      // Do not echo the raw token or internal token/campaign fields back to the client.
       res.json({
-        ...data,
+        campaign: data.campaign,
         profile,
         responses,
         metrics,
         evolution: evolutionData || [],
         reference_date: reportDate.toISOString()
       });
-
-      // Single-use: consume the token so the secure link can't be replayed.
-      await prisma.reportToken.update({
-        where: { token },
-        data: { is_used: true },
-      }).catch((e: any) => console.error("Falha ao consumir token de relatório:", e));
     } catch (err: any) {
       console.error("Erro na API check-token:", err);
       res.status(500).json({ error: err.message });
@@ -531,6 +537,11 @@ export function registerCampaignRoutes(app: any) {
 export function registerCampaignResetRoute(app: any) {
   // Reset Campaign Stats
   app.post("/api/campaigns/:id/reset", authenticateToken, async (req: any, res: any) => {
+    // Terminals must never reset/delete company data. The terminal JWT carries
+    // the owner's user_id, so this guard is required to prevent a compromised
+    // kiosk from wiping the company's entire response history.
+    if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
+
     try {
       const campaignId = req.params.id;
       const userId = req.user.id;

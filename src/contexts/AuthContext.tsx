@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { api, setAuthToken } from '../lib/api';
+import { api, setAuthToken, setUnauthorizedHandler } from '../lib/api';
 
 interface User {
   id: string;
@@ -74,10 +74,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } else {
         setAuthToken(null);
+        setSession(null);
+        setUser(null);
+        setProfile(null);
       }
     } catch (err) {
       console.error('Failed to load user', err);
       setAuthToken(null);
+      setSession(null);
+      setUser(null);
+      setProfile(null);
     } finally {
       setLoading(false);
     }
@@ -85,6 +91,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadUser();
+
+    // Qualquer chamada autenticada que receba 401 (token expirado) limpa a
+    // sessão imediatamente — evita o estado "fantasma" de usuário logado com
+    // todas as requisições falhando. O ProtectedRoute redireciona a /login.
+    const handleUnauthorized = () => {
+      setSession(null);
+      setUser(null);
+      setProfile(null);
+    };
+    setUnauthorizedHandler(handleUnauthorized);
 
     // Silent refresh logic (already implemented in original but adapted)
     const handleFocus = () => {
@@ -97,6 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.addEventListener('visibilitychange', handleFocus);
 
     return () => {
+      setUnauthorizedHandler(null);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
     };
