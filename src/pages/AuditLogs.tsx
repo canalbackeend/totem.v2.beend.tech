@@ -96,6 +96,7 @@ export default function AuditLogs() {
   const [successFilter, setSuccessFilter] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [companies, setCompanies] = useState<{ email: string; name: string }[]>([]);
 
   const totalPagesMemo = useMemo(() => totalPages, [totalPages]);
 
@@ -115,6 +116,22 @@ export default function AuditLogs() {
   useEffect(() => {
     setPage(1);
   }, [searchQuery, actionFilter, companyFilter, successFilter, startDate, endDate]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCompanies = async () => {
+      try {
+        const data = await api.get('/admin/logs/companies');
+        if (!cancelled) setCompanies(data.companies || []);
+      } catch (err) {
+        console.error('Erro ao carregar empresas do filtro', err);
+      }
+    };
+    fetchCompanies();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -204,12 +221,16 @@ export default function AuditLogs() {
 
               <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
                 <label className={labelClass}>Empresa:</label>
-                <input
-                  placeholder="Filtrar por empresa..."
+                <select
                   value={companyFilter}
                   onChange={(e) => setCompanyFilter(e.target.value)}
-                  className={fieldClass}
-                />
+                  className={selectClass}
+                >
+                  <option value="">Todas as empresas</option>
+                  {companies.map((c) => (
+                    <option key={c.email} value={c.email}>{c.name}</option>
+                  ))}
+                </select>
               </div>
 
               <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">

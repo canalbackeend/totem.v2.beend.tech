@@ -44,18 +44,7 @@ export function registerAdminLogsRoute(app: any) {
         if (req.query.actor_type) where.actor_type = String(req.query.actor_type);
         if (req.query.company) {
           const term = String(req.query.company).trim();
-          if (term) {
-            where.AND = [
-              ...(where.OR ? [where.OR] : []),
-              {
-                OR: [
-                  { company_email: { contains: term, mode: "insensitive" } },
-                  { company_name: { contains: term, mode: "insensitive" } },
-                ],
-              },
-            ];
-            delete where.OR;
-          }
+          if (term) where.company_email = term;
         }
         if (req.query.success === "true") where.success = true;
         if (req.query.success === "false") where.success = false;
@@ -82,6 +71,36 @@ export function registerAdminLogsRoute(app: any) {
         ]);
 
         res.json({ data, count, page, pageSize });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+
+  // Lista de empresas que possuem registros de auditoria (para o filtro).
+  app.get(
+    "/api/admin/logs/companies",
+    authenticateToken,
+    async (req: any, res: any) => {
+      try {
+        if (!isMasterAdmin(req)) {
+          return res
+            .status(403)
+            .json({ error: "Only master admin can access logs" });
+        }
+        const grouped = await prisma.auditLog.groupBy({
+          by: ["company_email"],
+          _max: { company_name: true },
+          where: { company_email: { not: null } },
+          orderBy: { company_email: "asc" },
+        });
+        const companies = grouped
+          .filter((g) => g.company_email)
+          .map((g) => ({
+            email: g.company_email!,
+            name: g._max.company_name || g.company_email,
+          }));
+        res.json({ companies });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
