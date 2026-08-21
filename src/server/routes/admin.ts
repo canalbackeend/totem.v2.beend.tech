@@ -6,6 +6,7 @@ import {
   ADMIN_PASSWORD,
   ADMIN_RESET_SECRET,
   authLimiter,
+  isMasterAdmin,
 } from "../deps";
 import { sendDailyReports } from "../email";
 
@@ -16,7 +17,7 @@ export function registerAdminTrackingRoute(app: any) {
     authenticateToken,
     async (req: any, res: any) => {
       try {
-        if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+        if (!isMasterAdmin(req)) {
           return res
             .status(403)
             .json({ error: "Only master admin can access tracking" });
@@ -119,7 +120,7 @@ export function registerPlatformSettingsRoutes(app: any) {
     "/api/platform-settings/:key",
     authenticateToken,
     async (req: any, res: any) => {
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+      if (!isMasterAdmin(req)) return res.sendStatus(403);
       try {
         const setting = await prisma.platformSettings.upsert({
           where: { key: req.params.key },
@@ -196,7 +197,7 @@ export function registerAdminLateRoutes(app: any) {
     "/api/admin/trigger-reports",
     authenticateToken,
     async (req: any, res: any) => {
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+      if (!isMasterAdmin(req)) return res.sendStatus(403);
       try {
         await sendDailyReports();
         res.json({ message: "Task triggered" });

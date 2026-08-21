@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, whitelist, ADMIN_EMAIL, parseCampaignList, publicUser } from "../deps";
+import { prisma, authenticateToken, whitelist, parseCampaignList, publicUser, isMasterAdmin } from "../deps";
 import { getSatisfactionScore } from "../../lib/metrics";
 import { calculateCampaignMetrics } from "../metrics";
 
@@ -11,10 +11,10 @@ export function registerCampaignMetricsRoutes(app: any) {
 
     try {
       const userId = req.user.id;
-      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+      const isMaster = isMasterAdmin(req);
 
       const whereCampaign: any = { id };
-      if (!isMasterAdmin) {
+      if (!isMaster) {
         whereCampaign.user_id = userId;
       }
 
@@ -169,7 +169,7 @@ export function registerCampaignRoutes(app: any) {
       }
 
       // Standard user restriction
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
 
@@ -195,15 +195,15 @@ export function registerCampaignRoutes(app: any) {
         }
       }
 
-      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+      const isMaster = isMasterAdmin(req);
 
       let isAdmin = false;
-      if (!isMasterAdmin) {
+      if (!isMaster) {
         const profile = await prisma.user.findUnique({ where: { id: req.user.id } });
         isAdmin = profile?.role === "Administrador";
       }
 
-      if (isMasterAdmin || isAdmin) {
+      if (isMaster || isAdmin) {
         const companies = await prisma.company.findMany({
           select: { email: true, empresa: true }
         });
@@ -235,7 +235,7 @@ export function registerCampaignRoutes(app: any) {
   app.get("/api/campaigns/:id", authenticateToken, async (req: any, res: any) => {
     try {
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const campaign = await prisma.campaign.findFirst({
@@ -273,7 +273,7 @@ export function registerCampaignRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const existing = await prisma.campaign.findFirst({ where });
@@ -317,7 +317,7 @@ export function registerCampaignRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const existing = await prisma.campaign.findFirst({ where });
@@ -337,7 +337,7 @@ export function registerCampaignRoutes(app: any) {
     try {
       const days = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 365);
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const campaign = await prisma.campaign.findFirst({ where });
@@ -441,7 +441,7 @@ export function registerCampaignRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const existing = await prisma.campaign.findFirst({ where });
@@ -487,7 +487,7 @@ export function registerCampaignResetRoute(app: any) {
       const userId = req.user.id;
 
       const where: any = { id: campaignId };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = userId;
       }
 

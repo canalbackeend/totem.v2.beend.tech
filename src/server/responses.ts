@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, publicResponseLimiter, whitelist, ADMIN_EMAIL } from "./deps";
+import { prisma, authenticateToken, publicResponseLimiter, whitelist, isMasterAdmin } from "./deps";
 import { getPerceptionKey } from "../lib/metrics";
 
 async function handleCreateResponse(req: any, res: any) {
@@ -52,7 +52,7 @@ async function handleCreateResponse(req: any, res: any) {
         return res.status(403).json({ error: "Terminal não pertence à campanha informada" });
       }
     } else {
-      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+      const isMaster = isMasterAdmin(req);
       if (req.user.terminal_id) {
         if (!terminalId || terminalId !== req.user.terminal_id) {
           return res.status(403).json({ error: "Só é permitido enviar respostas do próprio terminal" });
@@ -60,7 +60,7 @@ async function handleCreateResponse(req: any, res: any) {
         if (campaign.user_id !== req.user.id) {
           return res.status(403).json({ error: "Campanha não pertence à sua empresa" });
         }
-      } else if (!isMasterAdmin) {
+      } else if (!isMaster) {
         if (terminalId) {
           const terminal = await prisma.terminal.findUnique({ where: { id: terminalId } });
           if (!terminal || terminal.user_id !== req.user.id) {
@@ -168,7 +168,7 @@ export function registerResponseRoutes(app: any) {
   app.get("/api/responses", authenticateToken, async (req: any, res) => {
     const { campaign_id, startDate, endDate, terminal_id, collaborator_name } = req.query;
     const userId = req.user.id;
-    const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+    const isMaster = isMasterAdmin(req);
     
     try {
       const profile = await prisma.user.findUnique({ where: { id: userId } });
@@ -205,7 +205,7 @@ export function registerResponseRoutes(app: any) {
       }
 
       // Company filter only for non-admin users
-      if (!isMasterAdmin && !isAdmin) {
+      if (!isMaster && !isAdmin) {
         where.campaign = { user_id: userId };
       }
 

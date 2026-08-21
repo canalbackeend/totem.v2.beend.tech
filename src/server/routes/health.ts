@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, ADMIN_EMAIL } from "../deps";
+import { prisma, authenticateToken, isMasterAdmin } from "../deps";
 
 export function registerHealthRoutes(app: any) {
   // Health check
@@ -28,13 +28,13 @@ export function registerHealthRoutes(app: any) {
   app.get("/api/dashboard/stats", authenticateToken, async (req: any, res: any) => {
     try {
       const userId = req.user.id;
-      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+      const isMaster = isMasterAdmin(req);
 
       let campaignFilter: any = {};
       let terminalFilter: any = {};
       let responseFilter: any = {};
 
-      if (!isMasterAdmin) {
+      if (!isMaster) {
          campaignFilter.user_id = userId;
          terminalFilter.user_id = userId;
          responseFilter.campaign = { user_id: userId };
@@ -60,7 +60,7 @@ export function registerHealthRoutes(app: any) {
         prisma.user.findUnique({ where: { id: userId } })
       ]);
 
-      const maxTerminals = isMasterAdmin ? -1 : (user?.max_terminals || 10);
+      const maxTerminals = isMaster ? -1 : (user?.max_terminals || 10);
       
       let totalQuestions = 0;
       let totalCollaborators = 0;

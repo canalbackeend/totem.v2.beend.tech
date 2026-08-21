@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { prisma, authenticateToken, whitelist, ADMIN_EMAIL } from "../deps";
+import { prisma, authenticateToken, whitelist, isMasterAdmin, ADMIN_EMAIL } from "../deps";
 import { normalizeEmail, isValidEmail, emailInUse, generateUniqueTerminalEmail } from "../terminal-email";
 
 // Terminals
@@ -15,11 +15,11 @@ export function registerTerminalRoutes(app: any) {
         return res.json([{ ...rest, password: null }]);
       }
 
-      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+      const isMaster = isMasterAdmin(req);
       const profile = await prisma.user.findUnique({ where: { id: req.user.id } });
       const isAdmin = profile?.role === "Administrador";
 
-      if (isMasterAdmin || isAdmin) {
+      if (isMaster || isAdmin) {
         const companies = await prisma.company.findMany({
           select: { email: true, empresa: true }
         });
@@ -60,9 +60,9 @@ export function registerTerminalRoutes(app: any) {
         return res.status(403).json({ error: "Empresa bloqueada. Entre em contato com o suporte." });
       }
 
-      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
+      const isMaster = isMasterAdmin(req);
 
-      if (!isMasterAdmin && user.max_terminals > 0) {
+      if (!isMaster && user.max_terminals > 0) {
         const termCount = await prisma.terminal.count({ where: { user_id: req.user.id } });
         if (termCount >= user.max_terminals) {
           return res.status(403).json({ error: `Limite de terminais atingido (${user.max_terminals}). Entre em contato com o suporte para aumentar seu limite.` });
@@ -105,7 +105,7 @@ export function registerTerminalRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const existing = await prisma.terminal.findFirst({ where });
@@ -155,7 +155,7 @@ export function registerTerminalRoutes(app: any) {
       const newPassword = req.body.password || "term123";
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       const terminal = await prisma.terminal.update({
@@ -173,7 +173,7 @@ export function registerTerminalRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+      if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
       await prisma.terminal.delete({

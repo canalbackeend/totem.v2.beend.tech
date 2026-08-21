@@ -203,8 +203,8 @@ export function registerAuthRoutes(app: any) {
         user_id: terminal.user_id,
         campaigns: terminal.campaigns,
         email: terminal.email,
-        company_name: user?.empresa || "Minha Empresa",
-        logo_url: user?.logo_url,
+        company_name: user.empresa || "Minha Empresa",
+        logo_url: user.logo_url,
         access_token: token,
       });
     } catch (err: any) {

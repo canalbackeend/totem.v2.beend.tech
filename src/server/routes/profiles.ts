@@ -1,10 +1,10 @@
 import bcrypt from "bcryptjs";
-import { prisma, authenticateToken, whitelist, publicUser, ADMIN_EMAIL } from "../deps";
+import { prisma, authenticateToken, whitelist, publicUser, isMasterAdmin } from "../deps";
 
 // Profile / Profiles
 export function registerProfileRoutes(app: any) {
   app.patch("/api/profiles/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.id !== req.params.id && (req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
+    if (req.user.id !== req.params.id && !isMasterAdmin(req)) {
        return res.sendStatus(403);
     }
     try {

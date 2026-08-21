@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, ADMIN_EMAIL } from "../deps";
+import { prisma, authenticateToken, isMasterAdmin } from "../deps";
 import { transporter } from "../email";
 
 // Escape HTML entities to prevent stored XSS in email content
@@ -30,7 +30,7 @@ async function generateProposalNumber() {
 // --- PROPOSALS (Admin Only) ---
 export function registerProposalRoutes(app: any) {
   app.get("/api/proposals", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const page = parseInt(req.query.page as string) || 1;
       const pageSize = parseInt(req.query.pageSize as string) || 10;
@@ -63,7 +63,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.get("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const proposal = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!proposal) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -74,7 +74,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.post("/api/proposals", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const proposalNumber = await generateProposalNumber();
       const today = new Date();
@@ -138,7 +138,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.patch("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -185,7 +185,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.delete("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       await prisma.proposal.delete({ where: { id: req.params.id } });
       res.sendStatus(204);
@@ -195,7 +195,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.post("/api/proposals/:id/clone", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -244,7 +244,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.patch("/api/proposals/:id/status", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const { status } = req.body;
       if (!["Rascunho", "Enviada", "Aprovada", "Recusada"].includes(status)) {
@@ -261,7 +261,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res: any) => {
-    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
+    if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const proposal = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!proposal) return res.status(404).json({ error: "Proposta não encontrada" });
