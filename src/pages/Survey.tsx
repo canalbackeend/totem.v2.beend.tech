@@ -672,7 +672,7 @@ const cardColors = [
     const currentQuestion = selectedCampaign.questions[currentQuestionIndex];
     if (!currentQuestion) return null;
 
-    const progress = ((currentQuestionIndex) / selectedCampaign.questions.length) * 100;
+    const progress = ((currentQuestionIndex + 1) / selectedCampaign.questions.length) * 100;
 
     return (
       <div className="min-h-screen bg-black flex flex-col text-white" onTouchStart={handleTouch} onClick={handleTouch}>
@@ -1053,7 +1053,7 @@ const cardColors = [
             onChange={(e) => setCurrentComment(e.target.value)}
           />
           <button 
-            onClick={() => handleAnswer(currentComment)}
+            onClick={() => handleAnswer(currentComment.trim())}
             disabled={q.required && !currentComment.trim()}
             className="w-full bg-[#0b82ff] text-white py-6 rounded-3xl font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-500/20 disabled:opacity-50"
           >

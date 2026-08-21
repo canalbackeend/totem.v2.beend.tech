@@ -237,7 +237,7 @@ export default function SurveyOffline() {
 
       setSyncing(true)
       for (const res of unsynced) {
-        if (!componentMountedRef.current || hasRateLimit) break
+        if (!componentMountedRef.current) break
 
         try {
           await api.post('/responses', {
@@ -253,19 +253,23 @@ export default function SurveyOffline() {
           const msg = err?.message || ''
           if (msg.includes('429') || msg.includes('Too Many Requests') || msg.includes('Muitas requisições')) {
             hasRateLimit = true
-            console.warn('Rate limit hit. Pausing sync momentarily.')
-            if (manual) toast.warning('Limite de requisições atingido. Aguardando...')
+            console.warn('Rate limit hit. Waiting before continuing sync.')
+            // Rate limits reset in ~1 min: pause the whole loop so remaining
+            // items aren't marked failed, then let the 30s interval retry.
             break
           } else if (msg.includes('401') || msg.includes('403') || msg.includes('Forbidden') || msg.includes('Unauthorized') || msg.includes('Token') || msg.includes('expirado') || msg.includes('bloqueada') || msg.includes('bloqueado')) {
             hasPermanentError = true
             permanentErrorMsg = msg
             console.error('Permanent sync error (auth/expiration):', msg)
+            break
           } else {
             console.error('Transient sync error (network):', msg)
           }
         }
 
-        await new Promise(r => setTimeout(r, 300))
+        // Small fixed gap plus progressive backoff to stay under the 60/min limit
+        const delay = Math.min(300 + successCount * 150, 2000)
+        await new Promise(r => setTimeout(r, delay))
       }
     } catch (err) {
       console.error('Unexpected sync error:', err)
@@ -290,8 +294,8 @@ export default function SurveyOffline() {
       setAuthError(null)
     }
 
-    if (hasRateLimit && !isOnline) {
-      if (manual) toast.warning('Sincronização pausada por limite de requisições.')
+    if (hasRateLimit && isOnline) {
+      if (manual) toast.warning('Limite de requisições atingido. A sincronização será retomada automaticamente.')
     }
 
     if (successCount > 0) {
@@ -898,7 +902,7 @@ const cardColors = [
     const currentQuestion = selectedCampaign.questions[currentQuestionIndex];
     if (!currentQuestion) return null;
 
-    const progress = ((currentQuestionIndex) / selectedCampaign.questions.length) * 100;
+    const progress = ((currentQuestionIndex + 1) / selectedCampaign.questions.length) * 100;
 
     return (
       <div className="min-h-screen bg-black flex flex-col text-white" onTouchStart={handleTouch} onClick={handleTouch}>
@@ -1237,7 +1241,7 @@ const cardColors = [
             onChange={(e) => setCurrentComment(e.target.value)}
           />
           <button 
-            onClick={() => handleAnswer(currentComment)}
+            onClick={() => handleAnswer(currentComment.trim())}
             disabled={q.required && !currentComment.trim()}
             className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black text-xl uppercase tracking-widest shadow-xl shadow-blue-500/20 disabled:opacity-50"
           >
@@ -1252,7 +1256,7 @@ const cardColors = [
 
   const renderFooter = () => {
     const progress = selectedCampaign 
-      ? ((currentQuestionIndex) / selectedCampaign.questions.length) * 100 
+      ? ((currentQuestionIndex + 1) / selectedCampaign.questions.length) * 100 
       : 0;
 
     return (

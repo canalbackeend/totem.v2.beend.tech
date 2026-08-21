@@ -187,7 +187,7 @@ export default function SurveyWeb() {
   const nextQuestion = () => {
     let finalAnswers = [...answers];
 
-    if (currentQuestion?.type === 'Texto Aberto' && currentComment.trim() !== '') {
+    if (currentQuestion?.type === 'Texto Aberto') {
       finalAnswers[currentQuestionIndex] = currentComment.trim();
       setAnswers(finalAnswers);
     }
@@ -271,11 +271,11 @@ export default function SurveyWeb() {
 
     if (q.type === 'SMILE 5') {
       const options = [
-        { icon: Frown, color: '#ef4444', value: 'Muito Insatisfeito', label: 'Muito Insatisfeito' },
-        { icon: Frown, color: '#fb923c', value: 'Insatisfeito', label: 'Insatisfeito' },
-        { icon: Meh, color: '#facc15', value: 'Regular', label: 'Regular' },
+        { icon: Smile, color: '#16a34a', value: 'Muito satisfeito', label: 'Muito satisfeito' },
         { icon: Smile, color: '#4ade80', value: 'Satisfeito', label: 'Satisfeito' },
-        { icon: Smile, color: '#16a34a', value: 'Muito satisfeito', label: 'Muito satisfeito' }
+        { icon: Meh, color: '#facc15', value: 'Regular', label: 'Regular' },
+        { icon: Frown, color: '#fb923c', value: 'Insatisfeito', label: 'Insatisfeito' },
+        { icon: Frown, color: '#ef4444', value: 'Muito Insatisfeito', label: 'Muito Insatisfeito' }
       ];
       return (
         <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">
@@ -307,10 +307,10 @@ export default function SurveyWeb() {
 
     if (q.type === 'SMILE 4') {
       const options = [
-        { icon: Frown, color: '#ef4444', value: 'RUIM', label: 'Ruim' },
-        { icon: Meh, color: '#facc15', value: 'REGULAR', label: 'Regular' },
+        { icon: Smile, color: '#3b82f6', value: 'EXCELENTE', label: 'Excelente' },
         { icon: Smile, color: '#4ade80', value: 'BOM', label: 'Bom' },
-        { icon: Smile, color: '#3b82f6', value: 'EXCELENTE', label: 'Excelente' }
+        { icon: Meh, color: '#facc15', value: 'REGULAR', label: 'Regular' },
+        { icon: Frown, color: '#ef4444', value: 'RUIM', label: 'Ruim' }
       ];
       return (
         <div className="flex flex-nowrap items-center justify-between gap-2 sm:gap-6 w-full">
@@ -527,7 +527,7 @@ export default function SurveyWeb() {
       return renderThankYou();
     }
     if (!currentQuestion) return null;
-    const progress = ((currentQuestionIndex) / (campaign?.questions.length || 1)) * 100;
+    const progress = ((currentQuestionIndex + 1) / (campaign?.questions.length || 1)) * 100;
 
     return (
       <div className={`min-h-screen flex flex-col font-sans ${isDarkMode ? 'bg-black text-white' : 'bg-slate-50 text-slate-900'}`}>
