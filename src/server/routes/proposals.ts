@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, isMasterAdmin } from "../deps";
+import { prisma, authenticateToken, isMasterAdmin, toISODate } from "../deps";
 import { transporter } from "../email";
 
 // Escape HTML entities to prevent stored XSS in email content
@@ -21,8 +21,8 @@ async function generateProposalNumber() {
     select: { proposal_number: true }
   });
   if (!last) return prefix + "0001";
-  const lastNum = parseInt(last.proposal_number.split("-")[2], 10);
-  const nextNum = lastNum + 1;
+  const lastSequenceNumber = parseInt(last.proposal_number.split("-")[2], 10);
+  const nextNum = lastSequenceNumber + 1;
   const padded = nextNum.toString().padStart(4, "0");
   return prefix + padded;
 }
@@ -122,8 +122,8 @@ export function registerProposalRoutes(app: any) {
         phone: req.body.phone || "",
         cep: req.body.cep || "",
         address: req.body.address || "",
-        proposal_date: req.body.proposal_date || today.toISOString().split("T")[0],
-        validity_date: req.body.validity_date || validity.toISOString().split("T")[0],
+        proposal_date: req.body.proposal_date || toISODate(today),
+        validity_date: req.body.validity_date || toISODate(validity),
         greeting: req.body.greeting || defaults.greeting,
         general_description: req.body.general_description || defaults.general_description,
         implementation_reqs: req.body.implementation_reqs || defaults.implementation_reqs,
@@ -228,8 +228,8 @@ export function registerProposalRoutes(app: any) {
         phone: existing.phone,
         cep: existing.cep,
         address: existing.address,
-        proposal_date: today.toISOString().split("T")[0],
-        validity_date: validity.toISOString().split("T")[0],
+        proposal_date: toISODate(today),
+        validity_date: toISODate(validity),
         greeting: existing.greeting,
         general_description: existing.general_description,
         implementation_reqs: existing.implementation_reqs,
@@ -284,7 +284,7 @@ export function registerProposalRoutes(app: any) {
 
       const items = (proposal.items as any[]) || [];
       const subtotal = items.reduce((sum: number, item: any) => sum + (parseFloat(item.total) || 0), 0);
-      const totalGeral = subtotal + (proposal.shipping_cost || 0);
+      const grandTotal = subtotal + (proposal.shipping_cost || 0);
 
       const formatCurrency = (val: number) => val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -344,7 +344,7 @@ export function registerProposalRoutes(app: any) {
                       </tr>` : ""}
                       <tr style="background: #0b82ff; color: white;">
                         <td colspan="3" style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">TOTAL:</td>
-                        <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">R$ ${formatCurrency(totalGeral)}</td>
+                        <td style="padding: 12px; text-align: right; font-weight: bold; font-size: 16px;">R$ ${formatCurrency(grandTotal)}</td>
                       </tr>
                     </tfoot>
                   </table>

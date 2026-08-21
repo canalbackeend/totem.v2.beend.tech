@@ -62,7 +62,7 @@ export function registerSurveyRoutes(app: any) {
         }
       });
 
-      const matched = allCampaigns.filter(c => campaignNames.includes(c.name));
+      const matched = allCampaigns.filter((campaign) => campaignNames.includes(campaign.name));
       res.json(matched);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

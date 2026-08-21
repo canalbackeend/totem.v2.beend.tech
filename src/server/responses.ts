@@ -1,16 +1,9 @@
-import { prisma, authenticateToken, publicResponseLimiter, whitelist, isMasterAdmin } from "./deps";
+import { prisma, authenticateToken, publicResponseLimiter, whitelist, isMasterAdmin, BLOCKED_ACCOUNT_ERROR } from "./deps";
 import { getPerceptionKey } from "../lib/metrics";
+import { parseAnswers, stableStringify, sanitizeAnswers } from "../lib/answers";
 
-// Normalize nested JSON to a stable string (key order-agnostic), so dedup works
-// even though Postgres JSONB may reorder object keys.
-function stableStringify(value: any): string {
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  if (value && typeof value === "object") {
-    return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
-  }
-  return JSON.stringify(value);
-}
-
+// Handler central de criação de respostas, usado pelo endpoint público
+// (terminal web/kiosk) e pelo endpoint autenticado (sync offline).
 async function handleCreateResponse(req: any, res: any) {
   try {
     const campaignId = req.body.campaign_id;
@@ -20,27 +13,6 @@ async function handleCreateResponse(req: any, res: any) {
       return res.status(400).json({ error: "Payload inválido" });
     }
 
-    const sanitizeAnswers = (answers: any[]) =>
-      answers.slice(0, 100).map((item) => {
-        if (!item || typeof item !== "object" || Array.isArray(item)) return null;
-        const safe: any = {};
-        if (typeof item.type === "string") safe.type = item.type.slice(0, 100);
-        if (typeof item.question === "string") safe.question = item.question.slice(0, 1000);
-        if (typeof item.text === "string") safe.text = item.text.slice(0, 1000);
-        if (typeof item.question_id === "string") safe.question_id = item.question_id.slice(0, 100);
-        if (typeof item.comment === "string") safe.comment = item.comment.slice(0, 2000);
-        const answer = item.answer;
-        if (typeof answer === "string") safe.answer = answer.slice(0, 2000);
-        else if (typeof answer === "number") safe.answer = answer;
-        else if (typeof answer === "boolean") safe.answer = answer;
-        else if (Array.isArray(answer)) {
-          safe.answer = answer
-            .slice(0, 50)
-            .map((a: any) => (typeof a === "string" ? a.slice(0, 500) : a))
-            .filter((a: any) => typeof a === "string" || typeof a === "number");
-        }
-        return safe;
-      }).filter(Boolean);
     req.body.answers = sanitizeAnswers(req.body.answers);
 
     const campaign = await prisma.campaign.findUnique({
@@ -107,10 +79,9 @@ async function handleCreateResponse(req: any, res: any) {
         take: 100,
       });
 
-      const duplicate = recent.find((r: any) => {
+      const duplicate = recent.find((storedResponse: any) => {
         try {
-          const stored = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
-          return stableStringify(stored) === stableStringify(req.body.answers || []);
+          return stableStringify(parseAnswers(storedResponse.answers)) === stableStringify(req.body.answers || []);
         } catch {
           return false;
         }
@@ -133,7 +104,7 @@ async function handleCreateResponse(req: any, res: any) {
     // Blocked accounts/terminals must not accept new data (payment overdue, etc.).
     // The offline device keeps its local responses and syncs after unblocking.
     if (owner && owner.status === "Bloqueado") {
-      return res.status(403).json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+      return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
     }
     if (terminalId) {
       const blockTerminal = await prisma.terminal.findUnique({
@@ -141,13 +112,13 @@ async function handleCreateResponse(req: any, res: any) {
         select: { status: true },
       });
       if (blockTerminal?.status === "Bloqueado") {
-        return res.status(403).json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+        return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
     }
 
     // Ensure response is linked to the campaign owner
     const bodyAnswers = req.body.answers || [];
-    const collabAnswer = bodyAnswers.find((a: any) => a.type === 'Colaborador');
+    const collabAnswer = bodyAnswers.find((answer: any) => answer.type === 'Colaborador');
     const createFields = whitelist(req.body, ["campaign_id", "terminal_id", "answers"]);
     createFields.created_at = createdDate.toISOString();
     const responseData = {
@@ -162,7 +133,7 @@ async function handleCreateResponse(req: any, res: any) {
 
     // Automatically update the campaign's responses_count and perceptions (atomic)
     const answers = req.body.answers || [];
-    const ratingAnswer = answers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(a?.type)) || answers[answers.length - 1];
+    const ratingAnswer = answers.find((answer: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(answer?.type)) || answers[answers.length - 1];
     const lastAnswer = ratingAnswer ? ratingAnswer.answer : null;
 
     const updateData: any = {

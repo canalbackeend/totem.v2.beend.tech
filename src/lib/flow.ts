@@ -20,27 +20,36 @@ export interface Question {
 
 export const END = "END";
 
-function unwrapAnswer(ans: any): any {
-  if (ans && typeof ans === "object" && !Array.isArray(ans) && "value" in ans) {
-    return ans.value;
+// Desempacota uma resposta que pode estar no formato { value, comment },
+// retornando apenas o valor (usado no fluxo condicional).
+function unwrapAnswer(answer: any): any {
+  if (answer && typeof answer === "object" && !Array.isArray(answer) && "value" in answer) {
+    return answer.value;
   }
-  return ans;
+  return answer;
 }
 
+// Retorna o índice da pergunta com o id informado, ou -1 se não existir.
 function findIndexById(questions: Question[], id: string): number {
-  return questions.findIndex((q) => q.id === id);
+  return questions.findIndex((question) => question.id === id);
 }
 
+// Indica se a lista de perguntas possui fluxo avançado (desvios condicionais).
 export function hasAdvancedFlow(questions: Question[]): boolean {
-  return Array.isArray(questions) && questions.some((q) => q && q.branch);
+  return Array.isArray(questions) && questions.some((question) => question && question.branch);
 }
 
+// Tipos de pergunta que suportam desvio condicional (as demais sempre avançam em sequência).
 export function isBranchableType(type: string): boolean {
   if (!type) return false;
-  const t = type.toLowerCase();
-  return !["texto aberto", "multipla escolha", "múltipla escolha"].includes(t);
+  const lowercaseType = type.toLowerCase();
+  return !["texto aberto", "multipla escolha", "múltipla escolha"].includes(lowercaseType);
 }
 
+// Calcula o índice da próxima pergunta a exibir, com base nas respostas dadas.
+// - Sem fluxo avançado: simplesmente avança em sequência (próximo índice).
+// - Com fluxo avançado: segue a regra de desvio da resposta, o defaultNext, ou encerra.
+// Retorna null quando o questionário deve terminar.
 export function getNextQuestionIndex(
   questions: Question[],
   currentIndex: number,
@@ -52,28 +61,31 @@ export function getNextQuestionIndex(
     return next < questions.length ? next : null;
   }
 
-  const q = questions[currentIndex];
-  const branch = q && q.branch;
+  const currentQuestion = questions[currentIndex];
+  const branch = currentQuestion && currentQuestion.branch;
 
   if (branch) {
-    const val = unwrapAnswer(answers?.[currentIndex]);
-    const rule =
-      val !== undefined && val !== null && val !== ""
-        ? branch.rules?.[String(val)]
+    const answerValue = unwrapAnswer(answers?.[currentIndex]);
+    // Regra de desvio selecionada pela resposta do usuário.
+    const targetId =
+      answerValue !== undefined && answerValue !== null && answerValue !== ""
+        ? branch.rules?.[String(answerValue)]
         : undefined;
 
-    if (rule === END) return null;
-    if (rule) {
-      const idx = findIndexById(questions, rule);
-      return idx >= 0 ? idx : null;
+    if (targetId === END) return null;
+    if (targetId) {
+      const targetIndex = findIndexById(questions, targetId);
+      return targetIndex >= 0 ? targetIndex : null;
     }
 
+    // Sem regra para a resposta: usa o desvio padrão (se configurado).
     if (branch.defaultNext === END) return null;
     if (branch.defaultNext) {
-      const idx = findIndexById(questions, branch.defaultNext);
-      return idx >= 0 ? idx : null;
+      const targetIndex = findIndexById(questions, branch.defaultNext);
+      return targetIndex >= 0 ? targetIndex : null;
     }
 
+    // Sem regra e sem default: encerra o questionário.
     return null;
   }
 
@@ -87,26 +99,26 @@ export interface FlowValidation {
   errors: string[];
 }
 
-function edgesFrom(questions: Question[], i: number): number[] {
-  const q = questions[i];
-  if (!q) return [];
-  if (q.branch) {
+function edgesFrom(questions: Question[], index: number): number[] {
+  const question = questions[index];
+  if (!question) return [];
+  if (question.branch) {
     const targets: number[] = [];
-    if (q.branch.rules) {
-      for (const target of Object.values(q.branch.rules)) {
+    if (question.branch.rules) {
+      for (const target of Object.values(question.branch.rules)) {
         if (target !== END) {
-          const idx = findIndexById(questions, target);
-          if (idx >= 0) targets.push(idx);
+          const targetIndex = findIndexById(questions, target);
+          if (targetIndex >= 0) targets.push(targetIndex);
         }
       }
     }
-    if (q.branch.defaultNext && q.branch.defaultNext !== END) {
-      const idx = findIndexById(questions, q.branch.defaultNext);
-      if (idx >= 0) targets.push(idx);
+    if (question.branch.defaultNext && question.branch.defaultNext !== END) {
+      const targetIndex = findIndexById(questions, question.branch.defaultNext);
+      if (targetIndex >= 0) targets.push(targetIndex);
     }
     return targets;
   }
-  const next = i + 1;
+  const next = index + 1;
   return next < questions.length ? [next] : [];
 }
 
@@ -114,57 +126,56 @@ export function validateFlow(questions: Question[]): FlowValidation {
   const result: FlowValidation = { cycles: [], unreachable: [], errors: [] };
   if (!Array.isArray(questions) || questions.length === 0) return result;
 
-  const byId = new Map(questions.map((q, i) => [q.id, i]));
+  const indexById = new Map(questions.map((question, index) => [question.id, index]));
 
-  // 1. Invalid targets
-  questions.forEach((q, i) => {
-    if (!q.branch) return;
+  // 1. Destinos inválidos: regras apontando para perguntas inexistentes.
+  questions.forEach((question) => {
+    if (!question.branch) return;
     const collect = (target: string | undefined) => {
       if (!target || target === END) return;
-      if (!byId.has(target)) {
-        result.errors.push(`Pergunta "${q.text || q.id}" aponta para um destino inexistente (${target}).`);
+      if (!indexById.has(target)) {
+        result.errors.push(`Pergunta "${question.text || question.id}" aponta para um destino inexistente (${target}).`);
       }
     };
-    if (q.branch.rules) Object.values(q.branch.rules).forEach(collect);
-    collect(q.branch.defaultNext);
-    void i;
+    if (question.branch.rules) Object.values(question.branch.rules).forEach(collect);
+    collect(question.branch.defaultNext);
   });
 
-  // 2. Cycles (DFS from index 0, following all possible transitions)
-  const state = new Array<number>(questions.length).fill(0); // 0 unvisited, 1 in-stack, 2 done
+  // 2. Ciclos (DFS a partir do índice 0, seguindo todas as transições possíveis).
+  const state = new Array<number>(questions.length).fill(0); // 0 não visitado, 1 na pilha, 2 concluído
   const stack: number[] = [];
 
-  const dfs = (i: number) => {
-    if (state[i] === 2) return;
-    if (state[i] === 1) {
-      const start = stack.indexOf(i);
+  const dfs = (index: number) => {
+    if (state[index] === 2) return;
+    if (state[index] === 1) {
+      const start = stack.indexOf(index);
       const cyclePath = stack
         .slice(start)
-        .map((x) => questions[x].text || questions[x].id);
+        .map((cycleQuestionIndex) => questions[cycleQuestionIndex].text || questions[cycleQuestionIndex].id);
       result.cycles.push(`Ciclo detectado: ${cyclePath.join(" → ")}`);
       return;
     }
-    state[i] = 1;
-    stack.push(i);
-    for (const t of edgesFrom(questions, i)) dfs(t);
+    state[index] = 1;
+    stack.push(index);
+    for (const targetIndex of edgesFrom(questions, index)) dfs(targetIndex);
     stack.pop();
-    state[i] = 2;
+    state[index] = 2;
   };
 
   if (questions.length > 0) dfs(0);
 
-  // 3. Unreachable (questions that can never be shown from the start)
+  // 3. Inalcançáveis: perguntas que nunca são exibidas a partir do início.
   const reached = new Array<number>(questions.length).fill(0);
-  const walk = (i: number) => {
-    if (reached[i]) return;
-    reached[i] = 1;
-    for (const t of edgesFrom(questions, i)) walk(t);
+  const walk = (index: number) => {
+    if (reached[index]) return;
+    reached[index] = 1;
+    for (const targetIndex of edgesFrom(questions, index)) walk(targetIndex);
   };
   if (questions.length > 0) walk(0);
 
-  questions.forEach((q, i) => {
-    if (!reached[i]) {
-      result.unreachable.push(`Pergunta "${q.text || q.id}" nunca será exibida.`);
+  questions.forEach((question, index) => {
+    if (!reached[index]) {
+      result.unreachable.push(`Pergunta "${question.text || question.id}" nunca será exibida.`);
     }
   });
 
@@ -188,14 +199,14 @@ export function buildFlowGraph(questions: Question[], endMessage?: string): Flow
   const questionNodes = Array.isArray(questions) ? questions : [];
   const edges: FlowEdge[] = [];
 
-  for (const q of questionNodes) {
-    if (q.branch?.rules) {
-      for (const [optionText, target] of Object.entries(q.branch.rules)) {
-        edges.push({ sourceId: q.id, optionText, targetId: target });
+  for (const question of questionNodes) {
+    if (question.branch?.rules) {
+      for (const [optionText, target] of Object.entries(question.branch.rules)) {
+        edges.push({ sourceId: question.id, optionText, targetId: target });
       }
     }
-    if (q.branch?.defaultNext) {
-      edges.push({ sourceId: q.id, targetId: q.branch.defaultNext });
+    if (question.branch?.defaultNext) {
+      edges.push({ sourceId: question.id, targetId: question.branch.defaultNext });
     }
   }
 
@@ -207,24 +218,23 @@ export function buildFlowGraph(questions: Question[], endMessage?: string): Flow
   };
 }
 
-function addUnique(list: string[], id: string) {
-  if (!list.includes(id)) list.push(id);
-}
+// Adiciona um id a uma lista, evitando duplicatas.
 
 export function serializeFlow(graph: FlowGraph): {
   questions: Question[];
   thank_you_message?: string;
 } {
   const { questionNodes, edges, startId } = graph;
-  const nodeById = new Map(questionNodes.map((n) => [n.id, n]));
+  const nodeById = new Map(questionNodes.map((node) => [node.id, node]));
 
+  // Mapa de arestas: pergunta de origem → ids de destino.
   const targetsFrom = new Map<string, string[]>();
-  for (const e of edges) {
-    if (!targetsFrom.has(e.sourceId)) targetsFrom.set(e.sourceId, []);
-    targetsFrom.get(e.sourceId)!.push(e.targetId);
+  for (const edge of edges) {
+    if (!targetsFrom.has(edge.sourceId)) targetsFrom.set(edge.sourceId, []);
+    targetsFrom.get(edge.sourceId)!.push(edge.targetId);
   }
 
-  // BFS from start to keep the start node at index 0
+  // BFS a partir do início, mantendo a primeira pergunta no índice 0.
   const ordered: string[] = [];
   const visited = new Set<string>();
   const queue: string[] = startId ? [startId] : [];
@@ -233,36 +243,39 @@ export function serializeFlow(graph: FlowGraph): {
     if (visited.has(id)) continue;
     visited.add(id);
     ordered.push(id);
-    for (const t of targetsFrom.get(id) || []) {
-      if (t !== END && !visited.has(t)) queue.push(t);
+    for (const targetId of targetsFrom.get(id) || []) {
+      if (targetId !== END && !visited.has(targetId)) queue.push(targetId);
     }
   }
 
-  // Append any node not reached (shouldn't happen after validation, but keep data)
-  for (const n of questionNodes) {
-    if (!visited.has(n.id)) ordered.push(n.id);
+  // Adiciona qualquer nó não alcançado (não deve ocorrer após a validação, mas preserva dados).
+  for (const node of questionNodes) {
+    if (!visited.has(node.id)) ordered.push(node.id);
   }
 
+  // Regras de desvio por opção (ex.: opção "Sim" → pergunta X).
   const ruleBySourceOption = new Map<string, Record<string, string>>();
-  for (const e of edges) {
-    if (e.optionText === undefined) continue;
-    if (!ruleBySourceOption.has(e.sourceId)) ruleBySourceOption.set(e.sourceId, {});
-    ruleBySourceOption.get(e.sourceId)![e.optionText] = e.targetId;
+  for (const edge of edges) {
+    if (edge.optionText === undefined) continue;
+    if (!ruleBySourceOption.has(edge.sourceId)) ruleBySourceOption.set(edge.sourceId, {});
+    ruleBySourceOption.get(edge.sourceId)![edge.optionText] = edge.targetId;
   }
+  // Desvio padrão por pergunta (sem opção vinculada).
   const defaultBySource = new Map<string, string>();
-  for (const e of edges) {
-    if (e.optionText !== undefined) continue;
-    defaultBySource.set(e.sourceId, e.targetId);
+  for (const edge of edges) {
+    if (edge.optionText !== undefined) continue;
+    defaultBySource.set(edge.sourceId, edge.targetId);
   }
 
+  // Reconstrói cada pergunta com seu bloco de desvio (branch).
   const questions = ordered
     .map((id) => {
       const node = nodeById.get(id);
       if (!node) return null;
       const rules: Record<string, string> = {};
       const sourceRules = ruleBySourceOption.get(id) || {};
-      for (const opt of node.options || []) {
-        rules[opt.text] = sourceRules[opt.text] || END;
+      for (const option of node.options || []) {
+        rules[option.text] = sourceRules[option.text] || END;
       }
       const defaultNext = defaultBySource.get(id);
       const hasRules = Object.keys(rules).length > 0;

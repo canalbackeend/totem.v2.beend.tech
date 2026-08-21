@@ -66,27 +66,27 @@ export function registerHealthRoutes(app: any) {
       let totalCollaborators = 0;
       let hasCollaborators = false;
 
-      campaigns.forEach((camp: any) => {
-        const qArray = (Array.isArray(camp.questions) ? camp.questions : []) as any[];
+      campaigns.forEach((campaign: any) => {
+        const qArray = (Array.isArray(campaign.questions) ? campaign.questions : []) as any[];
         totalQuestions += qArray.length;
         
-        const collabQuestions = qArray.filter((q: any) => q.type === 'Colaborador');
+        const collabQuestions = qArray.filter((question: any) => question.type === 'Colaborador');
         if (collabQuestions.length > 0) hasCollaborators = true;
         
         const uniqueCollabs = new Set();
-        collabQuestions.forEach((q: any) => {
-          (q.options || []).forEach((opt: any) => uniqueCollabs.add(opt.id || opt.text));
+        collabQuestions.forEach((question: any) => {
+          (question.options || []).forEach((opt: any) => uniqueCollabs.add(opt.id || opt.text));
         });
         totalCollaborators += uniqueCollabs.size;
       });
 
-      const feedbackResponses = responses.filter((fb: any) => {
-        const answers = (Array.isArray(fb.answers) ? fb.answers : []) as any[];
-        const questions = (Array.isArray(fb.campaign?.questions) ? fb.campaign.questions : []) as any[];
-        return answers.some((a: any) => {
-          if (a.comment && a.comment.trim().length > 0) return true;
-          const qInfo = questions.find((q: any) => q.text === a.question);
-          if (qInfo?.type === 'Texto Aberto' && typeof a.answer === 'string' && a.answer.trim().length > 0) return true;
+      const feedbackResponses = responses.filter((response: any) => {
+        const answers = (Array.isArray(response.answers) ? response.answers : []) as any[];
+        const questions = (Array.isArray(response.campaign?.questions) ? response.campaign.questions : []) as any[];
+        return answers.some((answer: any) => {
+          if (answer.comment && answer.comment.trim().length > 0) return true;
+          const matchedQuestion = questions.find((question: any) => question.text === answer.question);
+          if (matchedQuestion?.type === 'Texto Aberto' && typeof answer.answer === 'string' && answer.answer.trim().length > 0) return true;
           return false;
         });
       });

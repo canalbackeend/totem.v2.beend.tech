@@ -6,6 +6,7 @@ import {
   authLimiter,
   authenticateToken,
   publicUser,
+  BLOCKED_ACCOUNT_ERROR,
 } from "../deps";
 import { normalizeEmail } from "../terminal-email";
 
@@ -144,9 +145,7 @@ export function registerAuthRoutes(app: any) {
       }
 
       if (terminal.status === "Bloqueado") {
-        return res.status(403).json({
-          error: "Conta bloqueada, impossível sincronizar os dados.",
-        });
+        return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (
@@ -165,15 +164,11 @@ export function registerAuthRoutes(app: any) {
       });
 
       if (!user) {
-        return res
-          .status(403)
-          .json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+        return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (user.status !== "Ativo") {
-        return res.status(403).json({
-          error: "Conta bloqueada, impossível sincronizar os dados.",
-        });
+        return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (user.plano === "Teste 7 dias" && user.vencimento) {

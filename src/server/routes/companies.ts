@@ -6,8 +6,8 @@ export function registerCompanyRoutes(app: any) {
   app.get("/api/companies", authenticateToken, async (req: any, res: any) => {
     if (!isMasterAdmin(req)) return res.sendStatus(403);
     const { page = "1", pageSize = "10", search } = req.query;
-    const p = parseInt(page as string) || 1;
-    const ps = Math.min(Math.max(parseInt(pageSize as string) || 10, 1), 100);
+    const pageNumber = parseInt(page as string) || 1;
+    const clampedPageSize = Math.min(Math.max(parseInt(pageSize as string) || 10, 1), 100);
     const where: any = {};
     if (search) {
       const term = String(search).trim();
@@ -26,8 +26,8 @@ export function registerCompanyRoutes(app: any) {
         prisma.company.findMany({
           where,
           orderBy: { created_at: "desc" },
-          skip: (p - 1) * ps,
-          take: ps
+          skip: (pageNumber - 1) * clampedPageSize,
+          take: clampedPageSize
         }),
         prisma.company.count({ where })
       ]);
@@ -197,11 +197,11 @@ export function registerCompanyRoutes(app: any) {
       // If email changed, we need to update the user with the OLD email to the NEW email
       if (cleanEmail !== oldEmail) {
         userUpdateData.email = cleanEmail;
-        const res1 = await prisma.user.updateMany({
+        const oldEmailUpdateResult = await prisma.user.updateMany({
           where: { email: oldEmail },
           data: userUpdateData
         });
-        if (res1.count === 0) {
+        if (oldEmailUpdateResult.count === 0) {
           // No user held the old email (legacy/orphaned): recreate it so Company↔User stays in sync
           await prisma.user.upsert({
             where: { email: cleanEmail },
@@ -214,11 +214,11 @@ export function registerCompanyRoutes(app: any) {
           });
         }
       } else {
-        const res2 = await prisma.user.updateMany({
+        const sameEmailUpdateResult = await prisma.user.updateMany({
           where: { email: cleanEmail },
           data: userUpdateData
         });
-        if (res2.count === 0) {
+        if (sameEmailUpdateResult.count === 0) {
           // Company without a linked User: create one to keep data consistent
           await prisma.user.upsert({
             where: { email: cleanEmail },

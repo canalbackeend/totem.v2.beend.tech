@@ -1,5 +1,6 @@
-import { prisma, authenticateToken, whitelist, parseCampaignList, publicUser, isMasterAdmin } from "../deps";
+import { prisma, authenticateToken, whitelist, parseCampaignList, publicUser, isMasterAdmin, toISODate } from "../deps";
 import { getSatisfactionScore } from "../../lib/metrics";
+import { parseAnswers } from "../../lib/answers";
 import { calculateCampaignMetrics } from "../metrics";
 
 // Campaign metrics + secure report token (registered before upload/campaign CRUD)
@@ -346,7 +347,7 @@ export function registerCampaignRoutes(app: any) {
         return res.status(404).json({ error: "Campanha não encontrada ou sem permissão" });
       }
 
-      // Remove the deleted campaign's name from terminals that reference it
+      // Remove o nome da campanha deletada dos terminais que a referenciam.
       const affectedTerminals = await prisma.terminal.findMany({
         where: { campaigns: { contains: existing.name } }
       });
@@ -355,14 +356,14 @@ export function registerCampaignRoutes(app: any) {
         await tx.campaign.delete({
           where: { id: existing.id }
         });
-        for (const term of affectedTerminals) {
-          if (!term.campaigns) continue;
-          const updated = parseCampaignList(term.campaigns)
+        for (const terminal of affectedTerminals) {
+          if (!terminal.campaigns) continue;
+          const updated = parseCampaignList(terminal.campaigns)
             .filter((c: string) => c !== existing.name)
             .join(',');
-          if (updated !== term.campaigns) {
+          if (updated !== terminal.campaigns) {
             await tx.terminal.update({
-              where: { id: term.id },
+              where: { id: terminal.id },
               data: { campaigns: updated }
             });
           }
@@ -431,26 +432,30 @@ export function registerCampaignRoutes(app: any) {
         take: 10000
       });
 
-      const dailyData: Record<string, { scoreSum: number; answerCount: number; dates: Date; responseCount: number }> = {};
+      // Bucket diário da evolução: soma de scores, contagem de respostas pontuadas,
+      // data de referência e quantidade total de respostas do dia.
+      const dailyData: Record<string, { scoreSum: number; answerCount: number; date: Date; responseCount: number }> = {};
 
+      // Pré-inicializa um bucket vazio para cada dia do período.
       for (let i = 0; i < totalDays; i++) {
-        const d = new Date(startDate);
-        d.setDate(d.getDate() + i);
-        const key = d.toISOString().split("T")[0];
-        dailyData[key] = { scoreSum: 0, answerCount: 0, dates: d, responseCount: 0 };
+        const dayDate = new Date(startDate);
+        dayDate.setDate(dayDate.getDate() + i);
+        const key = toISODate(dayDate);
+        dailyData[key] = { scoreSum: 0, answerCount: 0, date: dayDate, responseCount: 0 };
       }
 
-      for (const r of responses) {
-        const key = r.created_at.toISOString().split("T")[0];
+      // Agrega as respostas em cada bucket diário, calculando o score de satisfação.
+      for (const response of responses) {
+        const key = toISODate(response.created_at);
         if (!dailyData[key]) continue;
         dailyData[key].responseCount++;
 
         try {
-          const answers = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
-          if (Array.isArray(answers)) {
-            for (const a of answers) {
-              if (a.type === 'NPS') continue; // scored separately, don't mix into CSAT
-              const score = getSatisfactionScore(a.answer ?? a.value, a.type);
+          const answers = parseAnswers(response.answers);
+          if (answers.length > 0) {
+            for (const answer of answers) {
+              if (answer.type === 'NPS') continue; // NPS é pontuado separadamente, não entra no CSAT
+              const score = getSatisfactionScore(answer.answer ?? answer.value, answer.type);
               if (score !== null) {
                 dailyData[key].scoreSum += score;
                 dailyData[key].answerCount++;
@@ -460,16 +465,17 @@ export function registerCampaignRoutes(app: any) {
         } catch {}
       }
 
+      // Converte os buckets em uma série temporal ordenada (para o gráfico).
       const evolution = Object.keys(dailyData)
         .sort()
         .map((key) => {
-          const d = dailyData[key];
-          const satisfaction = d.answerCount > 0 ? Math.round((d.scoreSum / d.answerCount) * 100) / 100 : 0;
+          const dayData = dailyData[key];
+          const satisfaction = dayData.answerCount > 0 ? Math.round((dayData.scoreSum / dayData.answerCount) * 100) / 100 : 0;
           return {
-            name: d.dates.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+            name: dayData.date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
             satisfaction,
             prevSatisfaction: 0,
-            responses: d.responseCount
+            responses: dayData.responseCount
           };
         });
 

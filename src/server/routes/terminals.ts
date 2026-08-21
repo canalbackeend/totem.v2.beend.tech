@@ -63,8 +63,8 @@ export function registerTerminalRoutes(app: any) {
       const isMaster = isMasterAdmin(req);
 
       if (!isMaster && user.max_terminals > 0) {
-        const termCount = await prisma.terminal.count({ where: { user_id: req.user.id } });
-        if (termCount >= user.max_terminals) {
+        const terminalCount = await prisma.terminal.count({ where: { user_id: req.user.id } });
+        if (terminalCount >= user.max_terminals) {
           return res.status(403).json({ error: `Limite de terminais atingido (${user.max_terminals}). Entre em contato com o suporte para aumentar seu limite.` });
         }
       }

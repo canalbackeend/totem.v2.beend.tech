@@ -1,6 +1,12 @@
 import { getSatisfactionScore } from "../lib/metrics";
+import { parseAnswers } from "../lib/answers";
 
+// Calcula as métricas agregadas de uma campanha a partir das respostas coletadas:
+// - NPS (promotores/neutros/detratores e score final)
+// - Satisfação geral (média CSAT, excluindo perguntas NPS)
+// - Estatísticas por pergunta (média de satisfação, contagem e distribuição de respostas)
 export function calculateCampaignMetrics(campaign: any, responses: any[]) {
+  // Sem campanha ou sem respostas: retorna métricas zeradas.
   if (!campaign || !responses.length) {
     return {
       nps: { score: 0, promotores: 0, neutros: 0, detratores: 0, total: 0 },
@@ -10,68 +16,77 @@ export function calculateCampaignMetrics(campaign: any, responses: any[]) {
     };
   }
 
-  const npsQ = campaign.questions?.find((q: any) => q.type === 'NPS');
-  const normalizedNpsText = npsQ ? String(npsQ.text || '').trim().toLowerCase() : '';
-  
-  let p = 0, n = 0, d = 0, npsTotal = 0;
-  let totalSatSum = 0;
-  let totalSatAnswers = 0;
+  // Localiza a pergunta NPS da campanha (se houver) — o cálculo NPS depende dela.
+  const npsQuestion = campaign.questions?.find((question: any) => question.type === 'NPS');
+  const normalizedNpsText = npsQuestion ? String(npsQuestion.text || '').trim().toLowerCase() : '';
 
+  // Contadores de NPS: promotores (9-10), neutros (7-8), detratores (0-6).
+  let promoterCount = 0, neutralCount = 0, detractorCount = 0, npsTotal = 0;
+
+  // Acumuladores da satisfação geral (média CSAT).
+  let totalSatisfactionSum = 0;
+  let totalSatisfactionAnswers = 0;
+
+  // Estatísticas por pergunta: texto → { soma de satisfação, contagem, distribuição, tipo }.
   const statsMap = new Map();
 
-  responses.forEach(r => {
-    let answers = [];
-    try {
-      answers = typeof r.answers === 'string' ? JSON.parse(r.answers) : (r.answers || []);
-    } catch (e) { answers = []; }
+  responses.forEach((response) => {
+    // `answers` pode vir como JSON string (legado) ou já como array.
+    const answers = parseAnswers(response.answers);
 
-    answers.forEach((a: any) => {
-      const qText = String(a.question || '').trim();
-      const qKey = qText.toLowerCase();
-      const campaignQ = campaign.questions?.find((cq: any) => String(cq.text || '').trim().toLowerCase() === qKey);
-      const qType = a.type || campaignQ?.type;
-      
-      // NPS Logic - ONLY if answer is NOT null
-      if (normalizedNpsText && qKey === normalizedNpsText && a.answer !== null && a.answer !== undefined && a.answer !== '') {
-        const val = Number(a.answer);
-        if (!isNaN(val)) {
+    answers.forEach((answer: any) => {
+      // Normaliza o texto da pergunta para localizar a pergunta correspondente na campanha.
+      const questionText = String(answer.question || '').trim();
+      const questionLookupKey = questionText.toLowerCase();
+      const matchedCampaignQuestion = campaign.questions?.find(
+        (question: any) => String(question.text || '').trim().toLowerCase() === questionLookupKey
+      );
+      // Tipo da pergunta: preferência pelo tipo gravado na resposta, senão o da campanha.
+      const questionType = answer.type || matchedCampaignQuestion?.type;
+
+      // ---- Cálculo NPS (somente se a resposta não for nula/vazia) ----
+      if (normalizedNpsText && questionLookupKey === normalizedNpsText && answer.answer !== null && answer.answer !== undefined && answer.answer !== '') {
+        const npsValue = Number(answer.answer);
+        if (!isNaN(npsValue)) {
           npsTotal++;
-          if (val >= 9) p++; 
-          else if (val >= 7) n++; 
-          else d++;
+          if (npsValue >= 9) promoterCount++;
+          else if (npsValue >= 7) neutralCount++;
+          else detractorCount++;
         }
       }
 
-      // General Satisfaction (CSAT) Logic — exclude NPS: it's scored separately
-      // and mixing 0-10 with 100/75/50/25 would corrupt the average.
-      const score = qType !== 'NPS' ? getSatisfactionScore(a.answer, qType || '') : null;
+      // ---- Satisfação geral (CSAT) ----
+      // NPS é excluído: ele é pontuado separadamente (0-10) e não deve ser misturado
+      // com a escala 100/75/50/25 das demais perguntas.
+      const score = questionType !== 'NPS' ? getSatisfactionScore(answer.answer, questionType || '') : null;
       if (score !== null) {
-        totalSatSum += score;
-        totalSatAnswers++;
+        totalSatisfactionSum += score;
+        totalSatisfactionAnswers++;
       }
 
-      // Track stats per question
-      if (!statsMap.has(qText)) {
-        statsMap.set(qText, { satSum: 0, satCount: 0, count: 0, type: qType, distribution: {} });
+      // ---- Estatísticas por pergunta ----
+      if (!statsMap.has(questionText)) {
+        statsMap.set(questionText, { satisfactionSum: 0, satisfactionCount: 0, count: 0, type: questionType, distribution: {} });
       }
-      const s = statsMap.get(qText);
-      
-      // Increment engagement count ONLY if answer is not empty
-      if (a.answer !== null && a.answer !== undefined && (Array.isArray(a.answer) ? a.answer.length > 0 : a.answer !== '')) {
-        s.count++;
+      const questionStat = statsMap.get(questionText);
+
+      // Conta apenas respostas preenchidas (não nulas/vazias).
+      if (answer.answer !== null && answer.answer !== undefined && (Array.isArray(answer.answer) ? answer.answer.length > 0 : answer.answer !== '')) {
+        questionStat.count++;
         if (score !== null) {
-          s.satSum += score;
-          s.satCount++;
+          questionStat.satisfactionSum += score;
+          questionStat.satisfactionCount++;
         }
 
-        // Track distribution (handling arrays for Multi-Choice)
-        if (qType !== 'Texto Aberto') {
-          const answersToTrack = Array.isArray(a.answer) ? a.answer : [a.answer];
-          answersToTrack.forEach((val: any) => {
-            if (val !== null && val !== undefined) {
-              const optionKey = String(val).trim().toUpperCase();
+        // Distribuição de respostas por opção (exceto texto aberto).
+        // Para múltipla escolha, cada valor selecionado é contabilizado.
+        if (questionType !== 'Texto Aberto') {
+          const answersToTrack = Array.isArray(answer.answer) ? answer.answer : [answer.answer];
+          answersToTrack.forEach((optionValue: any) => {
+            if (optionValue !== null && optionValue !== undefined) {
+              const optionKey = String(optionValue).trim().toUpperCase();
               if (optionKey) {
-                s.distribution[optionKey] = (s.distribution[optionKey] || 0) + 1;
+                questionStat.distribution[optionKey] = (questionStat.distribution[optionKey] || 0) + 1;
               }
             }
           });
@@ -80,21 +95,23 @@ export function calculateCampaignMetrics(campaign: any, responses: any[]) {
     });
   });
 
-  const npsScore = npsTotal > 0 ? ((p - d) / npsTotal) * 100 : 0;
-  const overallSatisfaction = totalSatAnswers > 0 ? totalSatSum / totalSatAnswers : 0;
+  // Score NPS = % de promotores - % de detratores (varia de -100 a 100).
+  const npsScore = npsTotal > 0 ? ((promoterCount - detractorCount) / npsTotal) * 100 : 0;
+  // Média geral de satisfação = soma dos scores / número de respostas pontuadas.
+  const overallSatisfaction = totalSatisfactionAnswers > 0 ? totalSatisfactionSum / totalSatisfactionAnswers : 0;
 
-  const questionStats = Array.from(statsMap.entries()).map(([text, s]) => {
+  const questionStats = Array.from(statsMap.entries()).map(([text, questionStat]) => {
     return {
       text,
-      satisfaction: s.satCount > 0 ? s.satSum / s.satCount : 0,
-      count: s.count,
-      type: s.type,
-      distribution: s.distribution
+      satisfaction: questionStat.satisfactionCount > 0 ? questionStat.satisfactionSum / questionStat.satisfactionCount : 0,
+      count: questionStat.count,
+      type: questionStat.type,
+      distribution: questionStat.distribution
     };
   });
 
   return {
-    nps: { score: npsScore, promotores: p, neutros: n, detratores: d, total: npsTotal },
+    nps: { score: npsScore, promotores: promoterCount, neutros: neutralCount, detratores: detractorCount, total: npsTotal },
     overallSatisfaction,
     totalResponses: responses.length,
     questionStats

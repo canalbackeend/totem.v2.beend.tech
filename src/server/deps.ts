@@ -37,10 +37,16 @@ export const ADMIN_RESET_SECRET =
 
 export const prisma = new PrismaClient();
 
+// Limitadores de requisições (rate limiting) por endpoint:
+// - authLimiter: 10 tentativas / 15min (login e registro).
+// - apiLimiter: 120 requisições / min para toda a API (exceto health check).
+// - publicResponseLimiter: 60 envios / min para o endpoint público de respostas.
 export const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Muitas tentativas. Tente novamente mais tarde." } });
 export const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, skip: (req) => req.path.startsWith("/api/health"), message: { error: "Muitas requisições. Tente novamente mais tarde." } });
 export const publicResponseLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
 
+// Filtra um objeto, mantendo apenas as chaves permitidas (anti mass-assignment).
+// Campos com valor `undefined` são ignorados.
 export function whitelist(obj: any, allowed: string[]) {
   const safe: any = {};
   for (const key of allowed) {
@@ -49,7 +55,7 @@ export function whitelist(obj: any, allowed: string[]) {
   return safe;
 }
 
-// Remove sensitive fields from objects before sending them to clients
+// Remove campos sensíveis (ex.: senha) antes de enviar objetos ao cliente.
 export function publicUser(user: any) {
   if (!user) return user;
   const { password, ...safe } = user;
@@ -68,7 +74,8 @@ export function publicCompany(company: any) {
   return safe;
 }
 
-// Parse terminal.campaigns which may be stored as CSV or JSON array
+// Parse do campo terminal.campaigns, que pode ser armazenado como CSV
+// (ex.: "Campanha A,Campanha B") ou como JSON array (ex.: '["A","B"]').
 export function parseCampaignList(value: any): string[] {
   if (!value) return [];
   if (Array.isArray(value)) return value.filter((c: any) => typeof c === "string");
@@ -79,10 +86,19 @@ export function parseCampaignList(value: any): string[] {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) return parsed.filter((c: any) => typeof c === "string");
     } catch {
-      // fall through to CSV parsing
+      // Se o JSON for inválido, cai no parsing por vírgula.
     }
   }
   return trimmed.split(",").map((c: string) => c.trim()).filter(Boolean);
+}
+
+// Mensagem padrão para contas/terminais bloqueados. Reutilizada no login,
+// no envio de respostas e no middleware de autenticação.
+export const BLOCKED_ACCOUNT_ERROR = { error: "Conta bloqueada, impossível sincronizar os dados." };
+
+// Converte uma Date (ou string de data) em "YYYY-MM-DD" (formato de chave de dia).
+export function toISODate(date: Date | string): string {
+  return new Date(date).toISOString().split("T")[0];
 }
 
 // Auth Middleware — re-validates the user against the DB so blocked/deleted
@@ -106,9 +122,7 @@ export const authenticateToken = async (req: any, res: any, next: any) => {
         select: { status: true },
       });
       if (!dbUser || dbUser.status !== "Ativo") {
-        return res
-          .status(403)
-          .json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+        return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
     } catch {
       // Fail-open on DB errors: the JWT is still valid; do not break the app.

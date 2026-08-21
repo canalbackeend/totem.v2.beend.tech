@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import crypto from "crypto";
 import { prisma, PORT } from "./deps";
+import { isValidEmail } from "./terminal-email";
 
 // Email transporter
 export const transporter = nodemailer.createTransport({
@@ -32,14 +33,12 @@ export async function sendDailyReports(targetTimeStr?: string) {
       return;
     }
 
-    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
     // 2. Filter campaigns by report time + keep only valid emails
-    const campaignsToSend = campaigns.filter(c => {
-      const email = (c.report_email || "").trim();
-      if (!email || !EMAIL_REGEX.test(email)) return false;
+    const campaignsToSend = campaigns.filter((campaign) => {
+      const email = (campaign.report_email || "").trim();
+      if (!email || !isValidEmail(email)) return false;
       if (targetTimeStr) {
-        const campaignTime = (c as any).report_time || "08:00";
+        const campaignTime = (campaign as any).report_time || "08:00";
         return campaignTime === targetTimeStr;
       }
       return true;
@@ -127,7 +126,7 @@ export async function sendDailyReports(targetTimeStr?: string) {
 
     for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
       const batch = jobs.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(batch.map(j => transporter.sendMail(j.mailOptions)));
+      const results = await Promise.allSettled(batch.map(job => transporter.sendMail(job.mailOptions)));
       results.forEach((result, idx) => {
         const job = batch[idx];
         if (result.status === "fulfilled") {

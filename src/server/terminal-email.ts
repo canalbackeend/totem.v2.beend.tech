@@ -10,8 +10,10 @@ export function randomDigits(length: number): string {
   return digits;
 }
 
-export function buildTerminalEmail(mid: string, suffix: string): string {
-  return `ter-${mid}-${suffix}@${DOMAIN}`;
+// Monta o e-mail automático de um terminal no formato "ter-XXXXX-YYY@be.end",
+// onde `middleSegment` e `suffix` são trechos de dígitos aleatórios.
+export function buildTerminalEmail(middleSegment: string, suffix: string): string {
+  return `ter-${middleSegment}-${suffix}@${DOMAIN}`;
 }
 
 export function normalizeEmail(email: string): string {
