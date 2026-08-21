@@ -18,7 +18,7 @@ async function generateProposalNumber() {
 
 // --- PROPOSALS (Admin Only) ---
 export function registerProposalRoutes(app: any) {
-  app.get("/api/proposals", authenticateToken, async (req: any, res) => {
+  app.get("/api/proposals", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const page = parseInt(req.query.page as string) || 1;
@@ -51,7 +51,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.get("/api/proposals/:id", authenticateToken, async (req: any, res) => {
+  app.get("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const proposal = await prisma.proposal.findUnique({ where: { id: req.params.id } });
@@ -62,7 +62,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.post("/api/proposals", authenticateToken, async (req: any, res) => {
+  app.post("/api/proposals", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const proposalNumber = await generateProposalNumber();
@@ -126,7 +126,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.patch("/api/proposals/:id", authenticateToken, async (req: any, res) => {
+  app.patch("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
@@ -173,7 +173,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.delete("/api/proposals/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       await prisma.proposal.delete({ where: { id: req.params.id } });
@@ -183,7 +183,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.post("/api/proposals/:id/clone", authenticateToken, async (req: any, res) => {
+  app.post("/api/proposals/:id/clone", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
@@ -232,7 +232,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.patch("/api/proposals/:id/status", authenticateToken, async (req: any, res) => {
+  app.patch("/api/proposals/:id/status", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const { status } = req.body;
@@ -249,7 +249,7 @@ export function registerProposalRoutes(app: any) {
     }
   });
 
-  app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res) => {
+  app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const proposal = await prisma.proposal.findUnique({ where: { id: req.params.id } });

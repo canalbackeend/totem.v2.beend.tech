@@ -2,7 +2,7 @@ import { prisma, publicTerminal, parseCampaignList } from "../deps";
 
 // Survey Specific (Get terminal and campaign by ID/slug)
 export function registerSurveyRoutes(app: any) {
-  app.get("/api/survey/:id", async (req, res) => {
+  app.get("/api/survey/:id", async (req: any, res: any) => {
     try {
       const terminal = await prisma.terminal.findUnique({
         where: { id: req.params.id }
@@ -22,7 +22,7 @@ export function registerSurveyRoutes(app: any) {
     }
   });
 
-  app.get("/api/survey/terminal/:id", async (req, res) => {
+  app.get("/api/survey/terminal/:id", async (req: any, res: any) => {
     try {
       const terminal = await prisma.terminal.findUnique({
         where: { id: req.params.id }
@@ -33,7 +33,7 @@ export function registerSurveyRoutes(app: any) {
     }
   });
 
-  app.get("/api/survey/campaign/:id", async (req, res) => {
+  app.get("/api/survey/campaign/:id", async (req: any, res: any) => {
     try {
       const campaign = await prisma.campaign.findUnique({
         where: { id: req.params.id }
@@ -44,7 +44,7 @@ export function registerSurveyRoutes(app: any) {
     }
   });
 
-  app.get("/api/survey/terminal/:id/campaigns", async (req, res) => {
+  app.get("/api/survey/terminal/:id/campaigns", async (req: any, res: any) => {
     try {
       const terminal = await prisma.terminal.findUnique({
         where: { id: req.params.id }

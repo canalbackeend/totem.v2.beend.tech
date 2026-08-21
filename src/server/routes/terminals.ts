@@ -4,7 +4,7 @@ import { normalizeEmail, isValidEmail, emailInUse, generateUniqueTerminalEmail }
 
 // Terminals
 export function registerTerminalRoutes(app: any) {
-  app.get("/api/terminals", authenticateToken, async (req: any, res) => {
+  app.get("/api/terminals", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) {
         const terminal = await prisma.terminal.findUnique({
@@ -49,7 +49,7 @@ export function registerTerminalRoutes(app: any) {
     }
   });
 
-  app.post("/api/terminals", authenticateToken, async (req: any, res) => {
+  app.post("/api/terminals", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
 
@@ -99,7 +99,7 @@ export function registerTerminalRoutes(app: any) {
     }
   });
 
-  app.patch("/api/terminals/:id", authenticateToken, async (req: any, res) => {
+  app.patch("/api/terminals/:id", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
@@ -144,7 +144,7 @@ export function registerTerminalRoutes(app: any) {
     }
   });
 
-  app.post("/api/terminals/:id/reset-password", authenticateToken, async (req: any, res) => {
+  app.post("/api/terminals/:id/reset-password", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const newPassword = req.body.password || "term123";
@@ -164,7 +164,7 @@ export function registerTerminalRoutes(app: any) {
     }
   });
 
-  app.delete("/api/terminals/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/terminals/:id", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };

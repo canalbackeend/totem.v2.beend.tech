@@ -3,7 +3,7 @@ import { prisma, authenticateToken, whitelist, publicCompany, ADMIN_EMAIL } from
 
 // Admin Companies
 export function registerCompanyRoutes(app: any) {
-  app.get("/api/companies", authenticateToken, async (req: any, res) => {
+  app.get("/api/companies", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     const { page = "1", pageSize = "10", search } = req.query;
     const p = parseInt(page as string) || 1;
@@ -37,7 +37,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.get("/api/companies/:id/access-data", authenticateToken, async (req: any, res) => {
+  app.get("/api/companies/:id/access-data", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
@@ -63,7 +63,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.get("/api/companies/:id", authenticateToken, async (req: any, res) => {
+  app.get("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
@@ -73,7 +73,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.post("/api/companies", authenticateToken, async (req: any, res) => {
+  app.post("/api/companies", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const cleanEmail = String(req.body.email || "").trim().toLowerCase();
@@ -151,7 +151,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.patch("/api/companies/:id", authenticateToken, async (req: any, res) => {
+  app.patch("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const oldCompany = await prisma.company.findUnique({ where: { id: req.params.id } });
@@ -215,7 +215,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.post("/api/companies/:id/reset-password", authenticateToken, async (req: any, res) => {
+  app.post("/api/companies/:id/reset-password", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
@@ -238,7 +238,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.patch("/api/companies/:id/status", authenticateToken, async (req: any, res) => {
+  app.patch("/api/companies/:id/status", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       const { status } = req.body;
@@ -272,7 +272,7 @@ export function registerCompanyRoutes(app: any) {
     }
   });
 
-  app.delete("/api/companies/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
     if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
     try {
       await prisma.company.delete({ where: { id: req.params.id } });

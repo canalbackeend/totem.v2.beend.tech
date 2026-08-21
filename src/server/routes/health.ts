@@ -2,7 +2,7 @@ import { prisma, authenticateToken, ADMIN_EMAIL } from "../deps";
 
 export function registerHealthRoutes(app: any) {
   // Health check
-  app.get("/api/health", async (req, res) => {
+  app.get("/api/health", async (req: any, res: any) => {
     try {
       await prisma.$queryRaw`SELECT 1`;
       res.json({
@@ -25,7 +25,7 @@ export function registerHealthRoutes(app: any) {
   });
 
   // Dashboard Stats
-  app.get("/api/dashboard/stats", authenticateToken, async (req: any, res) => {
+  app.get("/api/dashboard/stats", authenticateToken, async (req: any, res: any) => {
     try {
       const userId = req.user.id;
       const isMasterAdmin = req.user.email === ADMIN_EMAIL;

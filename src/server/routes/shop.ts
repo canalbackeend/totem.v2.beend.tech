@@ -2,7 +2,7 @@ import { prisma, authenticateToken, whitelist, ADMIN_EMAIL } from "../deps";
 
 // Shop Products
 export function registerShopRoutes(app: any) {
-  app.get("/api/products", async (req, res) => {
+  app.get("/api/products", async (req: any, res: any) => {
     try {
       const products = await prisma.shopProduct.findMany({
         orderBy: { created_at: "desc" }
@@ -13,7 +13,7 @@ export function registerShopRoutes(app: any) {
     }
   });
 
-  app.post("/api/products", authenticateToken, async (req: any, res) => {
+  app.post("/api/products", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.email !== ADMIN_EMAIL) {
         return res.status(403).json({ error: "Only master admin can manage products" });
@@ -28,7 +28,7 @@ export function registerShopRoutes(app: any) {
     }
   });
 
-  app.patch("/api/products/:id", authenticateToken, async (req: any, res) => {
+  app.patch("/api/products/:id", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.email !== ADMIN_EMAIL) {
         return res.status(403).json({ error: "Only master admin can manage products" });
@@ -44,7 +44,7 @@ export function registerShopRoutes(app: any) {
     }
   });
 
-  app.delete("/api/products/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/products/:id", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.email !== ADMIN_EMAIL) {
         return res.status(403).json({ error: "Only master admin can manage products" });

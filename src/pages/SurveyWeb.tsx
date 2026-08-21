@@ -28,9 +28,10 @@ interface Terminal {
 }
 
 interface Question {
+  id: string;
   text: string;
   type: 'SMILE 5' | 'SMILE 4' | 'NPS' | 'Escolha Única' | 'Múltipla Escolha' | 'Texto Aberto' | 'Colaborador' | 'Avaliação de 1 à 5';
-  options?: { text: string; color?: string; image?: string; value: any }[];
+  options?: { id: string; text: string; color?: string; image?: string; value: any }[];
   required?: boolean;
   allowComment?: boolean;
 }

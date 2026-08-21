@@ -51,7 +51,7 @@ export function registerCampaignMetricsRoutes(app: any) {
   });
 
   // API: Check and consume report token
-  app.get("/api/reports/check-token/:token", async (req, res) => {
+  app.get("/api/reports/check-token/:token", async (req: any, res: any) => {
     const { token } = req.params;
 
     try {
@@ -144,7 +144,7 @@ export function registerCampaignMetricsRoutes(app: any) {
 // Campaign CRUD, global, evolution and clone
 export function registerCampaignRoutes(app: any) {
   // Global Campaign for Portal NPS
-  app.get("/api/campaigns/global", authenticateToken, async (req, res) => {
+  app.get("/api/campaigns/global", authenticateToken, async (req: any, res: any) => {
     try {
       const campaign = await prisma.campaign.findFirst({
         where: { is_global: true }
@@ -155,7 +155,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.get("/api/campaigns", authenticateToken, async (req: any, res) => {
+  app.get("/api/campaigns", authenticateToken, async (req: any, res: any) => {
     try {
       const { names, status } = req.query;
       const where: any = {};
@@ -232,7 +232,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.get("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
+  app.get("/api/campaigns/:id", authenticateToken, async (req: any, res: any) => {
     try {
       const where: any = { id: req.params.id };
       if (req.user.email !== ADMIN_EMAIL) {
@@ -250,7 +250,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.post("/api/campaigns", authenticateToken, async (req: any, res) => {
+  app.post("/api/campaigns", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       if (!req.body.name || typeof req.body.name !== "string" || !req.body.name.trim()) {
@@ -269,7 +269,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
+  app.patch("/api/campaigns/:id", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
@@ -313,7 +313,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.delete("/api/campaigns/:id", authenticateToken, async (req: any, res) => {
+  app.delete("/api/campaigns/:id", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
@@ -333,7 +333,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res) => {
+  app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res: any) => {
     try {
       const days = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 365);
       const where: any = { id: req.params.id };
@@ -437,7 +437,7 @@ export function registerCampaignRoutes(app: any) {
     }
   });
 
-  app.post("/api/campaigns/:id/clone", authenticateToken, async (req: any, res) => {
+  app.post("/api/campaigns/:id/clone", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
@@ -481,7 +481,7 @@ export function registerCampaignRoutes(app: any) {
 // Campaign reset lives after proposals in the original route order
 export function registerCampaignResetRoute(app: any) {
   // Reset Campaign Stats
-  app.post("/api/campaigns/:id/reset", authenticateToken, async (req: any, res) => {
+  app.post("/api/campaigns/:id/reset", authenticateToken, async (req: any, res: any) => {
     try {
       const campaignId = req.params.id;
       const userId = req.user.id;

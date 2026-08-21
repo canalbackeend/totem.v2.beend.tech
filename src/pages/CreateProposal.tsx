@@ -47,9 +47,9 @@ const maskCurrency = (value: string) => {
   return formatted;
 };
 
-const parseCurrency = (value: string) => {
+const parseCurrency = (value: string | number) => {
   if (!value) return 0;
-  return parseFloat(value.replace(/\./g, '').replace(',', '.')) || 0;
+  return parseFloat(String(value).replace(/\./g, '').replace(',', '.')) || 0;
 };
 
 const formatCurrency = (value: number) => {
@@ -67,7 +67,7 @@ const DEFAULTS = {
   final_considerations: "Esta proposta é válida até a data de vencimento indicada acima. Após este período, os valores poderão ser revisados."
 };
 
-type ProposalItem = { name: string; description: string; qty: number; unit_price: number; total: number };
+type ProposalItem = { name: string; description: string; qty: number; unit_price: string; total: number };
 
 interface CreateProposalProps {}
 
@@ -312,8 +312,7 @@ export default function CreateProposal() {
       unit_price: parseCurrency(item.unit_price),
       total: item.qty * parseCurrency(item.unit_price)
     }));
-    const payload = { ...formData, resources, items: itemsParsed };
-    if (status) payload.status = status;
+    const payload = { ...formData, resources, items: itemsParsed, ...(status ? { status } : {}) };
 
     toast.promise(
       (async () => {
