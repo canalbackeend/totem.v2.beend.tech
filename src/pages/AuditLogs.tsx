@@ -1,7 +1,6 @@
 import { motion } from 'motion/react';
 import {
   History,
-  Search,
   Filter,
   Loader2,
   ChevronLeft,
@@ -11,7 +10,6 @@ import {
   X,
   User as UserIcon,
   MonitorSmartphone,
-  Building2,
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
@@ -151,17 +149,13 @@ export default function AuditLogs() {
 
   const hasFilters = searchQuery || actionFilter || companyFilter || successFilter || startDate || endDate;
 
-  const inputClass = `border rounded-lg py-2 pl-9 pr-3 text-xs font-semibold outline-none transition-all ${
-    isDarkMode
-      ? 'bg-black border-white/5 text-white focus:border-blue-500 placeholder-zinc-600'
-      : 'bg-slate-50 border border-slate-100 text-slate-700 focus:border-[#0b82ff]'
+  const fieldClass = `w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
+    isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
   }`;
 
-  const selectClass = `border rounded-lg py-2 px-3 text-xs font-semibold outline-none transition-all cursor-pointer ${
-    isDarkMode
-      ? 'bg-black border-white/5 text-zinc-300 focus:border-blue-500'
-      : 'bg-slate-50 border border-slate-100 text-slate-600 focus:border-[#0b82ff]'
-  }`;
+  const selectClass = `${fieldClass} appearance-none cursor-pointer`;
+
+  const labelClass = `text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`;
 
   const getBadge = (action: string) => {
     const meta = ACTION_META[action];
@@ -197,54 +191,80 @@ export default function AuditLogs() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+            <div className="flex flex-wrap lg:grid lg:grid-cols-6 items-end gap-4">
+              <div className="flex flex-col space-y-1.5 min-w-[180px] flex-1 lg:flex-none">
+                <label className={labelClass}>Buscar:</label>
                 <input
-                  placeholder="Pesquisar por quem fez ou entidade..."
+                  placeholder="Quem fez ou entidade..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`${inputClass} w-64`}
+                  className={fieldClass}
                 />
               </div>
 
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" size={16} />
+              <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
+                <label className={labelClass}>Empresa:</label>
                 <input
                   placeholder="Filtrar por empresa..."
                   value={companyFilter}
                   onChange={(e) => setCompanyFilter(e.target.value)}
-                  className={`${inputClass} w-52`}
+                  className={fieldClass}
                 />
               </div>
 
-              <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className={selectClass}>
-                <option value="">Todas as ações</option>
-                {ACTION_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+              <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
+                <label className={labelClass}>Ação:</label>
+                <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className={selectClass}>
+                  <option value="">Todas as ações</option>
+                  {ACTION_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
 
-              <select value={successFilter} onChange={(e) => setSuccessFilter(e.target.value)} className={selectClass}>
-                <option value="">Sucesso / Falha</option>
-                <option value="true">Somente sucesso</option>
-                <option value="false">Somente falhas</option>
-              </select>
+              <div className="flex flex-col space-y-1.5 min-w-[150px] flex-1 lg:flex-none">
+                <label className={labelClass}>Status:</label>
+                <select value={successFilter} onChange={(e) => setSuccessFilter(e.target.value)} className={selectClass}>
+                  <option value="">Sucesso / Falha</option>
+                  <option value="true">Somente sucesso</option>
+                  <option value="false">Somente falhas</option>
+                </select>
+              </div>
 
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={selectClass} title="Data inicial" />
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={selectClass} title="Data final" />
+              <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
+                <label className={labelClass}>Data Inicial:</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className={fieldClass}
+                />
+              </div>
+
+              <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
+                <label className={labelClass}>Data Final:</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className={fieldClass}
+                />
+              </div>
 
               {hasFilters && (
-                <button
-                  onClick={clearFilters}
-                  className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg border transition-colors cursor-pointer ${
-                    isDarkMode
-                      ? 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
-                      : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
-                  }`}
-                >
-                  <X size={14} /> Limpar
-                </button>
+                <div className="flex flex-col space-y-1.5 min-w-[120px] flex-1 lg:flex-none">
+                  <label className={`hidden lg:block text-[10px] font-bold ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'} tracking-widest opacity-0`}>Ações:</label>
+                  <button
+                    onClick={clearFilters}
+                    className={`flex items-center justify-center gap-1.5 h-10 px-4 rounded-md text-[10px] font-black uppercase tracking-widest border transition-colors cursor-pointer ${
+                      isDarkMode
+                        ? 'border-white/10 text-zinc-400 hover:text-white hover:border-white/20'
+                        : 'border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    }`}
+                  >
+                    <X size={14} /> Limpar
+                  </button>
+                </div>
               )}
             </div>
           </div>
