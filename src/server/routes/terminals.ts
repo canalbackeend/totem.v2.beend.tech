@@ -176,8 +176,10 @@ export function registerTerminalRoutes(app: any) {
       if (!isMasterAdmin(req)) {
         where.user_id = req.user.id;
       }
+      const existing = await prisma.terminal.findFirst({ where });
+      if (!existing) return res.status(404).json({ error: "Terminal não encontrado" });
       await prisma.terminal.delete({
-        where
+        where: { id: existing.id }
       });
       res.sendStatus(204);
     } catch (err: any) {

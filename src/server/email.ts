@@ -106,7 +106,7 @@ export async function sendDailyReports(targetTimeStr?: string) {
                     </a>
                   </div>
                   <p style="color: #999; font-size: 12px; font-style: italic;">
-                    * Este link é de uso único e expirará em 24 horas por motivos de segurança.
+                    * Este link é de uso único por motivos de segurança.
                   </p>
                 </div>
                 <div style="background-color: #f9f9f9; padding: 15px; text-align: center; border-t: 1px solid #eee;">

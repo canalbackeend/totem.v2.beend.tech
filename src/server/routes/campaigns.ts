@@ -134,6 +134,12 @@ export function registerCampaignMetricsRoutes(app: any) {
         evolution: evolutionData || [],
         reference_date: reportDate.toISOString()
       });
+
+      // Single-use: consume the token so the secure link can't be replayed.
+      await prisma.reportToken.update({
+        where: { token },
+        data: { is_used: true },
+      }).catch((e: any) => console.error("Falha ao consumir token de relatório:", e));
     } catch (err: any) {
       console.error("Erro na API check-token:", err);
       res.status(500).json({ error: err.message });
@@ -408,6 +414,7 @@ export function registerCampaignRoutes(app: any) {
           const answers = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
           if (Array.isArray(answers)) {
             for (const a of answers) {
+              if (a.type === 'NPS') continue; // scored separately, don't mix into CSAT
               const score = getSatisfactionScore(a.answer ?? a.value, a.type);
               if (score !== null) {
                 dailyData[key].scoreSum += score;

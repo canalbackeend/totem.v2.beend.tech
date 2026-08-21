@@ -33,8 +33,10 @@ export function registerShopRoutes(app: any) {
       if (!isMasterAdmin(req)) {
         return res.status(403).json({ error: "Only master admin can manage products" });
       }
+      const existing = await prisma.shopProduct.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Produto não encontrado" });
       const product = await prisma.shopProduct.update({
-        where: { id: req.params.id },
+        where: { id: existing.id },
         data: whitelist(req.body, ["name", "description", "price", "featured_image", "images", "features", "color"])
       });
       res.json(product);
@@ -49,8 +51,10 @@ export function registerShopRoutes(app: any) {
       if (!isMasterAdmin(req)) {
         return res.status(403).json({ error: "Only master admin can manage products" });
       }
+      const existing = await prisma.shopProduct.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Produto não encontrado" });
       await prisma.shopProduct.delete({
-        where: { id: req.params.id }
+        where: { id: existing.id }
       });
       res.json({ success: true });
     } catch (err: any) {

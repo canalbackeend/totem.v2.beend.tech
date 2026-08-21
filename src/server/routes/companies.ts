@@ -87,12 +87,9 @@ export function registerCompanyRoutes(app: any) {
       if (!cleanEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {
         return res.status(400).json({ error: "E-mail inválido." });
       }
-      if (req.body.max_terminals !== undefined && (typeof req.body.max_terminals !== "number" || Number.isNaN(req.body.max_terminals))) {
-        return res.status(400).json({ error: "max_terminals deve ser um número." });
+      if (req.body.max_terminals !== undefined && (typeof req.body.max_terminals !== "number" || Number.isNaN(req.body.max_terminals) || req.body.max_terminals < 0)) {
+        return res.status(400).json({ error: "max_terminals deve ser um número maior ou igual a zero." });
       }
-      
-      // Check if user already exists
-      const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
       
       const company = await prisma.company.create({ 
         data: { 
@@ -160,6 +157,9 @@ export function registerCompanyRoutes(app: any) {
       const updateData: any = whitelist(req.body, ["empresa", "responsavel", "email", "cnpj", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "plano", "vencimento", "status", "logo_url", "max_terminals"]);
       if (updateData.email) {
         updateData.email = String(updateData.email).trim().toLowerCase();
+      }
+      if (updateData.max_terminals !== undefined && (typeof updateData.max_terminals !== "number" || Number.isNaN(updateData.max_terminals) || updateData.max_terminals < 0)) {
+        return res.status(400).json({ error: "max_terminals deve ser um número maior ou igual a zero." });
       }
 
       const company = await prisma.company.update({
@@ -275,7 +275,17 @@ export function registerCompanyRoutes(app: any) {
   app.delete("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
     if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
-      await prisma.company.delete({ where: { id: req.params.id } });
+      const company = await prisma.company.findUnique({ where: { id: req.params.id } });
+      if (!company) return res.status(404).json({ error: "Empresa não encontrada" });
+
+      // Clean up the linked User (cascades to Terminals, Campaigns, Responses, ReportTokens).
+      // Company has no FK relation, so we find the user by the shared email.
+      const user = await prisma.user.findUnique({ where: { email: company.email } });
+
+      await prisma.$transaction([
+        prisma.company.delete({ where: { id: company.id } }),
+        ...(user ? [prisma.user.delete({ where: { id: user.id } })] : []),
+      ]);
       res.sendStatus(204);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

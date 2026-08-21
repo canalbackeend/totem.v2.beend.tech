@@ -27,6 +27,23 @@ async function generateProposalNumber() {
   return prefix + padded;
 }
 
+// proposal_number is @unique; concurrent creates can collide (P2002).
+// Regenerate and retry a few times instead of returning a generic 500.
+async function createProposalWithRetry(buildData: (proposalNumber: string) => any, maxAttempts = 5) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const proposalNumber = await generateProposalNumber();
+    try {
+      return await prisma.proposal.create({ data: buildData(proposalNumber) });
+    } catch (err: any) {
+      if (err?.code === "P2002" && i < maxAttempts - 1) {
+        continue; // collision on proposal_number — regenerate and retry
+      }
+      throw err;
+    }
+  }
+  throw new Error("Não foi possível gerar um número de proposta único.");
+}
+
 // --- PROPOSALS (Admin Only) ---
 export function registerProposalRoutes(app: any) {
   app.get("/api/proposals", authenticateToken, async (req: any, res: any) => {
@@ -76,7 +93,6 @@ export function registerProposalRoutes(app: any) {
   app.post("/api/proposals", authenticateToken, async (req: any, res: any) => {
     if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
-      const proposalNumber = await generateProposalNumber();
       const today = new Date();
       const validity = new Date(today);
       validity.setDate(validity.getDate() + 10);
@@ -98,38 +114,36 @@ export function registerProposalRoutes(app: any) {
         }
       }
 
-      const proposal = await prisma.proposal.create({
-        data: {
-          proposal_number: proposalNumber,
-          client_name: req.body.client_name || "",
-          contact_person: req.body.contact_person || "",
-          email: req.body.email || "",
-          phone: req.body.phone || "",
-          cep: req.body.cep || "",
-          address: req.body.address || "",
-          proposal_date: req.body.proposal_date || today.toISOString().split("T")[0],
-          validity_date: req.body.validity_date || validity.toISOString().split("T")[0],
-          greeting: req.body.greeting || defaults.greeting,
-          general_description: req.body.general_description || defaults.general_description,
-          implementation_reqs: req.body.implementation_reqs || defaults.implementation_reqs,
-          technical_support: req.body.technical_support || defaults.technical_support,
-          warranty: req.body.warranty || defaults.warranty,
-          resources: req.body.resources || defaults.resources,
-          payment_terms: req.body.payment_terms || defaults.payment_terms,
-          final_considerations: req.body.final_considerations || defaults.final_considerations,
-          observations: req.body.observations || "",
-          plan_type: req.body.plan_type || "Mensal",
-          monthly_value: parseFloat(req.body.monthly_value) || 0,
-          plan_description: req.body.plan_description || "",
-          items: req.body.items || [],
-          shipping_cost: parseFloat(req.body.shipping_cost) || 0,
-          images: req.body.images || [],
-          image_library: req.body.image_library || [],
-          responsible_name: req.body.responsible_name || "",
-          responsible_phone: req.body.responsible_phone || "",
-          status: req.body.status || "Rascunho"
-        }
-      });
+      const proposal = await createProposalWithRetry((proposalNumber) => ({
+        proposal_number: proposalNumber,
+        client_name: req.body.client_name || "",
+        contact_person: req.body.contact_person || "",
+        email: req.body.email || "",
+        phone: req.body.phone || "",
+        cep: req.body.cep || "",
+        address: req.body.address || "",
+        proposal_date: req.body.proposal_date || today.toISOString().split("T")[0],
+        validity_date: req.body.validity_date || validity.toISOString().split("T")[0],
+        greeting: req.body.greeting || defaults.greeting,
+        general_description: req.body.general_description || defaults.general_description,
+        implementation_reqs: req.body.implementation_reqs || defaults.implementation_reqs,
+        technical_support: req.body.technical_support || defaults.technical_support,
+        warranty: req.body.warranty || defaults.warranty,
+        resources: req.body.resources || defaults.resources,
+        payment_terms: req.body.payment_terms || defaults.payment_terms,
+        final_considerations: req.body.final_considerations || defaults.final_considerations,
+        observations: req.body.observations || "",
+        plan_type: req.body.plan_type || "Mensal",
+        monthly_value: parseFloat(req.body.monthly_value) || 0,
+        plan_description: req.body.plan_description || "",
+        items: req.body.items || [],
+        shipping_cost: parseFloat(req.body.shipping_cost) || 0,
+        images: req.body.images || [],
+        image_library: req.body.image_library || [],
+        responsible_name: req.body.responsible_name || "",
+        responsible_phone: req.body.responsible_phone || "",
+        status: req.body.status || "Rascunho"
+      }));
 
       res.json(proposal);
     } catch (err: any) {
@@ -187,7 +201,9 @@ export function registerProposalRoutes(app: any) {
   app.delete("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
     if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
-      await prisma.proposal.delete({ where: { id: req.params.id } });
+      const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
+      await prisma.proposal.delete({ where: { id: existing.id } });
       res.sendStatus(204);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -200,42 +216,39 @@ export function registerProposalRoutes(app: any) {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
 
-      const proposalNumber = await generateProposalNumber();
       const today = new Date();
       const validity = new Date(today);
       validity.setDate(validity.getDate() + 10);
 
-      const cloned = await prisma.proposal.create({
-        data: {
-          proposal_number: proposalNumber,
-          client_name: existing.client_name,
-          contact_person: existing.contact_person,
-          email: existing.email,
-          phone: existing.phone,
-          cep: existing.cep,
-          address: existing.address,
-          proposal_date: today.toISOString().split("T")[0],
-          validity_date: validity.toISOString().split("T")[0],
-          greeting: existing.greeting,
-          general_description: existing.general_description,
-          implementation_reqs: existing.implementation_reqs,
-          technical_support: existing.technical_support,
-          warranty: existing.warranty,
-          resources: existing.resources,
-          payment_terms: existing.payment_terms,
-          final_considerations: existing.final_considerations,
-          plan_type: existing.plan_type,
-          monthly_value: existing.monthly_value,
-          plan_description: existing.plan_description,
-          items: existing.items,
-          shipping_cost: existing.shipping_cost,
-          images: [],
-          image_library: existing.image_library,
-          responsible_name: existing.responsible_name,
-          responsible_phone: existing.responsible_phone,
-          status: "Rascunho"
-        }
-      });
+      const cloned = await createProposalWithRetry((proposalNumber) => ({
+        proposal_number: proposalNumber,
+        client_name: existing.client_name,
+        contact_person: existing.contact_person,
+        email: existing.email,
+        phone: existing.phone,
+        cep: existing.cep,
+        address: existing.address,
+        proposal_date: today.toISOString().split("T")[0],
+        validity_date: validity.toISOString().split("T")[0],
+        greeting: existing.greeting,
+        general_description: existing.general_description,
+        implementation_reqs: existing.implementation_reqs,
+        technical_support: existing.technical_support,
+        warranty: existing.warranty,
+        resources: existing.resources,
+        payment_terms: existing.payment_terms,
+        final_considerations: existing.final_considerations,
+        plan_type: existing.plan_type,
+        monthly_value: existing.monthly_value,
+        plan_description: existing.plan_description,
+        items: existing.items,
+        shipping_cost: existing.shipping_cost,
+        images: [],
+        image_library: existing.image_library,
+        responsible_name: existing.responsible_name,
+        responsible_phone: existing.responsible_phone,
+        status: "Rascunho"
+      }));
 
       res.json(cloned);
     } catch (err: any) {
@@ -250,8 +263,10 @@ export function registerProposalRoutes(app: any) {
       if (!["Rascunho", "Enviada", "Aprovada", "Recusada"].includes(status)) {
         return res.status(400).json({ error: "Status inválido" });
       }
+      const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
+      if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
       const proposal = await prisma.proposal.update({
-        where: { id: req.params.id },
+        where: { id: existing.id },
         data: { status }
       });
       res.json(proposal);

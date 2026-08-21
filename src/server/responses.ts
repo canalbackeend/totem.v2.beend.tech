@@ -135,20 +135,20 @@ async function handleCreateResponse(req: any, res: any) {
       data: responseData
     });
 
-    // Automatically update the campaign's responses_count and perceptions
+    // Automatically update the campaign's responses_count and perceptions (atomic)
     const answers = req.body.answers || [];
     const ratingAnswer = answers.find((a: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(a?.type)) || answers[answers.length - 1];
     const lastAnswer = ratingAnswer ? ratingAnswer.answer : null;
 
-    let updateData: any = {
-      responses_count: (campaign.responses_count || 0) + 1
+    const updateData: any = {
+      responses_count: { increment: 1 }
     };
 
     if (lastAnswer !== null && lastAnswer !== undefined && (typeof lastAnswer === 'string' || typeof lastAnswer === 'number')) {
       const perception = getPerceptionKey(lastAnswer, ratingAnswer?.type);
       if (perception) {
         const field = `perception_${perception}` as 'perception_excelente' | 'perception_bom' | 'perception_regular' | 'perception_ruim';
-        updateData[field] = (campaign[field] || 0) + 1;
+        updateData[field] = { increment: 1 };
       }
     }
 

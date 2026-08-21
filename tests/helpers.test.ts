@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { app, parseCampaignList } from "../server.ts";
 import { getSatisfactionScore, getPerceptionKey } from "../src/lib/metrics.ts";
+import { calculateCampaignMetrics } from "../src/server/metrics.ts";
 
 describe("parseCampaignList", () => {
   it("retorna array vazio para valores vazios/indefinidos", () => {
@@ -80,5 +81,44 @@ describe("getSatisfactionScore", () => {
     expect(getSatisfactionScore(4, "Avaliação de 1 à 5")).toBe(75);
     expect(getSatisfactionScore(3, "Avaliação de 1 à 5")).toBe(50);
     expect(getSatisfactionScore(2, "Avaliação de 1 à 5")).toBe(25);
+  });
+});
+
+describe("calculateCampaignMetrics", () => {
+  const campaign = {
+    questions: [
+      { text: "Recomendaria?", type: "NPS" },
+      { text: "Como avalia o serviço?", type: "SMILE 5" },
+    ],
+  };
+
+  it("NPS não entra na média geral de satisfação (CSAT)", () => {
+    const responses = [
+      { answers: JSON.stringify([
+        { question: "Recomendaria?", type: "NPS", answer: 10 },
+        { question: "Como avalia o serviço?", type: "SMILE 5", answer: "Satisfeito" },
+      ]) },
+    ];
+    const m = calculateCampaignMetrics(campaign, responses as any);
+    // NPS 10 → 100 não pode poluir a média CSAT (que deve ser 75, só SMILE)
+    expect(m.overallSatisfaction).toBe(75);
+    expect(m.totalResponses).toBe(1);
+    // NPS ainda calcula separadamente
+    expect(m.nps.score).toBe(100);
+    expect(m.nps.promotores).toBe(1);
+  });
+
+  it("campanha só NPS reporta CSAT 0 (sem contaminação)", () => {
+    const npsOnly = {
+      questions: [{ text: "Recomendaria?", type: "NPS" }],
+    };
+    const responses = [
+      { answers: JSON.stringify([
+        { question: "Recomendaria?", type: "NPS", answer: 7 },
+      ]) },
+    ];
+    const m = calculateCampaignMetrics(npsOnly, responses as any);
+    expect(m.overallSatisfaction).toBe(0);
+    expect(m.nps.neutros).toBe(1);
   });
 });

@@ -42,8 +42,9 @@ export function calculateCampaignMetrics(campaign: any, responses: any[]) {
         }
       }
 
-      // General Satisfaction (CSAT) Logic
-      const score = getSatisfactionScore(a.answer, qType || '');
+      // General Satisfaction (CSAT) Logic — exclude NPS: it's scored separately
+      // and mixing 0-10 with 100/75/50/25 would corrupt the average.
+      const score = qType !== 'NPS' ? getSatisfactionScore(a.answer, qType || '') : null;
       if (score !== null) {
         totalSatSum += score;
         totalSatAnswers++;
