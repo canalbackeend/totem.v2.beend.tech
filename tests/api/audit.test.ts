@@ -6,8 +6,15 @@ import { PrismaClient } from "@prisma/client";
 import { app } from "../../server.ts";
 import { JWT_SECRET } from "../../src/server/deps";
 
+// Testes do sistema de auditoria: garantem que cada ação relevante gera o log
+// correto e que a API de consulta respeita permissão e paginação.
+//
+// Como a gravação do log é fire-and-forget (assíncrona e sem await na rota),
+// usamos waitForLog() para aguardar o registro aparecer no banco.
+
 const prisma = new PrismaClient();
 
+// Identificadores únicos por execução (evita colisão entre rodadas de teste).
 const PREFIX = `audit-test-${Date.now()}`;
 const TEST_USER_EMAIL = `${PREFIX}-user@test.com`;
 const BOGUS_EMAIL = `${PREFIX}-bogus@test.com`;
@@ -19,25 +26,28 @@ let testUserId = "";
 let testTerminalId = "";
 let testCampaignId = "";
 
-// Espera o log (fire-and-forget) aparecer no banco, com timeout.
+// Espera uma condição se tornar verdadeira (consultando o banco), com timeout.
+// O log é gravado de forma assíncrona, então a condição é reavaliada a cada
+// 100ms até o prazo de `timeoutMs` expirar.
 async function waitForLog(predicate: () => Promise<boolean>, timeoutMs = 4000): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  const startTime = Date.now();
+  while (Date.now() - startTime < timeoutMs) {
     if (await predicate()) return true;
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
   }
   return false;
 }
 
 beforeAll(async () => {
-  const adminRes = await request(app)
+  // Token do master admin (único com acesso à API de logs).
+  const adminResponse = await request(app)
     .post("/api/auth/login")
     .send({ email: "adm@beend.tech", password: "admin123" });
-  expect(adminRes.status).toBe(200);
-  adminToken = adminRes.body.session.access_token;
+  expect(adminResponse.status).toBe(200);
+  adminToken = adminResponse.body.session.access_token;
 
   // Usuário comum (não-admin) para testar a restrição do endpoint de logs.
-  const other = await prisma.user.create({
+  const nonAdminUser = await prisma.user.create({
     data: {
       email: `${PREFIX}-other@test.com`,
       password: await bcrypt.hash("senha123", 10),
@@ -45,9 +55,9 @@ beforeAll(async () => {
       nome: "Outro Usuário",
     },
   });
-  nonAdminToken = jwt.sign({ id: other.id, email: other.email }, JWT_SECRET, { expiresIn: "7d" });
+  nonAdminToken = jwt.sign({ id: nonAdminUser.id, email: nonAdminUser.email }, JWT_SECRET, { expiresIn: "7d" });
 
-  // Usuário de teste para logar na plataforma.
+  // Usuário de teste para logar na plataforma e dono do terminal de teste.
   const testUser = await prisma.user.create({
     data: {
       email: TEST_USER_EMAIL,
@@ -74,11 +84,15 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
+  // Remove os logs de auditoria criados pelos testes (por ator ou entidade),
+  // para não poluir os logs reais da aplicação.
   const entityIds = [testCampaignId, testTerminalId].filter(Boolean);
   await prisma.auditLog.deleteMany({
     where: { OR: [{ actor_label: { in: [TEST_USER_EMAIL, BOGUS_EMAIL, TEST_TERMINAL_EMAIL, `${PREFIX}-other@test.com`] } }, { entity_id: { in: entityIds } }] },
   });
 
+  // Remove os registros criados no banco pelos testes (respostas, terminal,
+  // campanha e usuários).
   await prisma.response.deleteMany({ where: { campaign_id: testCampaignId } });
   if (testTerminalId) await prisma.terminal.delete({ where: { id: testTerminalId } }).catch(() => {});
   if (testCampaignId) await prisma.campaign.delete({ where: { id: testCampaignId } }).catch(() => {});
@@ -86,6 +100,7 @@ afterAll(async () => {
   await prisma.user.delete({ where: { email: `${PREFIX}-other@test.com` } }).catch(() => {});
 });
 
+// Auditoria de logins: cada tentativa (sucesso ou falha) gera um registro.
 describe("Auditoria: logins", () => {
   it("login na plataforma com sucesso gera log auth.login success=true", async () => {
     const res = await request(app)
@@ -148,6 +163,7 @@ describe("Auditoria: logins", () => {
   });
 });
 
+// Auditoria de campanhas: criar, editar (com diff), resetar e deletar.
 describe("Auditoria: campanhas", () => {
   it("criar campanha gera log campaign.create", async () => {
     const res = await request(app)
@@ -214,6 +230,7 @@ describe("Auditoria: campanhas", () => {
   });
 });
 
+// Auditoria de terminais: criar gera um registro (delete/apagado no fim do teste).
 describe("Auditoria: terminais", () => {
   it("criar terminal gera log terminal.create", async () => {
     const res = await request(app)
@@ -236,6 +253,7 @@ describe("Auditoria: terminais", () => {
   });
 });
 
+// API de consulta: permissão (master admin) e filtros funcionando.
 describe("Auditoria: API de consulta", () => {
   it("GET /api/admin/logs bloqueado para não-master", async () => {
     const res = await request(app)

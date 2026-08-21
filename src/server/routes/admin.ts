@@ -10,6 +10,69 @@ import {
 } from "../deps";
 import { sendDailyReports } from "../email";
 
+// ============================================================================
+// Endpoints administrativos (master admin).
+// ============================================================================
+
+// Bloqueia acesso a um endpoint administrativo para quem não é o master admin.
+// Retorna `true` quando o acesso é permitido; caso contrário já responde 403.
+function requireMasterAdmin(req: any, res: any, endpointLabel: string): boolean {
+  if (isMasterAdmin(req)) return true;
+  res.status(403).json({ error: `Only master admin can access ${endpointLabel}` });
+  return false;
+}
+
+// Monta o filtro (cláusula `where` do Prisma) da consulta de logs a partir dos
+// parâmetros de query do frontend:
+// - search: busca em quem fez (actor_label) ou na entidade (entity_name)
+// - action / entity_type / actor_type: filtros exatos
+// - company: filtro exato pelo e-mail da empresa
+// - success: "true" ou "false"
+// - start / end: período (aceita "YYYY-MM-DD", interpretado como dia em BRT)
+function buildLogsFilter(query: any): any {
+  const where: any = {};
+
+  if (query.search) {
+    const searchTerm = String(query.search).trim();
+    if (searchTerm) {
+      where.OR = [
+        { actor_label: { contains: searchTerm, mode: "insensitive" } },
+        { entity_name: { contains: searchTerm, mode: "insensitive" } },
+      ];
+    }
+  }
+
+  if (query.action) where.action = String(query.action);
+  if (query.entity_type) where.entity_type = String(query.entity_type);
+  if (query.actor_type) where.actor_type = String(query.actor_type);
+
+  if (query.company) {
+    const companyEmail = String(query.company).trim();
+    if (companyEmail) where.company_email = companyEmail;
+  }
+
+  if (query.success === "true") where.success = true;
+  if (query.success === "false") where.success = false;
+
+  // Datas: se vier "YYYY-MM-DD", ancora em meia-noite BRT (23:59:59 no fim)
+  // para o dia inteiro não cair no bucket errado.
+  const isDateOnly = (value: any) => /^\d{4}-\d{2}-\d{2}$/.test(String(value));
+
+  if (query.start) {
+    const value = String(query.start);
+    where.created_at = {
+      gte: isDateOnly(value) ? new Date(`${value}T00:00:00.000-03:00`) : new Date(value),
+    };
+  }
+  if (query.end) {
+    const value = String(query.end);
+    const endInstant = isDateOnly(value) ? new Date(`${value}T23:59:59.999-03:00`) : new Date(value);
+    where.created_at = { ...(where.created_at || {}), lte: endInstant };
+  }
+
+  return where;
+}
+
 // Consulta do sistema de logs (auditoria). Só o master admin enxerga o que
 // todas as empresas fizeram: CRUD de campanhas/terminais, reset e logins.
 export function registerAdminLogsRoute(app: any) {
@@ -18,49 +81,17 @@ export function registerAdminLogsRoute(app: any) {
     authenticateToken,
     async (req: any, res: any) => {
       try {
-        if (!isMasterAdmin(req)) {
-          return res
-            .status(403)
-            .json({ error: "Only master admin can access logs" });
-        }
+        if (!requireMasterAdmin(req, res, "logs")) return;
 
+        // Paginação (página corrente + tamanho da página, com teto de 100).
         const page = parseInt(req.query.page as string) || 1;
-        const requestedSize = parseInt(req.query.pageSize as string) || 20;
-        const pageSize = Math.min(Math.max(requestedSize, 1), 100);
+        const requestedPageSize = parseInt(req.query.pageSize as string) || 20;
+        const pageSize = Math.min(Math.max(requestedPageSize, 1), 100);
 
-        const where: any = {};
+        const where = buildLogsFilter(req.query);
 
-        if (req.query.search) {
-          const term = String(req.query.search).trim();
-          if (term) {
-            where.OR = [
-              { actor_label: { contains: term, mode: "insensitive" } },
-              { entity_name: { contains: term, mode: "insensitive" } },
-            ];
-          }
-        }
-        if (req.query.action) where.action = String(req.query.action);
-        if (req.query.entity_type) where.entity_type = String(req.query.entity_type);
-        if (req.query.actor_type) where.actor_type = String(req.query.actor_type);
-        if (req.query.company) {
-          const term = String(req.query.company).trim();
-          if (term) where.company_email = term;
-        }
-        if (req.query.success === "true") where.success = true;
-        if (req.query.success === "false") where.success = false;
-
-        const isDay = (v: any) => /^\d{4}-\d{2}-\d{2}$/.test(String(v));
-        if (req.query.start) {
-          const v = String(req.query.start);
-          where.created_at = { gte: isDay(v) ? new Date(`${v}T00:00:00.000-03:00`) : new Date(v) };
-        }
-        if (req.query.end) {
-          const v = String(req.query.end);
-          const base = isDay(v) ? new Date(`${v}T23:59:59.999-03:00`) : new Date(v);
-          where.created_at = { ...(where.created_at || {}), lte: base };
-        }
-
-        const [data, count] = await prisma.$transaction([
+        // Busca paginada + contagem total na mesma transação.
+        const [entries, totalCount] = await prisma.$transaction([
           prisma.auditLog.findMany({
             where,
             orderBy: { created_at: "desc" },
@@ -70,7 +101,7 @@ export function registerAdminLogsRoute(app: any) {
           prisma.auditLog.count({ where }),
         ]);
 
-        res.json({ data, count, page, pageSize });
+        res.json({ data: entries, count: totalCount, page, pageSize });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
@@ -83,17 +114,18 @@ export function registerAdminLogsRoute(app: any) {
     authenticateToken,
     async (req: any, res: any) => {
       try {
-        if (!isMasterAdmin(req)) {
-          return res
-            .status(403)
-            .json({ error: "Only master admin can access logs" });
-        }
+        if (!requireMasterAdmin(req, res, "logs")) return;
+
         const companies = await prisma.company.findMany({
           select: { email: true, empresa: true },
           orderBy: { empresa: "asc" },
         });
+
         res.json({
-          companies: companies.map((c) => ({ email: c.email, name: c.empresa })),
+          companies: companies.map((company) => ({
+            email: company.email,
+            name: company.empresa,
+          })),
         });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -109,11 +141,7 @@ export function registerAdminTrackingRoute(app: any) {
     authenticateToken,
     async (req: any, res: any) => {
       try {
-        if (!isMasterAdmin(req)) {
-          return res
-            .status(403)
-            .json({ error: "Only master admin can access tracking" });
-        }
+        if (!requireMasterAdmin(req, res, "tracking")) return;
 
         const rangeDays = Math.min(
           Math.max(parseInt(req.query.range as string) || 30, 1),

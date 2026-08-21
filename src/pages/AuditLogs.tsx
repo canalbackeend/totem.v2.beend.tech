@@ -13,13 +13,16 @@ import {
 } from 'lucide-react';
 import { MenuCards } from '../components/MenuCards';
 import { Breadcrumbs } from '../components/Breadcrumbs';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../lib/api';
 import { useTheme } from '../contexts/ThemeContext';
 import { format, parseISO } from 'date-fns';
 
+// Quantidade de registros por página (a busca é paginada no servidor).
 const PAGE_SIZE = 20;
 
+// Metadados de cada ação auditada: o rótulo exibido na tabela e a categoria da
+// badge de cor (create/update/delete/reset/password/status/login).
 const ACTION_META: Record<string, { label: string; badge: string }> = {
   'campaign.create': { label: 'Campanha criada', badge: 'create' },
   'campaign.update': { label: 'Campanha editada', badge: 'update' },
@@ -38,6 +41,7 @@ const ACTION_META: Record<string, { label: string; badge: string }> = {
   'terminal.login': { label: 'Login no terminal', badge: 'login' },
 };
 
+// Estilos de badge por categoria, em tema claro e escuro.
 const BADGE_STYLES: Record<string, { light: string; dark: string }> = {
   create: { light: 'bg-emerald-50 text-emerald-600 border-emerald-100', dark: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
   update: { light: 'bg-blue-50 text-blue-600 border-blue-100', dark: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
@@ -48,11 +52,13 @@ const BADGE_STYLES: Record<string, { light: string; dark: string }> = {
   login: { light: 'bg-indigo-50 text-indigo-600 border-indigo-100', dark: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' },
 };
 
+// Opções do select "Ação" (derivadas de ACTION_META).
 const ACTION_OPTIONS = Object.entries(ACTION_META).map(([value, meta]) => ({
   value,
   label: meta.label,
 }));
 
+// Estrutura de um registro de auditoria retornado pela API /api/admin/logs.
 interface AuditEntry {
   id: string;
   actor_type: string;
@@ -69,27 +75,60 @@ interface AuditEntry {
   created_at: string;
 }
 
+// Converte os detalhes extras do registro em um texto curto de apoio:
+// - logins: o motivo (sucesso/falha registrado no servidor)
+// - edições: a lista de campos alterados
+// - status: o novo status aplicado
 function describeDetails(entry: AuditEntry): string {
-  const d = entry.details || {};
-  if (d.reason) return String(d.reason);
-  if (d.changed) {
-    const keys = Object.keys(d.changed);
-    return keys.length > 0 ? `Campos: ${keys.join(', ')}` : '';
+  const details = entry.details || {};
+
+  if (details.reason) return String(details.reason);
+
+  if (details.changed) {
+    const changedFieldNames = Object.keys(details.changed);
+    return changedFieldNames.length > 0 ? `Campos: ${changedFieldNames.join(', ')}` : '';
   }
-  if (d.status) return `Status: ${d.status}`;
+
+  if (details.status) return `Status: ${details.status}`;
+
   return '';
+}
+
+// Campo de filtro no padrão visual do app: um rótulo em caixa alta acima do
+// controle (input/select). Usado para não repetir o mesmo wrapper 6 vezes.
+function FilterField({
+  label,
+  className = '',
+  isDarkMode,
+  children,
+}: {
+  label: string;
+  className?: string;
+  isDarkMode: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none ${className}`}>
+      <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>
+        {label}
+      </label>
+      {children}
+    </div>
+  );
 }
 
 export default function AuditLogs() {
   const { theme } = useTheme();
   const isDarkMode = theme === 'dark';
 
+  // Estado da listagem (dados da página atual).
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [count, setCount] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Estado dos filtros (todos combináveis entre si).
   const [searchQuery, setSearchQuery] = useState('');
   const [actionFilter, setActionFilter] = useState('');
   const [companyFilter, setCompanyFilter] = useState('');
@@ -98,8 +137,7 @@ export default function AuditLogs() {
   const [endDate, setEndDate] = useState('');
   const [companies, setCompanies] = useState<{ email: string; name: string }[]>([]);
 
-  const totalPagesMemo = useMemo(() => totalPages, [totalPages]);
-
+  // Monta a query string da API a partir dos filtros ativos e da página pedida.
   const buildQuery = (targetPage: number) => {
     const params = new URLSearchParams();
     params.set('page', String(targetPage));
@@ -113,10 +151,12 @@ export default function AuditLogs() {
     return params.toString();
   };
 
+  // Qualquer mudança de filtro volta para a primeira página.
   useEffect(() => {
     setPage(1);
   }, [searchQuery, actionFilter, companyFilter, successFilter, startDate, endDate]);
 
+  // Carrega uma única vez a lista de empresas cadastradas (para o select).
   useEffect(() => {
     let cancelled = false;
     const fetchCompanies = async () => {
@@ -133,6 +173,7 @@ export default function AuditLogs() {
     };
   }, []);
 
+  // Busca os logs paginados sempre que a página ou qualquer filtro mudar.
   useEffect(() => {
     let cancelled = false;
     const fetchLogs = async () => {
@@ -155,6 +196,7 @@ export default function AuditLogs() {
     };
   }, [page, searchQuery, actionFilter, companyFilter, successFilter, startDate, endDate]);
 
+  // Limpa todos os filtros de uma vez.
   const clearFilters = () => {
     setSearchQuery('');
     setActionFilter('');
@@ -164,23 +206,24 @@ export default function AuditLogs() {
     setEndDate('');
   };
 
+  // Indica se existe algum filtro ativo (para mostrar o botão "Limpar").
   const hasFilters = searchQuery || actionFilter || companyFilter || successFilter || startDate || endDate;
 
+  // Estilos padrão dos controles de filtro (claro/escuro).
   const fieldClass = `w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
   }`;
 
   const selectClass = `${fieldClass} appearance-none cursor-pointer`;
 
-  const labelClass = `text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`;
-
-  const getBadge = (action: string) => {
-    const meta = ACTION_META[action];
-    const badge = BADGE_STYLES[meta?.badge || 'update'];
+  // Retorna o rótulo e as classes da badge de uma ação.
+  const getActionBadge = (action: string) => {
+    const actionMeta = ACTION_META[action];
+    const badgeStyles = BADGE_STYLES[actionMeta?.badge || 'update'];
     return {
-      label: meta?.label || action,
+      label: actionMeta?.label || action,
       className: `inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-colors ${
-        isDarkMode ? badge.dark : badge.light
+        isDarkMode ? badgeStyles.dark : badgeStyles.light
       }`,
     };
   };
@@ -192,7 +235,7 @@ export default function AuditLogs() {
         <div className="max-w-[1170px] mx-auto w-full">
           <MenuCards />
 
-          {/* Header & Filters */}
+          {/* Cabeçalho + filtros */}
           <div className={`mt-8 mb-8 rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.04)] p-6 space-y-6 transition-colors border ${
             isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-slate-100'
           }`}>
@@ -209,69 +252,64 @@ export default function AuditLogs() {
             </div>
 
             <div className="flex flex-wrap lg:grid lg:grid-cols-6 items-end gap-4">
-              <div className="flex flex-col space-y-1.5 min-w-[180px] flex-1 lg:flex-none">
-                <label className={labelClass}>Buscar:</label>
+              <FilterField label="Buscar:" className="min-w-[180px]" isDarkMode={isDarkMode}>
                 <input
                   placeholder="Quem fez ou entidade..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className={fieldClass}
                 />
-              </div>
+              </FilterField>
 
-              <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
-                <label className={labelClass}>Empresa:</label>
+              <FilterField label="Empresa:" isDarkMode={isDarkMode}>
                 <select
                   value={companyFilter}
                   onChange={(e) => setCompanyFilter(e.target.value)}
                   className={selectClass}
                 >
                   <option value="">Todas as empresas</option>
-                  {companies.map((c) => (
-                    <option key={c.email} value={c.email}>{c.name}</option>
+                  {companies.map((company) => (
+                    <option key={company.email} value={company.email}>{company.name}</option>
                   ))}
                 </select>
-              </div>
+              </FilterField>
 
-              <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
-                <label className={labelClass}>Ação:</label>
+              <FilterField label="Ação:" isDarkMode={isDarkMode}>
                 <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} className={selectClass}>
                   <option value="">Todas as ações</option>
-                  {ACTION_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  {ACTION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
                   ))}
                 </select>
-              </div>
+              </FilterField>
 
-              <div className="flex flex-col space-y-1.5 min-w-[150px] flex-1 lg:flex-none">
-                <label className={labelClass}>Status:</label>
+              <FilterField label="Status:" isDarkMode={isDarkMode}>
                 <select value={successFilter} onChange={(e) => setSuccessFilter(e.target.value)} className={selectClass}>
                   <option value="">Sucesso / Falha</option>
                   <option value="true">Somente sucesso</option>
                   <option value="false">Somente falhas</option>
                 </select>
-              </div>
+              </FilterField>
 
-              <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
-                <label className={labelClass}>Data Inicial:</label>
+              <FilterField label="Data Inicial:" isDarkMode={isDarkMode}>
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
                   className={fieldClass}
                 />
-              </div>
+              </FilterField>
 
-              <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
-                <label className={labelClass}>Data Final:</label>
+              <FilterField label="Data Final:" isDarkMode={isDarkMode}>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
                   className={fieldClass}
                 />
-              </div>
+              </FilterField>
 
+              {/* Botão Limpar: rótulo invisível apenas para alinhar com os demais campos */}
               {hasFilters && (
                 <div className="flex flex-col space-y-1.5 min-w-[120px] flex-1 lg:flex-none">
                   <label className={`hidden lg:block text-[10px] font-bold ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'} tracking-widest opacity-0`}>Ações:</label>
@@ -290,7 +328,7 @@ export default function AuditLogs() {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Tabela de logs */}
           <div className={`rounded-xl shadow-[0_10px_30px_rgba(0,0,0,0.04)] overflow-hidden transition-colors border ${
             isDarkMode ? 'bg-zinc-900 border-white/5' : 'bg-white border-slate-100'
           }`}>
@@ -309,6 +347,7 @@ export default function AuditLogs() {
                 </thead>
                 <tbody className={`divide-y transition-colors ${isDarkMode ? 'divide-white/5' : 'divide-slate-50'}`}>
                   {loading ? (
+                    // Estado de carregamento.
                     <tr>
                       <td colSpan={7} className="px-6 py-10 text-center">
                         <div className="flex flex-col items-center justify-center text-slate-400">
@@ -318,6 +357,7 @@ export default function AuditLogs() {
                       </td>
                     </tr>
                   ) : entries.length === 0 ? (
+                    // Estado vazio (sem registros para os filtros atuais).
                     <tr>
                       <td colSpan={7} className="px-6 py-10 text-center">
                         <div className="flex flex-col items-center justify-center text-slate-400">
@@ -332,17 +372,19 @@ export default function AuditLogs() {
                       </td>
                     </tr>
                   ) : (
-                    entries.map((entry, idx) => {
-                      const badge = getBadge(entry.action);
-                      const detail = describeDetails(entry);
+                    // Lista de registros da página atual.
+                    entries.map((entry, index) => {
+                      const actionBadge = getActionBadge(entry.action);
+                      const detailsSummary = describeDetails(entry);
                       return (
                         <motion.tr
                           key={entry.id}
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: Math.min(idx * 0.03, 0.3) }}
+                          transition={{ delay: Math.min(index * 0.03, 0.3) }}
                           className={`transition-colors group ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-slate-50/50'}`}
                         >
+                          {/* Data/hora (em BRT) */}
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex flex-col">
                               <span className={`text-xs font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>
@@ -351,11 +393,15 @@ export default function AuditLogs() {
                               <span className={`text-[9px] font-bold uppercase ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>BRT</span>
                             </div>
                           </td>
+
+                          {/* Empresa dona da ação */}
                           <td className="px-6 py-4">
                             <span className={`text-xs font-bold ${isDarkMode ? 'text-zinc-200' : 'text-slate-700'}`}>
                               {entry.company_name || entry.company_email || '—'}
                             </span>
                           </td>
+
+                          {/* Quem executou (plataforma ou kiosk) */}
                           <td className="px-6 py-4">
                             <div className="flex flex-col">
                               <span className={`text-xs font-bold flex items-center gap-1.5 ${isDarkMode ? 'text-zinc-200' : 'text-slate-700'}`}>
@@ -369,22 +415,30 @@ export default function AuditLogs() {
                               </span>
                             </div>
                           </td>
+
+                          {/* Ação + detalhes (motivo/campos alterados) */}
                           <td className="px-6 py-4">
-                            <span className={badge.className}>{badge.label}</span>
-                            {detail && (
-                              <div className={`mt-1 text-[10px] font-semibold ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{detail}</div>
+                            <span className={actionBadge.className}>{actionBadge.label}</span>
+                            {detailsSummary && (
+                              <div className={`mt-1 text-[10px] font-semibold ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>{detailsSummary}</div>
                             )}
                           </td>
+
+                          {/* Entidade afetada (campanha/terminal/empresa) */}
                           <td className="px-6 py-4">
                             <span className={`text-xs font-bold ${isDarkMode ? 'text-zinc-300' : 'text-slate-700'}`}>
                               {entry.entity_name || '—'}
                             </span>
                           </td>
+
+                          {/* IP de origem */}
                           <td className="px-6 py-4">
                             <span className={`text-xs font-semibold ${isDarkMode ? 'text-zinc-500' : 'text-slate-400'}`}>
                               {entry.ip || '—'}
                             </span>
                           </td>
+
+                          {/* Sucesso / Falha */}
                           <td className="px-6 py-4 text-center">
                             <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider ${
                               entry.success
@@ -403,7 +457,7 @@ export default function AuditLogs() {
               </table>
             </div>
 
-            {/* Pagination */}
+            {/* Paginação */}
             <div className={`p-6 border-t flex flex-col md:flex-row justify-between items-center gap-4 transition-colors ${
               isDarkMode ? 'bg-black/20 border-white/5' : 'bg-slate-50/30 border-slate-100'
             }`}>
@@ -422,11 +476,11 @@ export default function AuditLogs() {
                   <ChevronLeft size={16} />
                 </button>
                 <span className={`text-xs font-bold px-3 ${isDarkMode ? 'text-zinc-400' : 'text-slate-600'}`}>
-                  Página {page} de {totalPagesMemo}
+                  Página {page} de {totalPages}
                 </span>
                 <button
-                  onClick={() => setPage(Math.min(totalPagesMemo, page + 1))}
-                  disabled={page >= totalPagesMemo}
+                  onClick={() => setPage(Math.min(totalPages, page + 1))}
+                  disabled={page >= totalPages}
                   className={`p-2 border rounded disabled:opacity-50 transition-colors cursor-pointer ${
                     isDarkMode ? 'bg-zinc-800 border-white/5 text-zinc-500 hover:bg-zinc-700' : 'border-slate-200 text-slate-400 hover:bg-white'
                   }`}
@@ -437,7 +491,7 @@ export default function AuditLogs() {
             </div>
           </div>
 
-          {/* Footer note */}
+          {/* Nota de rodapé sobre retenção e privacidade */}
           <div className={`mt-6 flex items-center gap-2 text-[11px] font-semibold ${isDarkMode ? 'text-zinc-600' : 'text-slate-400'}`}>
             <Clock size={14} />
             Logs com mais de 90 dias são removidos automaticamente. Senhas nunca são registradas.

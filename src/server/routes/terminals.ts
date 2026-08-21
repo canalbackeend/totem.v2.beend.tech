@@ -99,6 +99,8 @@ export function registerTerminalRoutes(app: any) {
       const terminal = await prisma.terminal.create({
         data: { ...whitelist(rest, ["name", "campaigns", "redirect_url", "status"]), email, password: hashedPassword, user_id: req.user.id }
       });
+
+      // Registra a criação do terminal no sistema de logs.
       logUserAction(prisma, req, {
         action: "terminal.create",
         entityType: "terminal",
@@ -157,6 +159,7 @@ export function registerTerminalRoutes(app: any) {
       const { password: _, ...terminalWithoutHash } = terminal;
       res.json({ ...terminalWithoutHash, password: password || null });
 
+      // Registra a edição do terminal (com o diff dos campos alterados).
       logUserAction(prisma, req, {
         action: "terminal.update",
         entityType: "terminal",
@@ -186,6 +189,8 @@ export function registerTerminalRoutes(app: any) {
         where,
         data: { password: hashedPassword }
       });
+
+      // Registra o reset de senha do terminal no sistema de logs.
       logUserAction(prisma, req, {
         action: "terminal.password_reset",
         entityType: "terminal",
@@ -212,6 +217,8 @@ export function registerTerminalRoutes(app: any) {
         where: { id: existing.id }
       });
       res.sendStatus(204);
+
+      // Registra a exclusão do terminal (nome capturado antes da deleção).
       logUserAction(prisma, req, {
         action: "terminal.delete",
         entityType: "terminal",

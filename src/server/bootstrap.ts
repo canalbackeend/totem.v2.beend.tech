@@ -81,59 +81,83 @@ async function syncCompaniesToUsers() {
 // Cron concurrency guard (in-process)
 let cronRunning = false;
 
-// Lock distribuído para o cron de relatórios: `pg_advisory_lock` exige que o
-// unlock ocorra na MESMA conexão. Como o pool padrão do Prisma pode usar
-// conexões diferentes, usamos um client dedicado com connection_limit=1.
-// Isso impede que múltiplas instâncias (ex.: Coolify com replicas) enviem o
-// mesmo relatório diário em duplicado.
+// ============================================================================
+// Lock distribuído (PostgreSQL advisory lock).
+//
+// `pg_advisory_lock` exige que o unlock ocorra na MESMA conexão. Como o pool
+// padrão do Prisma pode usar conexões diferentes, usamos um client dedicado com
+// connection_limit=1. Isso impede que múltiplas instâncias (ex.: Coolify com
+// réplicas) executem o mesmo job em duplicado.
+// ============================================================================
 const LOCK_DB_URL = (() => {
   const url = process.env.DATABASE_URL || "";
-  const sep = url.includes("?") ? "&" : "?";
-  return `${url}${sep}connection_limit=1`;
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}connection_limit=1`;
 })();
 const reportLockClient = new PrismaClient({ datasourceUrl: LOCK_DB_URL });
+
+// Executa `job` sob um lock global com a chave `lockKey`.
+// Retorna `false` se o lock não foi adquirido (outra instância já está
+// executando o job) e `true` se o job rodou até o fim. O unlock acontece no
+// `finally`, na MESMA conexão — condição obrigatória do advisory lock.
+async function withAdvisoryLock(
+  lockKey: number,
+  job: () => Promise<void>,
+): Promise<boolean> {
+  const lockResult = await reportLockClient.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_lock(${lockKey}) AS acquired`;
+  if (!lockResult[0]?.acquired) return false;
+  try {
+    await job();
+    return true;
+  } finally {
+    await reportLockClient.$queryRaw`SELECT pg_advisory_unlock(${lockKey})`.catch(() => {});
+  }
+}
+
+// Chave do cron de relatórios diários.
 const DAILY_REPORTS_LOCK_KEY = 7248361;
 
 // Ability to disable daily reports via env var (useful for isolation tests)
 // Set ENABLE_DAILY_REPORTS=false in Coolify to turn the daily report cron off.
-const dailyReportsEnabled = process.env.ENABLE_DAILY_REPORTS !== "false";// Schedule task to run every minute and check the time
+const dailyReportsEnabled = process.env.ENABLE_DAILY_REPORTS !== "false";
+
+// Agenda a verificação do relatório diário a cada minuto (o envio só acontece
+// no horário configurado). O lock evita envio duplicado entre instâncias.
 if (dailyReportsEnabled) {
-  cron.schedule("* * * * *", async () => {
-    if (cronRunning) return;
-    cronRunning = true;
-    try {
-      // Tenta adquirir o lock global. Se outra instância estiver processando
-      // relatórios, pula este tick (evita envio duplicado).
-      const lockResult = await reportLockClient.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_lock(${DAILY_REPORTS_LOCK_KEY}) AS acquired`;
-      if (!lockResult[0]?.acquired) return;
+  cron.schedule(
+    "* * * * *",
+    async () => {
+      if (cronRunning) return;
+      cronRunning = true;
       try {
-        const now = new Date();
-        
-        // Format as HH:mm in America/Sao_Paulo timezone
-        const formatter = new Intl.DateTimeFormat('pt-BR', {
-          timeZone: 'America/Sao_Paulo',
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: false
+        await withAdvisoryLock(DAILY_REPORTS_LOCK_KEY, async () => {
+          const now = new Date();
+
+          // Formata a hora atual como HH:mm no fuso de Brasília (America/Sao_Paulo)
+          // e repassa ao agendador de relatórios.
+          const formatter = new Intl.DateTimeFormat("pt-BR", {
+            timeZone: "America/Sao_Paulo",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          });
+
+          const targetTimeString = formatter.format(now);
+          await sendDailyReports(targetTimeString);
         });
-        
-        const targetTimeStr = formatter.format(now);
-        await sendDailyReports(targetTimeStr);
       } finally {
-        await reportLockClient.$queryRaw`SELECT pg_advisory_unlock(${DAILY_REPORTS_LOCK_KEY})`.catch(() => {});
+        cronRunning = false;
       }
-    } finally {
-      cronRunning = false;
-    }
-  }, {
-    timezone: "America/Sao_Paulo"
-  });
+    },
+    {
+      timezone: "America/Sao_Paulo",
+    },
+  );
 }
 
 // Limpeza automática do sistema de logs: apaga entradas de auditoria mais
-// antigas que 90 dias. Usa o MESMO client dedicado do lock distribuído (uma
-// única conexão), mas com chave própria — evita apagar em duplicado quando
-// há múltiplas instâncias.
+// antigas que 90 dias. Usa o MESMO client dedicado do lock distribuído, mas com
+// chave própria — evita apagar em duplicado quando há múltiplas instâncias.
 const AUDIT_CLEANUP_LOCK_KEY = 7248362;
 const AUDIT_LOG_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -141,19 +165,18 @@ cron.schedule(
   "0 3 * * *",
   async () => {
     try {
-      const lockResult = await reportLockClient.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_lock(${AUDIT_CLEANUP_LOCK_KEY}) AS acquired`;
-      if (!lockResult[0]?.acquired) return;
-      try {
+      await withAdvisoryLock(AUDIT_CLEANUP_LOCK_KEY, async () => {
+        // Remove registros mais antigos que o período de retenção (90 dias).
         const cutoff = new Date(Date.now() - AUDIT_LOG_RETENTION_MS);
         const result = await prisma.auditLog.deleteMany({
           where: { created_at: { lt: cutoff } },
         });
         if (result.count > 0) {
-          console.log(`Audit log cleanup: ${result.count} registros removidos (mais de 90 dias).`);
+          console.log(
+            `Audit log cleanup: ${result.count} registros removidos (mais de 90 dias).`,
+          );
         }
-      } finally {
-        await reportLockClient.$queryRaw`SELECT pg_advisory_unlock(${AUDIT_CLEANUP_LOCK_KEY})`.catch(() => {});
-      }
+      });
     } catch (err) {
       console.error("Erro na limpeza dos logs de auditoria:", err);
     }

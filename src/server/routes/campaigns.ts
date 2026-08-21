@@ -292,6 +292,8 @@ export function registerCampaignRoutes(app: any) {
       const campaign = await prisma.campaign.create({
         data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "thank_you_message", "start_image", "end_image", "flow_layout"]), user_id: req.user.id }
       });
+
+      // Registra a criação da campanha no sistema de logs.
       logUserAction(prisma, req, {
         action: "campaign.create",
         entityType: "campaign",
@@ -345,6 +347,8 @@ export function registerCampaignRoutes(app: any) {
 
       res.json(campaign);
 
+      // Registra a edição da campanha (com o diff dos campos alterados) no
+      // sistema de logs — audita reclamações de clientes sobre mudanças.
       logUserAction(prisma, req, {
         action: "campaign.update",
         entityType: "campaign",
@@ -393,6 +397,9 @@ export function registerCampaignRoutes(app: any) {
         }
       });
       res.sendStatus(204);
+
+      // Registra a exclusão da campanha (nome é salvo antes da deleção, pois o
+      // registro da campanha deixa de existir).
       logUserAction(prisma, req, {
         action: "campaign.delete",
         entityType: "campaign",
@@ -610,6 +617,9 @@ export function registerCampaignResetRoute(app: any) {
       ]);
 
       res.json({ message: "Campaign reset successfully" });
+
+      // Registra o reset da campanha (caso clássico de auditoria: "meus dados
+      // sumiram" → saber quem e quando resetou).
       logUserAction(prisma, req, {
         action: "campaign.reset",
         entityType: "campaign",

@@ -1,8 +1,9 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma, authenticateToken, whitelist, publicCompany, isMasterAdmin } from "../deps";
-import { logAudit, buildDiff } from "../audit";
+import { logCompanyAction, buildDiff } from "../audit";
 
+// Campos editáveis de uma empresa, usados no diff de auditoria das edições.
 const COMPANY_FIELDS = ["empresa", "responsavel", "email", "cnpj", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "plano", "vencimento", "status", "logo_url", "max_terminals"];
 
 // Senha aleatória quando o admin não informa uma (evita o default fraco "123456").
@@ -106,17 +107,9 @@ export function registerCompanyRoutes(app: any) {
           email: cleanEmail,
         } 
       });
-      logAudit(prisma, req, {
-        actorType: "user",
-        actorId: req.user.id,
-        actorLabel: req.user.email,
-        companyEmail: cleanEmail,
-        companyName: company.empresa,
-        action: "company.create",
-        entityType: "company",
-        entityId: company.id,
-        entityName: company.empresa,
-      });
+
+      // Registra a criação da empresa no sistema de logs.
+      logCompanyAction(prisma, req, company, "company.create");
       
       // Create or update corresponding user so they can login
       const rawPassword = String(req.body.password || generateRandomPassword()).trim();
@@ -253,17 +246,10 @@ export function registerCompanyRoutes(app: any) {
       }
 
       res.json(publicCompany(company));
-      logAudit(prisma, req, {
-        actorType: "user",
-        actorId: req.user.id,
-        actorLabel: req.user.email,
-        companyEmail: company.email,
-        companyName: company.empresa,
-        action: "company.update",
-        entityType: "company",
-        entityId: company.id,
-        entityName: company.empresa,
-        details: { changed: buildDiff(oldCompany, company, COMPANY_FIELDS) },
+
+      // Registra a edição da empresa (com o diff dos campos alterados).
+      logCompanyAction(prisma, req, company, "company.update", {
+        changed: buildDiff(oldCompany, company, COMPANY_FIELDS),
       });
     } catch (err: any) {
       console.error("Update company error:", err);
@@ -287,17 +273,8 @@ export function registerCompanyRoutes(app: any) {
         })
       ]);
 
-      logAudit(prisma, req, {
-        actorType: "user",
-        actorId: req.user.id,
-        actorLabel: req.user.email,
-        companyEmail: company.email,
-        companyName: company.empresa,
-        action: "company.password_reset",
-        entityType: "company",
-        entityId: company.id,
-        entityName: company.empresa,
-      });
+      // Registra o reset de senha da empresa no sistema de logs.
+      logCompanyAction(prisma, req, company, "company.password_reset");
 
       res.json({ message: "Senha alterada com sucesso" });
     } catch (err: any) {
@@ -335,18 +312,9 @@ export function registerCompanyRoutes(app: any) {
       ]);
 
       res.json({ message: `Empresa ${status === "Ativo" ? "desbloqueada" : "bloqueada"} com sucesso`, status });
-      logAudit(prisma, req, {
-        actorType: "user",
-        actorId: req.user.id,
-        actorLabel: req.user.email,
-        companyEmail: company.email,
-        companyName: company.empresa,
-        action: "company.status",
-        entityType: "company",
-        entityId: company.id,
-        entityName: company.empresa,
-        details: { status },
-      });
+
+      // Registra a alteração de status (bloqueio/desbloqueio) no sistema de logs.
+      logCompanyAction(prisma, req, company, "company.status", { status });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -367,17 +335,9 @@ export function registerCompanyRoutes(app: any) {
         ...(user ? [prisma.user.delete({ where: { id: user.id } })] : []),
       ]);
       res.sendStatus(204);
-      logAudit(prisma, req, {
-        actorType: "user",
-        actorId: req.user.id,
-        actorLabel: req.user.email,
-        companyEmail: company.email,
-        companyName: company.empresa,
-        action: "company.delete",
-        entityType: "company",
-        entityId: company.id,
-        entityName: company.empresa,
-      });
+
+      // Registra a exclusão da empresa no sistema de logs.
+      logCompanyAction(prisma, req, company, "company.delete");
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

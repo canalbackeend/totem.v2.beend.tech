@@ -11,7 +11,16 @@ import {
 import { normalizeEmail } from "../terminal-email";
 import { logAudit } from "../audit";
 
-// Registra tentativa de login (sucesso ou falha) para auditoria de reclamações.
+// ============================================================================
+// Auditoria de logins.
+//
+// Todo login (plataforma ou kiosk), com sucesso OU falha, gera um log para que
+// o master admin consiga auditar reclamações ("quem acessou quando?"). A falha
+// registra também o motivo (senha errada, conta bloqueada etc.) e o IP.
+// ============================================================================
+
+// Camada de baixo nível: converte os dados do login em um evento de auditoria.
+// O `action` é derivado do tipo de ator (user → plataforma, terminal → kiosk).
 function logLogin(
   req: any,
   data: {
@@ -25,15 +34,56 @@ function logLogin(
   },
 ) {
   logAudit(prisma, req, {
-    actorType: data.actorType,
-    actorId: data.actorId,
-    actorLabel: data.actorLabel,
-    companyEmail: data.companyEmail ?? null,
-    companyName: data.companyName ?? null,
+    ...data,
     action: data.actorType === "terminal" ? "terminal.login" : "auth.login",
     entityType: "auth",
     details: { reason: data.reason },
-    success: data.success,
+  });
+}
+
+// Registra tentativa de login de um usuário da PLATAFORMA.
+// - `user`: usuário encontrado (ausente quando o e-mail não existe).
+// - `attemptedEmail`: e-mail tentado, usado quando não há usuário para exibir.
+function logUserLogin(
+  req: any,
+  options: {
+    user?: any;
+    attemptedEmail?: string;
+    success: boolean;
+    reason: string;
+  },
+) {
+  logLogin(req, {
+    actorType: "user",
+    actorId: options.user?.id ?? null,
+    actorLabel: options.attemptedEmail || options.user?.email || "",
+    companyEmail: options.user?.email ?? null,
+    companyName: options.user?.empresa || null,
+    success: options.success,
+    reason: options.reason,
+  });
+}
+
+// Registra tentativa de login de um TERMINAL (kiosk).
+// A empresa registrada é a do DONO do terminal (o usuário que o criou).
+function logTerminalLogin(
+  req: any,
+  options: {
+    terminal?: any;
+    ownerUser?: any;
+    attemptedEmail?: string;
+    success: boolean;
+    reason: string;
+  },
+) {
+  logLogin(req, {
+    actorType: "terminal",
+    actorId: options.terminal?.id ?? null,
+    actorLabel: options.attemptedEmail || options.terminal?.email || "",
+    companyEmail: options.ownerUser?.email ?? null,
+    companyName: options.ownerUser?.empresa || null,
+    success: options.success,
+    reason: options.reason,
   });
 }
 
@@ -121,17 +171,17 @@ export function registerAuthRoutes(app: any) {
       });
       if (!user || !user.password) {
         console.log(`Login failed: user not found`);
-        logLogin(req, { actorType: "user", actorId: null, actorLabel: cleanEmail, success: false, reason: "usuário não encontrado" });
+        logUserLogin(req, { attemptedEmail: cleanEmail, success: false, reason: "usuário não encontrado" });
         return res.status(401).json({ error: "E-mail ou senha incorretos." });
       }
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) {
         console.log(`Login failed: incorrect password`);
-        logLogin(req, { actorType: "user", actorId: user.id, actorLabel: user.email, companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "senha incorreta" });
+        logUserLogin(req, { user, success: false, reason: "senha incorreta" });
         return res.status(401).json({ error: "E-mail ou senha incorretos." });
       }
       if (user.status !== "Ativo") {
-        logLogin(req, { actorType: "user", actorId: user.id, actorLabel: user.email, companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "conta bloqueada" });
+        logUserLogin(req, { user, success: false, reason: "conta bloqueada" });
         return res
           .status(403)
           .json({ error: "Conta bloqueada. Entre em contato com o suporte." });
@@ -139,7 +189,7 @@ export function registerAuthRoutes(app: any) {
       const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
         expiresIn: "7d",
       });
-      logLogin(req, { actorType: "user", actorId: user.id, actorLabel: user.email, companyEmail: user.email, companyName: user.empresa || null, success: true, reason: "login realizado" });
+      logUserLogin(req, { user, success: true, reason: "login realizado" });
       res.json({
         message: "Login OK",
         user: publicUser(user),
@@ -164,7 +214,7 @@ export function registerAuthRoutes(app: any) {
       });
 
       if (!terminal || !terminal.password) {
-        logLogin(req, { actorType: "terminal", actorId: null, actorLabel: String(email).trim().toLowerCase(), success: false, reason: "credenciais inválidas" });
+        logTerminalLogin(req, { attemptedEmail: String(email).trim().toLowerCase(), success: false, reason: "credenciais inválidas" });
         return res
           .status(401)
           .json({ error: "Credenciais de terminal inválidas" });
@@ -176,14 +226,14 @@ export function registerAuthRoutes(app: any) {
           ? await bcrypt.compare(password, terminal.password)
           : password === terminal.password;
       if (!isValid) {
-        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", success: false, reason: "credenciais inválidas" });
+        logTerminalLogin(req, { terminal, success: false, reason: "credenciais inválidas" });
         return res
           .status(401)
           .json({ error: "Credenciais de terminal inválidas" });
       }
 
       if (terminal.status === "Bloqueado") {
-        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", success: false, reason: "terminal bloqueado" });
+        logTerminalLogin(req, { terminal, success: false, reason: "terminal bloqueado" });
         return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
@@ -203,19 +253,19 @@ export function registerAuthRoutes(app: any) {
       });
 
       if (!user) {
-        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", success: false, reason: "conta do dono não encontrada" });
+        logTerminalLogin(req, { terminal, success: false, reason: "conta do dono não encontrada" });
         return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (user.status !== "Ativo") {
-        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "conta bloqueada" });
+        logTerminalLogin(req, { terminal, ownerUser: user, success: false, reason: "conta bloqueada" });
         return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (user.plano === "Teste 7 dias" && user.vencimento) {
         const expirationDate = new Date(user.vencimento);
         if (new Date() > expirationDate) {
-          logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "período de teste expirado" });
+          logTerminalLogin(req, { terminal, ownerUser: user, success: false, reason: "período de teste expirado" });
           return res.status(403).json({
             error: "Período de teste expirado. Entre em contato com o suporte.",
           });
@@ -234,15 +284,8 @@ export function registerAuthRoutes(app: any) {
         { expiresIn: "7d" },
       );
 
-      logLogin(req, {
-        actorType: "terminal",
-        actorId: terminal.id,
-        actorLabel: terminal.email || "",
-        companyEmail: user.email,
-        companyName: user.empresa || null,
-        success: true,
-        reason: "login realizado",
-      });
+      // Registra o login com sucesso do terminal no sistema de logs.
+      logTerminalLogin(req, { terminal, ownerUser: user, success: true, reason: "login realizado" });
 
       res.json({
         id: terminal.id,
