@@ -140,6 +140,12 @@ export function registerAuthRoutes(app: any) {
           .json({ error: "Credenciais de terminal inválidas" });
       }
 
+      if (terminal.status === "Bloqueado") {
+        return res.status(403).json({
+          error: "Conta bloqueada, impossível sincronizar os dados.",
+        });
+      }
+
       if (
         !terminal.password.startsWith("$2b$") &&
         !terminal.password.startsWith("$2a$")
@@ -156,9 +162,9 @@ export function registerAuthRoutes(app: any) {
       });
 
       if (user && user.status !== "Ativo") {
-        return res
-          .status(403)
-          .json({ error: "Conta bloqueada. Entre em contato com o suporte." });
+        return res.status(403).json({
+          error: "Conta bloqueada, impossível sincronizar os dados.",
+        });
       }
 
       if (user && user.plano === "Teste 7 dias" && user.vencimento) {

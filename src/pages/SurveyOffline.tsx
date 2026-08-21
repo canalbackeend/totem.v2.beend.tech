@@ -280,7 +280,11 @@ export default function SurveyOffline() {
     if (hasPermanentError) {
       setAuthError(permanentErrorMsg)
       if (manual) {
-        toast.error('Erro de autenticação ou expiração. Faça login novamente.', { duration: 8000 })
+        if (permanentErrorMsg.includes('bloqueada') || permanentErrorMsg.includes('bloqueado')) {
+          toast.error('Conta bloqueada, impossível sincronizar os dados. Suas respostas locais estão preservadas.', { duration: 8000 })
+        } else {
+          toast.error('Erro de autenticação ou expiração. Faça login novamente.', { duration: 8000 })
+        }
       }
     } else {
       setAuthError(null)
@@ -453,9 +457,15 @@ export default function SurveyOffline() {
       } else {
         toast.error('Nenhuma campanha ativa encontrada para download.');
       }
-    } catch (err) {
+    } catch (err: any) {
+      const msg = err?.message || '';
       console.error(err);
-      toast.error('Erro ao baixar campanhas');
+      if (msg.includes('bloqueada') || msg.includes('bloqueado')) {
+        setAuthError('Conta bloqueada, impossível sincronizar os dados.');
+        toast.error('Conta bloqueada, impossível sincronizar os dados.', { duration: 8000 });
+      } else {
+        toast.error('Erro ao baixar campanhas');
+      }
     } finally {
       setLoading(false);
     }
@@ -491,7 +501,13 @@ export default function SurveyOffline() {
       setAuthError(null);
       setStep('DOWNLOAD');
     } catch (err: any) {
-      toast.error('Credenciais inválidas ou erro de conexão');
+      const msg = err?.message || '';
+      if (msg.includes('bloqueada') || msg.includes('bloqueado')) {
+        setAuthError('Conta bloqueada, impossível sincronizar os dados.');
+        toast.error('Conta bloqueada, impossível sincronizar os dados.', { duration: 8000 });
+      } else {
+        toast.error('Credenciais inválidas ou erro de conexão');
+      }
     } finally {
       setLoading(false);
     }
@@ -552,6 +568,7 @@ export default function SurveyOffline() {
   };
 
   const handleAnswer = async (value: any) => {
+    if (authError?.includes('bloqueada') || authError?.includes('bloqueado')) return;
     const currentQuestion = selectedCampaign?.questions[currentQuestionIndex];
     if (currentQuestion && isMultipleChoice(currentQuestion.type)) {
       let currentAnswer = answers[currentQuestionIndex] || [];
@@ -603,6 +620,7 @@ export default function SurveyOffline() {
   };
 
   const nextQuestion = () => {
+    if (authError?.includes('bloqueada') || authError?.includes('bloqueado')) return;
     const currentQuestion = selectedCampaign?.questions[currentQuestionIndex];
     let finalAnswers = [...answers];
 
@@ -629,6 +647,7 @@ export default function SurveyOffline() {
 
   const finishSurvey = async (finalAnswers: any[]) => {
     if (!selectedCampaign || !terminal) return;
+    if (authError?.includes('bloqueada') || authError?.includes('bloqueado')) return;
     setLoading(true);
     
     try {
@@ -840,6 +859,39 @@ const cardColors = [
 
   const renderSurvey = () => {
     if (!selectedCampaign) return null;
+
+    const isBlocked = !!authError && (authError.includes('bloqueada') || authError.includes('bloqueado'));
+
+    if (isBlocked) {
+      return (
+        <div className="min-h-screen bg-black flex items-center justify-center p-6 text-white leading-tight">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-md bg-zinc-900 rounded-3xl shadow-2xl border border-red-500/30 overflow-hidden"
+          >
+            <div className="p-10 text-center space-y-6">
+              <div className="w-20 h-20 mx-auto bg-red-500/10 rounded-full flex items-center justify-center">
+                <Lock className="w-10 h-10 text-red-500" />
+              </div>
+              <div className="space-y-3">
+                <h2 className="text-2xl font-black uppercase tracking-tight text-red-500">CONTA BLOQUEADA</h2>
+                <p className="text-zinc-400 text-sm font-medium leading-relaxed">
+                  Conta bloqueada, impossível sincronizar os dados. Suas respostas locais estão preservadas e serão sincronizadas após o desbloqueio.
+                </p>
+              </div>
+              <button
+                onClick={handleReLogin}
+                className="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-black uppercase text-sm transition-colors"
+              >
+                Refazer Login
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      );
+    }
+
     const currentQuestion = selectedCampaign.questions[currentQuestionIndex];
     if (!currentQuestion) return null;
 

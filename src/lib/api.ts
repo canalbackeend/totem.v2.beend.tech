@@ -4,7 +4,7 @@ let authToken = typeof window !== 'undefined' ? localStorage.getItem('access_tok
 
 async function getAuthHeader() {
   const token = authToken || (typeof window !== 'undefined' ? localStorage.getItem('access_token') : null);
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  return token ? { 'Authorization': `Bearer ${token}` } : {} as Record<string, string>;
 }
 
 export const setAuthToken = (token: string | null) => {

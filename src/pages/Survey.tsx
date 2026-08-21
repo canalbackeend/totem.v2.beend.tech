@@ -242,8 +242,13 @@ export default function Survey() {
       // The API login returns a token
       fetchCampaigns(terminalData);
     } catch (err: any) {
+      const msg = err?.message || '';
       console.error(err);
-      toast.error('Ocorreu um erro ao tentar logar');
+      if (msg.includes('bloqueada') || msg.includes('bloqueado')) {
+        toast.error('Conta bloqueada, impossível sincronizar os dados.', { duration: 8000 });
+      } else {
+        toast.error('Ocorreu um erro ao tentar logar');
+      }
     } finally {
       setLoading(false);
     }

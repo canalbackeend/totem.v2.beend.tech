@@ -103,6 +103,21 @@ async function handleCreateResponse(req: any, res: any) {
       }
     }
 
+    // Blocked accounts/terminals must not accept new data (payment overdue, etc.).
+    // The offline device keeps its local responses and syncs after unblocking.
+    if (owner && owner.status === "Bloqueado") {
+      return res.status(403).json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+    }
+    if (terminalId) {
+      const blockTerminal = await prisma.terminal.findUnique({
+        where: { id: terminalId },
+        select: { status: true },
+      });
+      if (blockTerminal?.status === "Bloqueado") {
+        return res.status(403).json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+      }
+    }
+
     // Ensure response is linked to the campaign owner
     const bodyAnswers = req.body.answers || [];
     const collabAnswer = bodyAnswers.find((a: any) => a.type === 'Colaborador');

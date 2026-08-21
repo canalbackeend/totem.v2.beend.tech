@@ -1,4 +1,3 @@
-import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { MapPinOff, ArrowLeft, Home, Search } from 'lucide-react';
