@@ -50,7 +50,7 @@ export function registerProposalRoutes(app: any) {
     if (!isMasterAdmin(req)) return res.sendStatus(403);
     try {
       const page = parseInt(req.query.page as string) || 1;
-      const pageSize = parseInt(req.query.pageSize as string) || 10;
+      const pageSize = Math.min(Math.max(parseInt(req.query.pageSize as string) || 10, 1), 100);
       const status = req.query.status as string;
       const search = req.query.search as string;
       

@@ -66,3 +66,42 @@ describe("POST /api/public/responses - sanitizacao preserva dados do /survey", (
     expect(mc.answer).toEqual(["WhatsApp", "Presencial"]);
   });
 });
+
+describe("POST /api/public/responses - deduplicacao (M13)", () => {
+  it("resposta identica dentro da janela nao cria duplicata", async () => {
+    expect(campaignId).toBeTruthy();
+    expect(terminalId).toBeTruthy();
+
+    const payload = {
+      campaign_id: campaignId,
+      terminal_id: terminalId,
+      created_at: new Date().toISOString(),
+      answers: [
+        { question: "Dedup test?", type: "SMILE 4", answer: "BOM" },
+      ],
+    };
+
+    const first = await request(app).post("/api/public/responses").send(payload);
+    expect([200, 201]).toContain(first.status);
+    const firstId = first.body?.id;
+    expect(firstId).toBeTruthy();
+    createdIds.push(firstId);
+
+    // Replay the exact same payload within the dedup window
+    const second = await request(app).post("/api/public/responses").send(payload);
+    expect(second.status).toBe(200);
+    expect(second.body?.duplicate).toBe(true);
+
+    // Confirm only one row persisted for that payload
+    const all = await prisma.response.findMany({
+      where: { campaign_id: campaignId, terminal_id: terminalId },
+      select: { answers: true },
+      take: 500,
+    });
+    const matches = all.filter((r: any) => {
+      const ans = Array.isArray(r.answers) ? r.answers : JSON.parse(String(r.answers) || "[]");
+      return ans.some((a: any) => a.type === "SMILE 4" && a.question === "Dedup test?" && a.answer === "BOM");
+    });
+    expect(matches.length).toBe(1);
+  });
+});

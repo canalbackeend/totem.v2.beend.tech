@@ -1,6 +1,16 @@
 import { prisma, authenticateToken, publicResponseLimiter, whitelist, isMasterAdmin } from "./deps";
 import { getPerceptionKey } from "../lib/metrics";
 
+// Normalize nested JSON to a stable string (key order-agnostic), so dedup works
+// even though Postgres JSONB may reorder object keys.
+function stableStringify(value: any): string {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
 async function handleCreateResponse(req: any, res: any) {
   try {
     const campaignId = req.body.campaign_id;
@@ -73,24 +83,41 @@ async function handleCreateResponse(req: any, res: any) {
       }
     }
 
-    // Validate created_at (dedupe key) before querying with it
+    // Validate created_at before querying with it; default to server time.
     let createdDate: Date | null = null;
     if (req.body.created_at) {
       createdDate = new Date(req.body.created_at);
       if (isNaN(createdDate.getTime())) createdDate = null;
     }
+    if (!createdDate) createdDate = new Date();
 
-    // Prevent duplicates during sync
-    if (createdDate && terminalId) {
-      const existing = await prisma.response.findFirst({
+    // Prevent duplicates during sync. Compare payloads over a time window, so it
+    // works even when the client omits or rotates created_at (offline retries).
+    if (terminalId) {
+      const windowStart = new Date(createdDate.getTime() - 5 * 60 * 1000);
+      const windowEnd = new Date(createdDate.getTime() + 5 * 60 * 1000);
+
+      const recent = await prisma.response.findMany({
         where: {
           campaign_id: campaignId,
           terminal_id: terminalId,
-          created_at: createdDate
+          created_at: { gte: windowStart, lte: windowEnd },
+        },
+        select: { answers: true },
+        take: 100,
+      });
+
+      const duplicate = recent.find((r: any) => {
+        try {
+          const stored = typeof r.answers === "string" ? JSON.parse(r.answers) : r.answers;
+          return stableStringify(stored) === stableStringify(req.body.answers || []);
+        } catch {
+          return false;
         }
       });
-      if (existing) {
-        return res.json(existing); // Already synced
+
+      if (duplicate) {
+        return res.json({ duplicate: true, message: "Resposta já registrada." });
       }
     }
 
@@ -122,9 +149,7 @@ async function handleCreateResponse(req: any, res: any) {
     const bodyAnswers = req.body.answers || [];
     const collabAnswer = bodyAnswers.find((a: any) => a.type === 'Colaborador');
     const createFields = whitelist(req.body, ["campaign_id", "terminal_id", "answers"]);
-    if (createdDate) {
-      createFields.created_at = req.body.created_at;
-    }
+    createFields.created_at = createdDate.toISOString();
     const responseData = {
       ...createFields,
       user_id: campaign.user_id,

@@ -523,6 +523,9 @@ export default function SurveyWeb() {
   };
 
   const renderSurvey = () => {
+    if (campaign && (!campaign.questions || campaign.questions.length === 0)) {
+      return renderThankYou();
+    }
     if (!currentQuestion) return null;
     const progress = ((currentQuestionIndex) / (campaign?.questions.length || 1)) * 100;
 

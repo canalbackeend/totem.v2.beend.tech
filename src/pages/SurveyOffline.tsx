@@ -857,7 +857,7 @@ const cardColors = [
     </div>
   );
 
-  const renderSurvey = () => {
+    const renderSurvey = () => {
     if (!selectedCampaign) return null;
 
     const isBlocked = !!authError && (authError.includes('bloqueada') || authError.includes('bloqueado'));
@@ -892,6 +892,9 @@ const cardColors = [
       );
     }
 
+    if (!selectedCampaign.questions || selectedCampaign.questions.length === 0) {
+      return renderThankYou();
+    }
     const currentQuestion = selectedCampaign.questions[currentQuestionIndex];
     if (!currentQuestion) return null;
 

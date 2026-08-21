@@ -164,8 +164,11 @@ export function registerCampaignRoutes(app: any) {
   app.get("/api/campaigns", authenticateToken, async (req: any, res: any) => {
     try {
       const { names, status } = req.query;
+      const page = parseInt(req.query.page as string) || 1;
+      const requestedSize = parseInt(req.query.pageSize as string) || 100;
+      const pageSize = Math.min(Math.max(requestedSize, 1), 500); // cap to avoid heavy queries
       const where: any = {};
-      
+      const paginate = req.query.pageSize !== undefined || req.query.page !== undefined;
       if (names) {
         where.name = { in: (names as string).split(",") };
       }
@@ -218,20 +221,32 @@ export function registerCampaignRoutes(app: any) {
         const campaigns = await prisma.campaign.findMany({
           where,
           include: { user: { select: { email: true, empresa: true } } },
-          orderBy: { created_at: "desc" }
+          orderBy: { created_at: "desc" },
+          ...(paginate ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
         });
 
         const enriched = campaigns.map(({ user, ...rest }) => ({
           ...rest,
           company_name: companyMap.get(user.email) || user.empresa || null
         }));
-        res.json(enriched);
+        if (paginate) {
+          const count = await prisma.campaign.count({ where });
+          res.json({ data: enriched, count, page, pageSize });
+        } else {
+          res.json(enriched);
+        }
       } else {
         const campaigns = await prisma.campaign.findMany({
           where,
-          orderBy: { created_at: "desc" }
+          orderBy: { created_at: "desc" },
+          ...(paginate ? { skip: (page - 1) * pageSize, take: pageSize } : {}),
         });
-        res.json(campaigns);
+        if (paginate) {
+          const count = await prisma.campaign.count({ where });
+          res.json({ data: campaigns, count, page, pageSize });
+        } else {
+          res.json(campaigns);
+        }
       }
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -330,8 +345,28 @@ export function registerCampaignRoutes(app: any) {
       if (!existing) {
         return res.status(404).json({ error: "Campanha não encontrada ou sem permissão" });
       }
-      await prisma.campaign.delete({
-        where: { id: req.params.id }
+
+      // Remove the deleted campaign's name from terminals that reference it
+      const affectedTerminals = await prisma.terminal.findMany({
+        where: { campaigns: { contains: existing.name } }
+      });
+
+      await prisma.$transaction(async (tx) => {
+        await tx.campaign.delete({
+          where: { id: existing.id }
+        });
+        for (const term of affectedTerminals) {
+          if (!term.campaigns) continue;
+          const updated = parseCampaignList(term.campaigns)
+            .filter((c: string) => c !== existing.name)
+            .join(',');
+          if (updated !== term.campaigns) {
+            await tx.terminal.update({
+              where: { id: term.id },
+              data: { campaigns: updated }
+            });
+          }
+        }
       });
       res.sendStatus(204);
     } catch (err: any) {
@@ -475,7 +510,8 @@ export function registerCampaignRoutes(app: any) {
           report_time: existing.report_time,
           thank_you_message: existing.thank_you_message,
           start_image: existing.start_image,
-          end_image: existing.end_image
+          end_image: existing.end_image,
+          flow_layout: existing.flow_layout
         }
       });
       res.json(cloned);
@@ -505,9 +541,12 @@ export function registerCampaignResetRoute(app: any) {
 
       if (!campaign) return res.sendStatus(404);
 
-      // Reset stats in campaign and delete all responses
+      // Reset stats in campaign, delete all responses and invalidate report tokens
       await prisma.$transaction([
         prisma.response.deleteMany({
+          where: { campaign_id: campaignId }
+        }),
+        prisma.reportToken.deleteMany({
           where: { campaign_id: campaignId }
         }),
         prisma.campaign.update({

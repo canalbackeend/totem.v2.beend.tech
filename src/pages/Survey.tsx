@@ -666,6 +666,9 @@ const cardColors = [
 
   const renderSurvey = () => {
     if (!selectedCampaign) return null;
+    if (!selectedCampaign.questions || selectedCampaign.questions.length === 0) {
+      return renderThankYou();
+    }
     const currentQuestion = selectedCampaign.questions[currentQuestionIndex];
     if (!currentQuestion) return null;
 
