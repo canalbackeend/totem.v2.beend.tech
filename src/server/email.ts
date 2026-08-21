@@ -15,6 +15,25 @@ export const transporter = nodemailer.createTransport({
   socketTimeout: 15000,
 });
 
+// Envia um e-mail com tentativas de retry (rede/SMTP podem falhar de forma
+// transitória). Cada tentativa tem timeout próprio do nodemailer; entre elas
+// espera-se um backoff curto. Falha definitiva lança o erro para o chamador.
+async function sendMailWithRetry(mailOptions: any, attempts = 3): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      await transporter.sendMail(mailOptions);
+      return;
+    } catch (err) {
+      lastError = err;
+      if (attempt < attempts) {
+        await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
+      }
+    }
+  }
+  throw lastError;
+}
+
 // Helper to send report emails
 export async function sendDailyReports(targetTimeStr?: string) {
   console.log(`Iniciando envio de relatórios diários... ${targetTimeStr ? `[Horário Alvo: ${targetTimeStr}]` : '[Teste/Manual]'}`);
@@ -62,7 +81,9 @@ export async function sendDailyReports(targetTimeStr?: string) {
     const appUrl = process.env.APP_URL || `http://localhost:${PORT}`;
 
     // 4. Generate tokens + build mail options first (fast operations)
-    const jobs: { id: string; name: string; to: string; mailOptions: any }[] = [];
+    // O token é guardado no job para que, se o envio falhar definitivamente,
+    // possamos apagá-lo (evita tokens órfãos que se acumulariam por 30 dias).
+    const jobs: { id: string; name: string; to: string; token: string; mailOptions: any }[] = [];
 
     for (const campaign of toSend) {
       try {
@@ -85,6 +106,7 @@ export async function sendDailyReports(targetTimeStr?: string) {
           id: campaign.id,
           name: campaign.name,
           to: reportEmail,
+          token,
           mailOptions: {
             from: `"Totem been.tech" <${process.env.GMAIL_USER}>`,
             to: reportEmail,
@@ -120,21 +142,27 @@ export async function sendDailyReports(targetTimeStr?: string) {
       }
     }
 
-    // 5. Send emails with bounded concurrency.
-    // Nodemailer timeouts (socketTimeout/connectionTimeout) handle hangs and close the socket.
+    // 5. Send emails with bounded concurrency + retry. Nodemailer timeouts
+    // (socketTimeout/connectionTimeout) handle hangs and close the socket.
+    // Se todas as tentativas falharem, o token recém-criado é removido para não
+    // deixar link morto acumulado no banco (o relatório pode ser regenerado).
     const BATCH_SIZE = 5;
 
     for (let i = 0; i < jobs.length; i += BATCH_SIZE) {
       const batch = jobs.slice(i, i + BATCH_SIZE);
-      const results = await Promise.allSettled(batch.map(job => transporter.sendMail(job.mailOptions)));
-      results.forEach((result, idx) => {
+      const results = await Promise.allSettled(batch.map(job => sendMailWithRetry(job.mailOptions)));
+      for (let idx = 0; idx < results.length; idx++) {
         const job = batch[idx];
+        const result = results[idx];
         if (result.status === "fulfilled") {
           console.log(`Relatório enviado para ${job.to} (Campanha: ${job.id})`);
         } else {
           console.error(`Erro ao enviar e-mail para ${job.to} (Campanha: ${job.id}):`, (result.reason as Error)?.message || result.reason);
+          await prisma.reportToken.deleteMany({ where: { token: job.token } }).catch((e) =>
+            console.error(`Falha ao limpar token órfão da campanha ${job.id}:`, e)
+          );
         }
-      });
+      }
     }
   } catch (err) {
     console.error("Erro no processo de relatórios diários:", err);

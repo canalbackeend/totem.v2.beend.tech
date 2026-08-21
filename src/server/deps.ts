@@ -122,9 +122,16 @@ export function parseCampaignList(value: any): string[] {
 // no envio de respostas e no middleware de autenticação.
 export const BLOCKED_ACCOUNT_ERROR = { error: "Conta bloqueada, impossível sincronizar os dados." };
 
-// Converte uma Date (ou string de data) em "YYYY-MM-DD" (formato de chave de dia).
+// Converte uma Date (ou string de data) em "YYYY-MM-DD" (formato de chave de dia)
+// no fuso de Brasília. Usar UTC aqui fazia respostas das 21h BRT (00h UTC do dia
+// seguinte) caírem no bucket do dia errado nos relatórios/evolução.
 export function toISODate(date: Date | string): string {
-  return new Date(date).toISOString().split("T")[0];
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(date));
 }
 
 // Auth Middleware — re-validates the user against the DB so blocked/deleted

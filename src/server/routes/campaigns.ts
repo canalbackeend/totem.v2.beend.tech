@@ -1,4 +1,4 @@
-import { prisma, authenticateToken, whitelist, parseCampaignList, publicUser, isMasterAdmin, toISODate } from "../deps";
+import { prisma, authenticateToken, whitelist, parseCampaignList, publicUser, publicCampaign, isMasterAdmin, toISODate } from "../deps";
 import { getSatisfactionScore } from "../../lib/metrics";
 import { parseAnswers } from "../../lib/answers";
 import { calculateCampaignMetrics } from "../metrics";
@@ -40,8 +40,7 @@ export function registerCampaignMetricsRoutes(app: any) {
 
       const responses = await prisma.response.findMany({
         where: whereResponses,
-        orderBy: { created_at: "desc" },
-        take: 5000
+        orderBy: { created_at: "desc" }
       });
       const metrics = calculateCampaignMetrics(campaign, responses || []);
 
@@ -90,14 +89,13 @@ export function registerCampaignMetricsRoutes(app: any) {
       }
 
       // Fetch Responses for the period relative to when the report was generated (Yesterday)
+      // O relatório é disparado pelo cron em horário BRT, então "ontem" também é
+      // definido em BRT — caso contrário respostas das 21h+ caem no dia errado.
       const tokenDate = new Date(data.created_at);
-      const reportDate = new Date(tokenDate);
-      reportDate.setDate(reportDate.getDate() - 1);
-      
-      const startOfDay = new Date(reportDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(reportDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      const yesterdayBrt = toISODate(new Date(tokenDate.getTime() - 24 * 60 * 60 * 1000));
+
+      const startOfDay = new Date(`${yesterdayBrt}T00:00:00.000-03:00`);
+      const endOfDay = new Date(`${yesterdayBrt}T23:59:59.999-03:00`);
 
       let responses = await prisma.response.findMany({
         where: {
@@ -145,7 +143,7 @@ export function registerCampaignMetricsRoutes(app: any) {
         responses,
         metrics,
         evolution: evolutionData || [],
-        reference_date: reportDate.toISOString()
+        reference_date: startOfDay.toISOString()
       });
     } catch (err: any) {
       console.error("Erro na API check-token:", err);
@@ -162,7 +160,8 @@ export function registerCampaignRoutes(app: any) {
       const campaign = await prisma.campaign.findFirst({
         where: { is_global: true }
       });
-      res.json(campaign);
+      // Projeção pública: o widget NPS só precisa de id/name/questions/status.
+      res.json(publicCampaign(campaign));
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -397,22 +396,24 @@ export function registerCampaignRoutes(app: any) {
       const queryEndDate = req.query.endDate as string;
       const queryTerminalId = req.query.terminal_id as string;
 
+      // Bordas do período em fuso de Brasília (BRT). Os parâmetros de data vêm
+      // como "YYYY-MM-DD" e representam dias BRT; interpretá-los como UTC fazia
+      // respostas próximas da meia-noite caírem no bucket errado.
       let startDate: Date;
       let endDate: Date;
       let totalDays: number;
 
       if (queryStartDate || queryEndDate) {
-        endDate = queryEndDate ? new Date(queryEndDate + "T23:59:59.999Z") : new Date();
-        startDate = queryStartDate ? new Date(queryStartDate + "T00:00:00.000Z") : new Date(endDate);
-        startDate.setUTCDate(startDate.getUTCDate() - 6);
-        startDate.setUTCHours(0, 0, 0, 0);
+        endDate = queryEndDate ? new Date(queryEndDate + "T23:59:59.999-03:00") : new Date();
+        startDate = queryStartDate ? new Date(queryStartDate + "T00:00:00.000-03:00") : new Date(endDate.getTime() - 6 * 86400000);
+        startDate.setHours(0, 0, 0, 0);
         totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       } else {
-        endDate = new Date();
-        endDate.setUTCHours(23, 59, 59, 999);
-        startDate = new Date(endDate);
-        startDate.setUTCDate(startDate.getUTCDate() - days + 1);
-        startDate.setUTCHours(0, 0, 0, 0);
+        // "Hoje" em BRT: ancora a janela na meia-noite BRT de hoje.
+        const todayBrt = new Date(toISODate(new Date()) + "T00:00:00.000-03:00");
+        startDate = new Date(todayBrt);
+        startDate.setDate(startDate.getDate() - days + 1);
+        endDate = new Date(toISODate(new Date()) + "T23:59:59.999-03:00");
         totalDays = days;
       }
 
@@ -434,15 +435,15 @@ export function registerCampaignRoutes(app: any) {
           created_at: true,
           answers: true
         },
-        orderBy: { created_at: "asc" },
-        take: 10000
+        orderBy: { created_at: "asc" }
       });
 
       // Bucket diário da evolução: soma de scores, contagem de respostas pontuadas,
       // data de referência e quantidade total de respostas do dia.
       const dailyData: Record<string, { scoreSum: number; answerCount: number; date: Date; responseCount: number }> = {};
 
-      // Pré-inicializa um bucket vazio para cada dia do período.
+      // Pré-inicializa um bucket vazio para cada dia do período (sempre a partir
+      // de instantes de meia-noite BRT, para alinhar com as chaves de toISODate).
       for (let i = 0; i < totalDays; i++) {
         const dayDate = new Date(startDate);
         dayDate.setDate(dayDate.getDate() + i);
@@ -478,7 +479,7 @@ export function registerCampaignRoutes(app: any) {
           const dayData = dailyData[key];
           const satisfaction = dayData.answerCount > 0 ? Math.round((dayData.scoreSum / dayData.answerCount) * 100) / 100 : 0;
           return {
-            name: dayData.date.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }),
+            name: `${key.slice(8, 10)}/${key.slice(5, 7)}`,
             satisfaction,
             prevSatisfaction: 0,
             responses: dayData.responseCount

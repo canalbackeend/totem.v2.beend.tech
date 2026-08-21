@@ -15,16 +15,18 @@ function escapeHtml(value: any): string {
 async function generateProposalNumber() {
   const year = new Date().getFullYear();
   const prefix = "PROP-" + year + "-";
-  const last = await prisma.proposal.findFirst({
+  // Ordenação lexicográfica quebra após 9999 ("9999" > "10000"). Buscamos todos
+  // do ano e usamos o maior número de sequência, evitando a colisão permanente.
+  const existing = await prisma.proposal.findMany({
     where: { proposal_number: { startsWith: prefix } },
-    orderBy: { proposal_number: "desc" },
-    select: { proposal_number: true }
+    select: { proposal_number: true },
   });
-  if (!last) return prefix + "0001";
-  const lastSequenceNumber = parseInt(last.proposal_number.split("-")[2], 10);
-  const nextNum = lastSequenceNumber + 1;
-  const padded = nextNum.toString().padStart(4, "0");
-  return prefix + padded;
+  let maxSequence = 0;
+  for (const proposal of existing) {
+    const sequence = parseInt(proposal.proposal_number.split("-")[2], 10);
+    if (!isNaN(sequence) && sequence > maxSequence) maxSequence = sequence;
+  }
+  return prefix + String(maxSequence + 1).padStart(4, "0");
 }
 
 // proposal_number is @unique; concurrent creates can collide (P2002).

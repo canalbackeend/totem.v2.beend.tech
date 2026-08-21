@@ -127,11 +127,9 @@ async function handleCreateResponse(req: any, res: any) {
       collaborator_name: collabAnswer?.answer || req.body.collaborator_name || null
     };
 
-    const response = await prisma.response.create({
-      data: responseData
-    });
-
-    // Automatically update the campaign's responses_count and perceptions (atomic)
+    // Automatically update the campaign's responses_count and perceptions.
+    // A transação garante que resposta e contadores sejam gravados juntos:
+    // se algo falhar no meio, nada fica parcialmente persistido.
     const answers = req.body.answers || [];
     const ratingAnswer = answers.find((answer: any) => ['SMILE 4', 'SMILE 5', 'NPS', 'Avaliação de 1 à 5'].includes(answer?.type)) || answers[answers.length - 1];
     const lastAnswer = ratingAnswer ? ratingAnswer.answer : null;
@@ -148,10 +146,10 @@ async function handleCreateResponse(req: any, res: any) {
       }
     }
 
-    await prisma.campaign.update({
-      where: { id: campaignId },
-      data: updateData
-    });
+    const [response] = await prisma.$transaction([
+      prisma.response.create({ data: responseData }),
+      prisma.campaign.update({ where: { id: campaignId }, data: updateData }),
+    ]);
 
     res.json(response);
   } catch (err: any) {

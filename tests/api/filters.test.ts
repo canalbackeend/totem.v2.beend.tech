@@ -144,8 +144,10 @@ describe("GET /api/campaigns/:id/evolution - filtros (campanha com dados)", () =
       select: { created_at: true },
       orderBy: { created_at: "desc" },
     });
+    // The evolution endpoint buckets days in America/Sao_Paulo (BRT), so the
+    // query date must be computed in that timezone, not UTC.
     const dateStr = respDate?.created_at
-      ? new Date(respDate.created_at).toISOString().split("T")[0]
+      ? new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(respDate.created_at))
       : "2026-07-03";
 
     const res = await request(app)
