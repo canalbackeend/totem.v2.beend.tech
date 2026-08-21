@@ -7,7 +7,7 @@ import { registerHealthRoutes } from "./routes/health";
 import { registerCampaignMetricsRoutes, registerCampaignRoutes, registerCampaignResetRoute } from "./routes/campaigns";
 import { registerUploadRoutes } from "./uploads";
 import { registerShopRoutes } from "./routes/shop";
-import { registerAdminTrackingRoute, registerPlatformSettingsRoutes, registerAdminLateRoutes } from "./routes/admin";
+import { registerAdminTrackingRoute, registerPlatformSettingsRoutes, registerAdminLateRoutes, registerAdminLogsRoute } from "./routes/admin";
 import { registerTerminalRoutes } from "./routes/terminals";
 import { registerResponseRoutes } from "./responses";
 import { registerCompanyRoutes } from "./routes/companies";
@@ -50,6 +50,7 @@ function buildApp() {
   registerCampaignRoutes(app);
   registerShopRoutes(app);
   registerAdminTrackingRoute(app);
+  registerAdminLogsRoute(app);
   registerTerminalRoutes(app);
   registerResponseRoutes(app);
   registerPlatformSettingsRoutes(app);

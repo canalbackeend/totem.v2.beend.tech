@@ -2,6 +2,9 @@ import { prisma, authenticateToken, whitelist, parseCampaignList, publicUser, pu
 import { getSatisfactionScore } from "../../lib/metrics";
 import { parseAnswers } from "../../lib/answers";
 import { calculateCampaignMetrics } from "../metrics";
+import { logUserAction, buildDiff } from "../audit";
+
+const CAMPAIGN_FIELDS = ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "thank_you_message", "start_image", "end_image", "flow_layout"];
 
 // Campaign metrics + secure report token (registered before upload/campaign CRUD)
 export function registerCampaignMetricsRoutes(app: any) {
@@ -289,6 +292,13 @@ export function registerCampaignRoutes(app: any) {
       const campaign = await prisma.campaign.create({
         data: { ...whitelist(req.body, ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "thank_you_message", "start_image", "end_image", "flow_layout"]), user_id: req.user.id }
       });
+      logUserAction(prisma, req, {
+        action: "campaign.create",
+        entityType: "campaign",
+        entityId: campaign.id,
+        entityName: campaign.name,
+        details: { type: campaign.type },
+      });
       res.json(campaign);
     } catch (err: any) {
       console.error("Campaign create error:", err);
@@ -334,6 +344,14 @@ export function registerCampaignRoutes(app: any) {
       }
 
       res.json(campaign);
+
+      logUserAction(prisma, req, {
+        action: "campaign.update",
+        entityType: "campaign",
+        entityId: campaign.id,
+        entityName: campaign.name,
+        details: { changed: buildDiff(existing, campaign, CAMPAIGN_FIELDS) },
+      });
     } catch (err: any) {
       console.error("Campaign update error:", err);
       res.status(500).json({ error: "Erro ao atualizar campanha." });
@@ -375,6 +393,12 @@ export function registerCampaignRoutes(app: any) {
         }
       });
       res.sendStatus(204);
+      logUserAction(prisma, req, {
+        action: "campaign.delete",
+        entityType: "campaign",
+        entityId: existing.id,
+        entityName: existing.name,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -586,6 +610,12 @@ export function registerCampaignResetRoute(app: any) {
       ]);
 
       res.json({ message: "Campaign reset successfully" });
+      logUserAction(prisma, req, {
+        action: "campaign.reset",
+        entityType: "campaign",
+        entityId: campaign.id,
+        entityName: campaign.name,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

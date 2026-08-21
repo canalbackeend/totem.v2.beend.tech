@@ -9,6 +9,33 @@ import {
   BLOCKED_ACCOUNT_ERROR,
 } from "../deps";
 import { normalizeEmail } from "../terminal-email";
+import { logAudit } from "../audit";
+
+// Registra tentativa de login (sucesso ou falha) para auditoria de reclamações.
+function logLogin(
+  req: any,
+  data: {
+    actorType: string;
+    actorId: string | null;
+    actorLabel: string;
+    companyEmail?: string | null;
+    companyName?: string | null;
+    success: boolean;
+    reason: string;
+  },
+) {
+  logAudit(prisma, req, {
+    actorType: data.actorType,
+    actorId: data.actorId,
+    actorLabel: data.actorLabel,
+    companyEmail: data.companyEmail ?? null,
+    companyName: data.companyName ?? null,
+    action: data.actorType === "terminal" ? "terminal.login" : "auth.login",
+    entityType: "auth",
+    details: { reason: data.reason },
+    success: data.success,
+  });
+}
 
 // Must be registered BEFORE the global /api rate limiter (original ordering)
 export function registerEarlyAuthRoutes(app: any) {
@@ -94,14 +121,17 @@ export function registerAuthRoutes(app: any) {
       });
       if (!user || !user.password) {
         console.log(`Login failed: user not found`);
+        logLogin(req, { actorType: "user", actorId: null, actorLabel: cleanEmail, success: false, reason: "usuário não encontrado" });
         return res.status(401).json({ error: "E-mail ou senha incorretos." });
       }
       const valid = await bcrypt.compare(password, user.password);
       if (!valid) {
         console.log(`Login failed: incorrect password`);
+        logLogin(req, { actorType: "user", actorId: user.id, actorLabel: user.email, companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "senha incorreta" });
         return res.status(401).json({ error: "E-mail ou senha incorretos." });
       }
       if (user.status !== "Ativo") {
+        logLogin(req, { actorType: "user", actorId: user.id, actorLabel: user.email, companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "conta bloqueada" });
         return res
           .status(403)
           .json({ error: "Conta bloqueada. Entre em contato com o suporte." });
@@ -109,6 +139,7 @@ export function registerAuthRoutes(app: any) {
       const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
         expiresIn: "7d",
       });
+      logLogin(req, { actorType: "user", actorId: user.id, actorLabel: user.email, companyEmail: user.email, companyName: user.empresa || null, success: true, reason: "login realizado" });
       res.json({
         message: "Login OK",
         user: publicUser(user),
@@ -133,6 +164,7 @@ export function registerAuthRoutes(app: any) {
       });
 
       if (!terminal || !terminal.password) {
+        logLogin(req, { actorType: "terminal", actorId: null, actorLabel: String(email).trim().toLowerCase(), success: false, reason: "credenciais inválidas" });
         return res
           .status(401)
           .json({ error: "Credenciais de terminal inválidas" });
@@ -144,12 +176,14 @@ export function registerAuthRoutes(app: any) {
           ? await bcrypt.compare(password, terminal.password)
           : password === terminal.password;
       if (!isValid) {
+        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", success: false, reason: "credenciais inválidas" });
         return res
           .status(401)
           .json({ error: "Credenciais de terminal inválidas" });
       }
 
       if (terminal.status === "Bloqueado") {
+        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", success: false, reason: "terminal bloqueado" });
         return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
@@ -169,16 +203,19 @@ export function registerAuthRoutes(app: any) {
       });
 
       if (!user) {
+        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", success: false, reason: "conta do dono não encontrada" });
         return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (user.status !== "Ativo") {
+        logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "conta bloqueada" });
         return res.status(403).json(BLOCKED_ACCOUNT_ERROR);
       }
 
       if (user.plano === "Teste 7 dias" && user.vencimento) {
         const expirationDate = new Date(user.vencimento);
         if (new Date() > expirationDate) {
+          logLogin(req, { actorType: "terminal", actorId: terminal.id, actorLabel: terminal.email || "", companyEmail: user.email, companyName: user.empresa || null, success: false, reason: "período de teste expirado" });
           return res.status(403).json({
             error: "Período de teste expirado. Entre em contato com o suporte.",
           });
@@ -196,6 +233,16 @@ export function registerAuthRoutes(app: any) {
         JWT_SECRET,
         { expiresIn: "7d" },
       );
+
+      logLogin(req, {
+        actorType: "terminal",
+        actorId: terminal.id,
+        actorLabel: terminal.email || "",
+        companyEmail: user.email,
+        companyName: user.empresa || null,
+        success: true,
+        reason: "login realizado",
+      });
 
       res.json({
         id: terminal.id,

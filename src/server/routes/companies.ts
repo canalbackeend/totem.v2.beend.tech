@@ -1,6 +1,9 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma, authenticateToken, whitelist, publicCompany, isMasterAdmin } from "../deps";
+import { logAudit, buildDiff } from "../audit";
+
+const COMPANY_FIELDS = ["empresa", "responsavel", "email", "cnpj", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "plano", "vencimento", "status", "logo_url", "max_terminals"];
 
 // Senha aleatória quando o admin não informa uma (evita o default fraco "123456").
 function generateRandomPassword(): string {
@@ -102,6 +105,17 @@ export function registerCompanyRoutes(app: any) {
           ...whitelist(req.body, ["empresa", "responsavel", "cnpj", "telefone", "cep", "endereco", "complemento", "cidade", "estado", "plano", "vencimento", "status", "logo_url", "max_terminals"]),
           email: cleanEmail,
         } 
+      });
+      logAudit(prisma, req, {
+        actorType: "user",
+        actorId: req.user.id,
+        actorLabel: req.user.email,
+        companyEmail: cleanEmail,
+        companyName: company.empresa,
+        action: "company.create",
+        entityType: "company",
+        entityId: company.id,
+        entityName: company.empresa,
       });
       
       // Create or update corresponding user so they can login
@@ -239,6 +253,18 @@ export function registerCompanyRoutes(app: any) {
       }
 
       res.json(publicCompany(company));
+      logAudit(prisma, req, {
+        actorType: "user",
+        actorId: req.user.id,
+        actorLabel: req.user.email,
+        companyEmail: company.email,
+        companyName: company.empresa,
+        action: "company.update",
+        entityType: "company",
+        entityId: company.id,
+        entityName: company.empresa,
+        details: { changed: buildDiff(oldCompany, company, COMPANY_FIELDS) },
+      });
     } catch (err: any) {
       console.error("Update company error:", err);
       res.status(500).json({ error: err.message });
@@ -260,6 +286,18 @@ export function registerCompanyRoutes(app: any) {
           data: { password: hashedPassword }
         })
       ]);
+
+      logAudit(prisma, req, {
+        actorType: "user",
+        actorId: req.user.id,
+        actorLabel: req.user.email,
+        companyEmail: company.email,
+        companyName: company.empresa,
+        action: "company.password_reset",
+        entityType: "company",
+        entityId: company.id,
+        entityName: company.empresa,
+      });
 
       res.json({ message: "Senha alterada com sucesso" });
     } catch (err: any) {
@@ -297,6 +335,18 @@ export function registerCompanyRoutes(app: any) {
       ]);
 
       res.json({ message: `Empresa ${status === "Ativo" ? "desbloqueada" : "bloqueada"} com sucesso`, status });
+      logAudit(prisma, req, {
+        actorType: "user",
+        actorId: req.user.id,
+        actorLabel: req.user.email,
+        companyEmail: company.email,
+        companyName: company.empresa,
+        action: "company.status",
+        entityType: "company",
+        entityId: company.id,
+        entityName: company.empresa,
+        details: { status },
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
@@ -317,6 +367,17 @@ export function registerCompanyRoutes(app: any) {
         ...(user ? [prisma.user.delete({ where: { id: user.id } })] : []),
       ]);
       res.sendStatus(204);
+      logAudit(prisma, req, {
+        actorType: "user",
+        actorId: req.user.id,
+        actorLabel: req.user.email,
+        companyEmail: company.email,
+        companyName: company.empresa,
+        action: "company.delete",
+        entityType: "company",
+        entityId: company.id,
+        entityName: company.empresa,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

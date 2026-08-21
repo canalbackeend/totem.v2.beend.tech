@@ -28,6 +28,7 @@ import PlatformSettings from './pages/PlatformSettings';
 import OnlineTracking from './pages/OnlineTracking';
 import Companies from './pages/Companies';
 import CreateCompany from './pages/CreateCompany';
+import AuditLogs from './pages/AuditLogs';
 import Responses from './pages/Responses';
 import Login from './pages/Login';
 import Survey from './pages/Survey';
@@ -82,6 +83,7 @@ export default function App() {
               <Route element={<AdminRoute />}>
                 <Route path="platform-settings" element={<PlatformSettings />} />
                 <Route path="tracking" element={<OnlineTracking />} />
+                <Route path="logs" element={<AuditLogs />} />
                 <Route path="empresas" element={<Companies />} />
                 <Route path="empresas/novo" element={<CreateCompany />} />
                 <Route path="empresas/editar/:id" element={<CreateCompany />} />

@@ -96,9 +96,7 @@ const DAILY_REPORTS_LOCK_KEY = 7248361;
 
 // Ability to disable daily reports via env var (useful for isolation tests)
 // Set ENABLE_DAILY_REPORTS=false in Coolify to turn the daily report cron off.
-const dailyReportsEnabled = process.env.ENABLE_DAILY_REPORTS !== "false";
-
-// Schedule task to run every minute and check the time
+const dailyReportsEnabled = process.env.ENABLE_DAILY_REPORTS !== "false";// Schedule task to run every minute and check the time
 if (dailyReportsEnabled) {
   cron.schedule("* * * * *", async () => {
     if (cronRunning) return;
@@ -131,6 +129,39 @@ if (dailyReportsEnabled) {
     timezone: "America/Sao_Paulo"
   });
 }
+
+// Limpeza automática do sistema de logs: apaga entradas de auditoria mais
+// antigas que 90 dias. Usa o MESMO client dedicado do lock distribuído (uma
+// única conexão), mas com chave própria — evita apagar em duplicado quando
+// há múltiplas instâncias.
+const AUDIT_CLEANUP_LOCK_KEY = 7248362;
+const AUDIT_LOG_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
+cron.schedule(
+  "0 3 * * *",
+  async () => {
+    try {
+      const lockResult = await reportLockClient.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_lock(${AUDIT_CLEANUP_LOCK_KEY}) AS acquired`;
+      if (!lockResult[0]?.acquired) return;
+      try {
+        const cutoff = new Date(Date.now() - AUDIT_LOG_RETENTION_MS);
+        const result = await prisma.auditLog.deleteMany({
+          where: { created_at: { lt: cutoff } },
+        });
+        if (result.count > 0) {
+          console.log(`Audit log cleanup: ${result.count} registros removidos (mais de 90 dias).`);
+        }
+      } finally {
+        await reportLockClient.$queryRaw`SELECT pg_advisory_unlock(${AUDIT_CLEANUP_LOCK_KEY})`.catch(() => {});
+      }
+    } catch (err) {
+      console.error("Erro na limpeza dos logs de auditoria:", err);
+    }
+  },
+  {
+    timezone: "America/Sao_Paulo",
+  },
+);
 
 export async function startServer() {
   // Seed the admin user if missing and sync companies

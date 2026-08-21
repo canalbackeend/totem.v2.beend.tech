@@ -10,6 +10,85 @@ import {
 } from "../deps";
 import { sendDailyReports } from "../email";
 
+// Consulta do sistema de logs (auditoria). Só o master admin enxerga o que
+// todas as empresas fizeram: CRUD de campanhas/terminais, reset e logins.
+export function registerAdminLogsRoute(app: any) {
+  app.get(
+    "/api/admin/logs",
+    authenticateToken,
+    async (req: any, res: any) => {
+      try {
+        if (!isMasterAdmin(req)) {
+          return res
+            .status(403)
+            .json({ error: "Only master admin can access logs" });
+        }
+
+        const page = parseInt(req.query.page as string) || 1;
+        const requestedSize = parseInt(req.query.pageSize as string) || 20;
+        const pageSize = Math.min(Math.max(requestedSize, 1), 100);
+
+        const where: any = {};
+
+        if (req.query.search) {
+          const term = String(req.query.search).trim();
+          if (term) {
+            where.OR = [
+              { actor_label: { contains: term, mode: "insensitive" } },
+              { entity_name: { contains: term, mode: "insensitive" } },
+            ];
+          }
+        }
+        if (req.query.action) where.action = String(req.query.action);
+        if (req.query.entity_type) where.entity_type = String(req.query.entity_type);
+        if (req.query.actor_type) where.actor_type = String(req.query.actor_type);
+        if (req.query.company) {
+          const term = String(req.query.company).trim();
+          if (term) {
+            where.AND = [
+              ...(where.OR ? [where.OR] : []),
+              {
+                OR: [
+                  { company_email: { contains: term, mode: "insensitive" } },
+                  { company_name: { contains: term, mode: "insensitive" } },
+                ],
+              },
+            ];
+            delete where.OR;
+          }
+        }
+        if (req.query.success === "true") where.success = true;
+        if (req.query.success === "false") where.success = false;
+
+        const isDay = (v: any) => /^\d{4}-\d{2}-\d{2}$/.test(String(v));
+        if (req.query.start) {
+          const v = String(req.query.start);
+          where.created_at = { gte: isDay(v) ? new Date(`${v}T00:00:00.000-03:00`) : new Date(v) };
+        }
+        if (req.query.end) {
+          const v = String(req.query.end);
+          const base = isDay(v) ? new Date(`${v}T23:59:59.999-03:00`) : new Date(v);
+          where.created_at = { ...(where.created_at || {}), lte: base };
+        }
+
+        const [data, count] = await prisma.$transaction([
+          prisma.auditLog.findMany({
+            where,
+            orderBy: { created_at: "desc" },
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+          }),
+          prisma.auditLog.count({ where }),
+        ]);
+
+        res.json({ data, count, page, pageSize });
+      } catch (err: any) {
+        res.status(500).json({ error: err.message });
+      }
+    },
+  );
+}
+
 // Admin tracking lives here (before terminals/responses in route order)
 export function registerAdminTrackingRoute(app: any) {
   app.get(

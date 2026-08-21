@@ -1,4 +1,4 @@
-import { Bell, Settings, User, LogOut, HelpCircle, ShoppingCart, Shield, Wifi, Building2, Globe, Sun, Moon, FileText } from 'lucide-react';
+import { Bell, Settings, User, LogOut, HelpCircle, ShoppingCart, Shield, Wifi, Building2, Globe, Sun, Moon, FileText, History } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -86,6 +86,17 @@ export const Navbar = () => {
                 >
                   <Wifi size={20} />
                   <span className={`absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border ${isDarkMode ? 'border-zinc-900' : 'border-white'}`} />
+                </motion.button>
+              </Link>
+
+              <Link to="/logs" className="flex items-center">
+                <motion.button 
+                  whileHover={{ scale: 1.1 }} 
+                  whileTap={{ scale: 0.95 }} 
+                  title="Logs de Auditoria"
+                  className={`${isDarkMode ? 'text-zinc-500 hover:text-[#0b82ff]' : 'text-slate-400 hover:text-[#0b82ff]'} transition-colors cursor-pointer flex items-center`}
+                >
+                  <History size={20} />
                 </motion.button>
               </Link>
 

@@ -2,6 +2,9 @@ import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { prisma, authenticateToken, whitelist, isMasterAdmin, ADMIN_EMAIL } from "../deps";
 import { normalizeEmail, isValidEmail, emailInUse, generateUniqueTerminalEmail } from "../terminal-email";
+import { logUserAction, buildDiff } from "../audit";
+
+const TERMINAL_FIELDS = ["name", "campaigns", "redirect_url", "status", "email"];
 
 // Senha aleatória quando o usuário não informa uma (evita senha fraca default).
 function generateRandomPassword(): string {
@@ -96,6 +99,13 @@ export function registerTerminalRoutes(app: any) {
       const terminal = await prisma.terminal.create({
         data: { ...whitelist(rest, ["name", "campaigns", "redirect_url", "status"]), email, password: hashedPassword, user_id: req.user.id }
       });
+      logUserAction(prisma, req, {
+        action: "terminal.create",
+        entityType: "terminal",
+        entityId: terminal.id,
+        entityName: terminal.name,
+        details: { email },
+      });
       const { password: _, ...terminalWithoutHash } = terminal;
       res.json({ ...terminalWithoutHash, password: plainPassword });
     } catch (err: any) {
@@ -146,6 +156,14 @@ export function registerTerminalRoutes(app: any) {
       });
       const { password: _, ...terminalWithoutHash } = terminal;
       res.json({ ...terminalWithoutHash, password: password || null });
+
+      logUserAction(prisma, req, {
+        action: "terminal.update",
+        entityType: "terminal",
+        entityId: terminal.id,
+        entityName: terminal.name,
+        details: { changed: buildDiff(existing, terminal, TERMINAL_FIELDS) },
+      });
     } catch (err: any) {
       if (err?.code === "P2002") {
         return res.status(409).json({ error: "Este login já está em uso por outro terminal." });
@@ -168,6 +186,12 @@ export function registerTerminalRoutes(app: any) {
         where,
         data: { password: hashedPassword }
       });
+      logUserAction(prisma, req, {
+        action: "terminal.password_reset",
+        entityType: "terminal",
+        entityId: terminal.id,
+        entityName: terminal.name,
+      });
       const { password: _, ...terminalWithoutHash } = terminal;
       res.json({ ...terminalWithoutHash, password: newPassword });
     } catch (err: any) {
@@ -188,6 +212,12 @@ export function registerTerminalRoutes(app: any) {
         where: { id: existing.id }
       });
       res.sendStatus(204);
+      logUserAction(prisma, req, {
+        action: "terminal.delete",
+        entityType: "terminal",
+        entityId: existing.id,
+        entityName: existing.name,
+      });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

@@ -164,6 +164,29 @@ model ReportToken {
   @@map("report_tokens")
 }
 
+model AuditLog {
+  id            String   @id @default(uuid())
+  actor_type    String   // "user" (plataforma) | "terminal" (kiosk)
+  actor_id      String?
+  actor_label   String   // e-mail do user ou do terminal
+  company_email String?
+  company_name  String?
+  action        String   // campaign.create/update/delete/reset, terminal.*, company.*, auth.login, terminal.login
+  entity_type   String   // campaign | terminal | company | auth
+  entity_id     String?
+  entity_name   String?
+  details       Json     @default("{}")
+  ip            String?
+  success       Boolean  @default(true)
+  created_at    DateTime @default(now())
+
+  @@index([created_at])
+  @@index([company_email])
+  @@index([entity_type])
+  @@index([action])
+  @@map("audit_logs")
+}
+
 model Proposal {
   id                    String    @id @default(uuid())
   proposal_number       String    @unique
