@@ -4,7 +4,7 @@ import { prisma, authenticateToken, whitelist, publicCompany, ADMIN_EMAIL } from
 // Admin Companies
 export function registerCompanyRoutes(app: any) {
   app.get("/api/companies", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     const { page = "1", pageSize = "10", search } = req.query;
     const p = parseInt(page as string) || 1;
     const ps = parseInt(pageSize as string) || 10;
@@ -38,7 +38,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.get("/api/companies/:id/access-data", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
       if (!company) return res.status(404).json({ error: "Empresa não encontrada" });
@@ -64,7 +64,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.get("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
       res.json(publicCompany(company));
@@ -74,7 +74,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.post("/api/companies", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const cleanEmail = String(req.body.email || "").trim().toLowerCase();
       
@@ -152,7 +152,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.patch("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const oldCompany = await prisma.company.findUnique({ where: { id: req.params.id } });
       if (!oldCompany) return res.status(404).json({ error: "Empresa não encontrada" });
@@ -216,7 +216,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.post("/api/companies/:id/reset-password", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
       if (!company) return res.status(404).json({ error: "Empresa não encontrada" });
@@ -239,7 +239,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.patch("/api/companies/:id/status", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const { status } = req.body;
       if (!["Ativo", "Bloqueado"].includes(status)) {
@@ -273,7 +273,7 @@ export function registerCompanyRoutes(app: any) {
   });
 
   app.delete("/api/companies/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       await prisma.company.delete({ where: { id: req.params.id } });
       res.sendStatus(204);

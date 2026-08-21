@@ -5,6 +5,7 @@ import {
   ADMIN_EMAIL,
   ADMIN_PASSWORD,
   ADMIN_RESET_SECRET,
+  authLimiter,
 } from "../deps";
 import { sendDailyReports } from "../email";
 
@@ -15,7 +16,7 @@ export function registerAdminTrackingRoute(app: any) {
     authenticateToken,
     async (req: any, res: any) => {
       try {
-        if (req.user.email !== ADMIN_EMAIL) {
+        if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
           return res
             .status(403)
             .json({ error: "Only master admin can access tracking" });
@@ -118,7 +119,7 @@ export function registerPlatformSettingsRoutes(app: any) {
     "/api/platform-settings/:key",
     authenticateToken,
     async (req: any, res: any) => {
-      if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
       try {
         const setting = await prisma.platformSettings.upsert({
           where: { key: req.params.key },
@@ -159,7 +160,7 @@ export function registerPlatformSettingsRoutes(app: any) {
 // Emergency/trigger admin endpoints (no path overlap with tracking; registered last)
 export function registerAdminLateRoutes(app: any) {
   // Emergency admin reset (useful when admin is locked out after deploy)
-  app.post("/api/admin/reset-admin", async (req: any, res: any) => {
+  app.post("/api/admin/reset-admin", authLimiter, async (req: any, res: any) => {
     try {
       const secret = req.headers["x-admin-secret"];
       if (typeof secret !== "string" || secret !== ADMIN_RESET_SECRET) {
@@ -195,7 +196,7 @@ export function registerAdminLateRoutes(app: any) {
     "/api/admin/trigger-reports",
     authenticateToken,
     async (req: any, res: any) => {
-      if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
       try {
         await sendDailyReports();
         res.json({ message: "Task triggered" });

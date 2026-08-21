@@ -52,7 +52,7 @@ async function handleCreateResponse(req: any, res: any) {
         return res.status(403).json({ error: "Terminal não pertence à campanha informada" });
       }
     } else {
-      const isMasterAdmin = req.user.email === ADMIN_EMAIL && !req.user.terminal_id;
+      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
       if (req.user.terminal_id) {
         if (!terminalId || terminalId !== req.user.terminal_id) {
           return res.status(403).json({ error: "Só é permitido enviar respostas do próprio terminal" });
@@ -168,7 +168,7 @@ export function registerResponseRoutes(app: any) {
   app.get("/api/responses", authenticateToken, async (req: any, res) => {
     const { campaign_id, startDate, endDate, terminal_id, collaborator_name } = req.query;
     const userId = req.user.id;
-    const isMasterAdmin = req.user.email === ADMIN_EMAIL && !req.user.terminal_id;
+    const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
     
     try {
       const profile = await prisma.user.findUnique({ where: { id: userId } });

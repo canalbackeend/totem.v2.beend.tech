@@ -27,39 +27,42 @@ export function registerEarlyAuthRoutes(app: any) {
       const trialExpiration = new Date(now);
       trialExpiration.setDate(trialExpiration.getDate() + 7);
 
-      // 1. Create User
-      const user = await prisma.user.create({
-        data: {
-          email: cleanEmail,
-          password: hashedPassword,
-          nome: nome || cleanEmail.split("@")[0],
-          empresa: empresa || "Minha Empresa",
-          plano: "Teste 7 dias",
-          vencimento: trialExpiration.toISOString(),
-          status: "Ativo",
-          max_terminals: 5,
-        },
+      // 1+2. Create User and Company atomically (no orphaned user if company fails)
+      const created = await prisma.$transaction(async (tx) => {
+        const user = await tx.user.create({
+          data: {
+            email: cleanEmail,
+            password: hashedPassword,
+            nome: nome || cleanEmail.split("@")[0],
+            empresa: empresa || "Minha Empresa",
+            plano: "Teste 7 dias",
+            vencimento: trialExpiration.toISOString(),
+            status: "Ativo",
+            max_terminals: 5,
+          },
+        });
+
+        await tx.company.create({
+          data: {
+            empresa: empresa || "Minha Empresa",
+            email: cleanEmail,
+            // password: password, // REMOVED: security risk
+            responsavel: nome || cleanEmail.split("@")[0],
+            cnpj: "", // Required field in schema
+            plano: "Teste 7 dias",
+            vencimento: trialExpiration.toISOString(),
+            status: "Ativo",
+            max_terminals: 5,
+          },
+        });
+
+        return user;
       });
 
-      // 2. Create Company to show in /empresas list
-      await prisma.company.create({
-        data: {
-          empresa: empresa || "Minha Empresa",
-          email: cleanEmail,
-          // password: password, // REMOVED: security risk
-          responsavel: nome || cleanEmail.split("@")[0],
-          cnpj: "", // Required field in schema
-          plano: "Teste 7 dias",
-          vencimento: trialExpiration.toISOString(),
-          status: "Ativo",
-          max_terminals: 5,
-        },
-      });
-
-      const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, {
+      const token = jwt.sign({ id: created.id, email: created.email }, JWT_SECRET, {
         expiresIn: "7d",
       });
-      res.json({ user: publicUser(user), session: { access_token: token } });
+      res.json({ user: publicUser(created), session: { access_token: token } });
     } catch (err: any) {
       console.error("Register error:", err);
       if (err.code === "P2002") {
@@ -161,13 +164,19 @@ export function registerAuthRoutes(app: any) {
         where: { id: terminal.user_id },
       });
 
-      if (user && user.status !== "Ativo") {
+      if (!user) {
+        return res
+          .status(403)
+          .json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+      }
+
+      if (user.status !== "Ativo") {
         return res.status(403).json({
           error: "Conta bloqueada, impossível sincronizar os dados.",
         });
       }
 
-      if (user && user.plano === "Teste 7 dias" && user.vencimento) {
+      if (user.plano === "Teste 7 dias" && user.vencimento) {
         const expirationDate = new Date(user.vencimento);
         if (new Date() > expirationDate) {
           return res.status(403).json({
@@ -182,6 +191,7 @@ export function registerAuthRoutes(app: any) {
           id: terminal.user_id,
           terminal_id: terminal.id,
           email: terminal.email,
+          isTerminal: true,
         },
         JWT_SECRET,
         { expiresIn: "7d" },

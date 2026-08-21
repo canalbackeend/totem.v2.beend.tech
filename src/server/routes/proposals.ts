@@ -1,6 +1,17 @@
 import { prisma, authenticateToken, ADMIN_EMAIL } from "../deps";
 import { transporter } from "../email";
 
+// Escape HTML entities to prevent stored XSS in email content
+function escapeHtml(value: any): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 async function generateProposalNumber() {
   const year = new Date().getFullYear();
   const prefix = "PROP-" + year + "-";
@@ -19,7 +30,7 @@ async function generateProposalNumber() {
 // --- PROPOSALS (Admin Only) ---
 export function registerProposalRoutes(app: any) {
   app.get("/api/proposals", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const page = parseInt(req.query.page as string) || 1;
       const pageSize = parseInt(req.query.pageSize as string) || 10;
@@ -52,7 +63,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.get("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const proposal = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!proposal) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -63,7 +74,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.post("/api/proposals", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const proposalNumber = await generateProposalNumber();
       const today = new Date();
@@ -127,7 +138,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.patch("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -174,7 +185,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.delete("/api/proposals/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       await prisma.proposal.delete({ where: { id: req.params.id } });
       res.sendStatus(204);
@@ -184,7 +195,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.post("/api/proposals/:id/clone", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const existing = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!existing) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -233,7 +244,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.patch("/api/proposals/:id/status", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const { status } = req.body;
       if (!["Rascunho", "Enviada", "Aprovada", "Recusada"].includes(status)) {
@@ -250,7 +261,7 @@ export function registerProposalRoutes(app: any) {
   });
 
   app.post("/api/proposals/:id/send", authenticateToken, async (req: any, res: any) => {
-    if (req.user.email !== ADMIN_EMAIL) return res.sendStatus(403);
+    if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) return res.sendStatus(403);
     try {
       const proposal = await prisma.proposal.findUnique({ where: { id: req.params.id } });
       if (!proposal) return res.status(404).json({ error: "Proposta não encontrada" });
@@ -264,7 +275,7 @@ export function registerProposalRoutes(app: any) {
 
       const itemsHtml = items.map((item: any) => `
         <tr>
-          <td style="padding: 8px; border-bottom: 1px solid #eee;">${item.name || "-"}${item.description ? `<br><small style="color: #999;">${item.description}</small>` : ""}</td>
+          <td style="padding: 8px; border-bottom: 1px solid #eee;">${escapeHtml(item.name) || "-"}${item.description ? `<br><small style="color: #999;">${escapeHtml(item.description)}</small>` : ""}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: center;">${item.qty || 1}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">R$ ${formatCurrency(parseFloat(item.unit_price) || 0)}</td>
           <td style="padding: 8px; border-bottom: 1px solid #eee; text-align: right;">R$ ${formatCurrency(parseFloat(item.total) || 0)}</td>
@@ -277,7 +288,7 @@ export function registerProposalRoutes(app: any) {
       const mailOptions = {
         from: `"beend.tech" <${process.env.GMAIL_USER}>`,
         to: proposal.email,
-        subject: `Proposta Comercial ${proposal.proposal_number} - beend.tech`,
+        subject: `Proposta Comercial ${escapeHtml(proposal.proposal_number)} - beend.tech`,
         html: `
           <div style="font-family: sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px; overflow: hidden;">
             <div style="background: linear-gradient(135deg, #0b82ff, #0b6ed4); padding: 25px; text-align: center;">
@@ -285,12 +296,12 @@ export function registerProposalRoutes(app: any) {
               <p style="color: rgba(255,255,255,0.8); margin: 5px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: 2px;">Solução Inteligente de Feedback</p>
             </div>
             <div style="padding: 30px;">
-              <h2 style="color: #333; margin: 0 0 5px;">Proposta Comercial ${proposal.proposal_number}</h2>
-              <p style="color: #999; font-size: 13px; margin: 0 0 25px;">${proposal.client_name}</p>
+              <h2 style="color: #333; margin: 0 0 5px;">Proposta Comercial ${escapeHtml(proposal.proposal_number)}</h2>
+              <p style="color: #999; font-size: 13px; margin: 0 0 25px;">${escapeHtml(proposal.client_name)}</p>
               
               ${proposal.greeting || proposal.general_description ? `
-              <p style="color: #555; font-size: 15px; line-height: 1.6;">${proposal.greeting ? proposal.greeting + (proposal.client_name ? " " + proposal.client_name : "") : ""}</p>
-              <p style="color: #555; font-size: 14px; line-height: 1.6;">${proposal.general_description || ""}</p>
+              <p style="color: #555; font-size: 15px; line-height: 1.6;">${proposal.greeting ? escapeHtml(proposal.greeting) + (proposal.client_name ? " " + escapeHtml(proposal.client_name) : "") : ""}</p>
+              <p style="color: #555; font-size: 14px; line-height: 1.6;">${escapeHtml(proposal.general_description) || ""}</p>
               ` : ""}
               
               ${items.length > 0 ? `
@@ -328,14 +339,14 @@ export function registerProposalRoutes(app: any) {
               ${proposal.payment_terms ? `
                 <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 6px;">
                   <h4 style="color: #333; margin: 0 0 8px; font-size: 14px;">Forma de Pagamento</h4>
-                  <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${proposal.payment_terms}</p>
+                  <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(proposal.payment_terms)}</p>
                 </div>
               ` : ""}
               
               ${proposal.observations ? `
                 <div style="margin: 20px 0; padding: 15px; background: #fffbeb; border-radius: 6px; border-left: 3px solid #f59e0b;">
                   <h4 style="color: #333; margin: 0 0 8px; font-size: 14px;">Observações</h4>
-                  <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${proposal.observations}</p>
+                  <p style="color: #555; margin: 0; font-size: 14px; line-height: 1.5;">${escapeHtml(proposal.observations)}</p>
                 </div>
               ` : ""}
               

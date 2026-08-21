@@ -4,7 +4,7 @@ import { prisma, authenticateToken, whitelist, publicUser, ADMIN_EMAIL } from ".
 // Profile / Profiles
 export function registerProfileRoutes(app: any) {
   app.patch("/api/profiles/:id", authenticateToken, async (req: any, res: any) => {
-    if (req.user.id !== req.params.id && req.user.email !== ADMIN_EMAIL) {
+    if (req.user.id !== req.params.id && (req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
        return res.sendStatus(403);
     }
     try {

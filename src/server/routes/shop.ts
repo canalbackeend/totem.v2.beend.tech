@@ -15,7 +15,7 @@ export function registerShopRoutes(app: any) {
 
   app.post("/api/products", authenticateToken, async (req: any, res: any) => {
     try {
-      if (req.user.email !== ADMIN_EMAIL) {
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
         return res.status(403).json({ error: "Only master admin can manage products" });
       }
       const product = await prisma.shopProduct.create({
@@ -30,7 +30,7 @@ export function registerShopRoutes(app: any) {
 
   app.patch("/api/products/:id", authenticateToken, async (req: any, res: any) => {
     try {
-      if (req.user.email !== ADMIN_EMAIL) {
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
         return res.status(403).json({ error: "Only master admin can manage products" });
       }
       const product = await prisma.shopProduct.update({
@@ -46,7 +46,7 @@ export function registerShopRoutes(app: any) {
 
   app.delete("/api/products/:id", authenticateToken, async (req: any, res: any) => {
     try {
-      if (req.user.email !== ADMIN_EMAIL) {
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
         return res.status(403).json({ error: "Only master admin can manage products" });
       }
       await prisma.shopProduct.delete({

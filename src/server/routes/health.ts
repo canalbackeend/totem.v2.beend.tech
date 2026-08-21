@@ -28,7 +28,7 @@ export function registerHealthRoutes(app: any) {
   app.get("/api/dashboard/stats", authenticateToken, async (req: any, res: any) => {
     try {
       const userId = req.user.id;
-      const isMasterAdmin = req.user.email === ADMIN_EMAIL;
+      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
 
       let campaignFilter: any = {};
       let terminalFilter: any = {};

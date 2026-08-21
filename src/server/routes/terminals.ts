@@ -15,7 +15,7 @@ export function registerTerminalRoutes(app: any) {
         return res.json([{ ...rest, password: null }]);
       }
 
-      const isMasterAdmin = req.user.email === ADMIN_EMAIL;
+      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
       const profile = await prisma.user.findUnique({ where: { id: req.user.id } });
       const isAdmin = profile?.role === "Administrador";
 
@@ -60,7 +60,7 @@ export function registerTerminalRoutes(app: any) {
         return res.status(403).json({ error: "Empresa bloqueada. Entre em contato com o suporte." });
       }
 
-      const isMasterAdmin = req.user.email === ADMIN_EMAIL;
+      const isMasterAdmin = (req.user.email === ADMIN_EMAIL && !req.user.isTerminal);
 
       if (!isMasterAdmin && user.max_terminals > 0) {
         const termCount = await prisma.terminal.count({ where: { user_id: req.user.id } });
@@ -79,6 +79,8 @@ export function registerTerminalRoutes(app: any) {
       let email = normalizeEmail(rest.email || "");
       if (!email) {
         email = await generateUniqueTerminalEmail();
+      } else if (email === normalizeEmail(ADMIN_EMAIL)) {
+        return res.status(400).json({ error: "E-mail não permitido para terminais." });
       } else if (!isValidEmail(email)) {
         return res.status(400).json({ error: "E-mail inválido. Verifique o formato." });
       } else if (await emailInUse(email)) {
@@ -103,7 +105,7 @@ export function registerTerminalRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if (req.user.email !== ADMIN_EMAIL) {
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
         where.user_id = req.user.id;
       }
       const existing = await prisma.terminal.findFirst({ where });
@@ -119,6 +121,9 @@ export function registerTerminalRoutes(app: any) {
         }
         if (!isValidEmail(email)) {
           return res.status(400).json({ error: "E-mail inválido. Verifique o formato." });
+        }
+        if (email === normalizeEmail(ADMIN_EMAIL)) {
+          return res.status(400).json({ error: "E-mail não permitido para terminais." });
         }
         if (email !== normalizeEmail(existing.email || "") && (await emailInUse(email, existing.id))) {
           return res.status(409).json({ error: "Este login já está em uso por outro terminal." });
@@ -150,7 +155,7 @@ export function registerTerminalRoutes(app: any) {
       const newPassword = req.body.password || "term123";
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       const where: any = { id: req.params.id };
-      if (req.user.email !== ADMIN_EMAIL) {
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
         where.user_id = req.user.id;
       }
       const terminal = await prisma.terminal.update({
@@ -168,7 +173,7 @@ export function registerTerminalRoutes(app: any) {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
       const where: any = { id: req.params.id };
-      if (req.user.email !== ADMIN_EMAIL) {
+      if ((req.user.email !== ADMIN_EMAIL || req.user.isTerminal)) {
         where.user_id = req.user.id;
       }
       await prisma.terminal.delete({

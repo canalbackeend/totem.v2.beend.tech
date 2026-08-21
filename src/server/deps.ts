@@ -3,6 +3,7 @@ import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import { createHash } from "node:crypto";
 
 dotenv.config();
 
@@ -29,7 +30,10 @@ if (!ADMIN_PASSWORD) {
   console.error("FATAL: ADMIN_PASSWORD environment variable is required. Set a strong password for the admin account.");
   process.exit(1);
 }
-export const ADMIN_RESET_SECRET = process.env.ADMIN_RESET_SECRET || ADMIN_PASSWORD;
+// Never fall back to ADMIN_PASSWORD: the reset secret must be independent.
+// Derive from JWT_SECRET (already required/strong) so it stays stable across restarts.
+export const ADMIN_RESET_SECRET =
+  process.env.ADMIN_RESET_SECRET || createHash("sha256").update(`${JWT_SECRET}:beend-admin-reset`).digest("hex");
 
 export const prisma = new PrismaClient();
 
@@ -81,16 +85,39 @@ export function parseCampaignList(value: any): string[] {
   return trimmed.split(",").map((c: string) => c.trim()).filter(Boolean);
 }
 
-// Auth Middleware
-export const authenticateToken = (req: any, res: any, next: any) => {
+// Auth Middleware — re-validates the user against the DB so blocked/deleted
+// accounts lose access immediately (instead of waiting for token expiry).
+export const authenticateToken = async (req: any, res: any, next: any) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) return res.sendStatus(401);
 
-  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+  jwt.verify(token, JWT_SECRET, async (err: any, user: any) => {
     if (err) return res.sendStatus(403);
     req.user = user;
+    req.user.isTerminal = !!user.terminal_id || !!user.isTerminal;
+
+    // Terminal tokens carry the owner's user_id in `id`, so this lookup covers
+    // both user tokens and terminal tokens.
+    try {
+      const dbUser = await prisma.user.findUnique({
+        where: { id: user.id },
+        select: { status: true },
+      });
+      if (!dbUser || dbUser.status !== "Ativo") {
+        return res
+          .status(403)
+          .json({ error: "Conta bloqueada, impossível sincronizar os dados." });
+      }
+    } catch {
+      // Fail-open on DB errors: the JWT is still valid; do not break the app.
+    }
     next();
   });
 };
+
+// Master admin check. Terminals must never match, even if they hold the admin email.
+export function isMasterAdmin(req: any): boolean {
+  return !req.user?.isTerminal && req.user?.email === ADMIN_EMAIL;
+}
