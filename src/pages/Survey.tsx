@@ -428,7 +428,7 @@ export default function Survey() {
           return {
             question: q.text,
             type: q.type,
-            answer: val || null,
+            answer: val === undefined || val === null ? null : val,
             ...(cmt ? { comment: cmt } : {})
           };
         });

@@ -229,7 +229,7 @@ export default function SurveyWeb() {
         return {
           question: q.text,
           type: q.type,
-          answer: val || null,
+          answer: val === undefined || val === null ? null : val,
           ...(cmt ? { comment: cmt } : {})
         };
       });
@@ -254,8 +254,13 @@ export default function SurveyWeb() {
         }, 3000);
       }
     } catch (err: any) {
+      const msg = err?.message || '';
       console.error(err);
-      toast.error('Erro ao enviar respostas');
+      if (msg.includes('bloqueada') || msg.includes('bloqueado')) {
+        toast.error('Conta bloqueada, impossível sincronizar os dados.', { duration: 8000 });
+      } else {
+        toast.error('Erro ao enviar respostas');
+      }
     } finally {
       setLoading(false);
     }

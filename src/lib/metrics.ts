@@ -7,13 +7,13 @@ export function getSatisfactionScore(ans: any, type?: string): SatisfactionScore
   const num = Number(ans);
   const isNum = !isNaN(num) && typeof ans !== 'boolean';
 
-  if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM', 'ÓTIMO', '5', '9', '10'].includes(valStr) || (isNum && num >= 9) || (isNum && type === 'SMILE 5' && num === 5) || (isNum && type === 'SMILE 4' && num === 4) || (isNum && type === 'Avaliação de 1 à 5' && num === 5)) {
+  if (['MUITO SATISFEITO', 'EXCELENTE', 'MUITO BOM', 'ÓTIMO'].includes(valStr) || (isNum && num >= 9) || (isNum && type === 'SMILE 5' && num === 5) || (isNum && type === 'SMILE 4' && num === 4) || (isNum && type === 'Avaliação de 1 à 5' && num === 5)) {
     return 100;
-  } else if (['SATISFEITO', 'BOM', '4', '7', '8'].includes(valStr) || (isNum && num >= 7 && num <= 8) || (isNum && type === 'SMILE 5' && num === 4) || (isNum && type === 'SMILE 4' && num === 3) || (isNum && type === 'Avaliação de 1 à 5' && num === 4)) {
+  } else if (['SATISFEITO', 'BOM'].includes(valStr) || (isNum && num >= 7 && num <= 8) || (isNum && type === 'SMILE 5' && num === 4) || (isNum && type === 'SMILE 4' && num === 3) || (isNum && type === 'Avaliação de 1 à 5' && num === 4)) {
     return 75;
-  } else if (['REGULAR', 'MÉDIO', '3', '5', '6'].includes(valStr) || (isNum && num >= 5 && num <= 6) || (isNum && type === 'SMILE 5' && num === 3) || (isNum && type === 'SMILE 4' && num === 2) || (isNum && type === 'Avaliação de 1 à 5' && num === 3)) {
+  } else if (['REGULAR', 'MÉDIO'].includes(valStr) || (isNum && num >= 5 && num <= 6) || (isNum && type === 'SMILE 5' && num === 3) || (isNum && type === 'SMILE 4' && num === 2) || (isNum && type === 'Avaliação de 1 à 5' && num === 3)) {
     return 50;
-  } else if (['RUIM', 'PÉSSIMO', 'INSATISFEITO', 'MUITO INSATISFEITO', '2', '1', '0', '4', '3'].includes(valStr) || (isNum && num <= 4) || (isNum && type === 'SMILE 5' && num <= 2) || (isNum && type === 'SMILE 4' && num === 1) || (isNum && type === 'Avaliação de 1 à 5' && num <= 2)) {
+  } else if (['RUIM', 'PÉSSIMO', 'INSATISFEITO', 'MUITO INSATISFEITO'].includes(valStr) || (isNum && num <= 4) || (isNum && type === 'SMILE 5' && num <= 2) || (isNum && type === 'SMILE 4' && num === 1) || (isNum && type === 'Avaliação de 1 à 5' && num <= 2)) {
     return 25;
   }
   return null;
