@@ -1,5 +1,11 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma, authenticateToken, whitelist, publicCompany, isMasterAdmin } from "../deps";
+
+// Senha aleatória quando o admin não informa uma (evita o default fraco "123456").
+function generateRandomPassword(): string {
+  return crypto.randomBytes(4).toString("hex");
+}
 
 // Admin Companies
 export function registerCompanyRoutes(app: any) {
@@ -99,7 +105,7 @@ export function registerCompanyRoutes(app: any) {
       });
       
       // Create or update corresponding user so they can login
-      const rawPassword = String(req.body.password || '123456').trim();
+      const rawPassword = String(req.body.password || generateRandomPassword()).trim();
       const hashedPassword = await bcrypt.hash(rawPassword, 10);
       
       await prisma.user.upsert({
@@ -245,7 +251,7 @@ export function registerCompanyRoutes(app: any) {
       const company = await prisma.company.findUnique({ where: { id: req.params.id } });
       if (!company) return res.status(404).json({ error: "Empresa não encontrada" });
 
-      const newPassword = req.body.password || '123456';
+      const newPassword = req.body.password || generateRandomPassword();
       const hashedPassword = await bcrypt.hash(newPassword, 10);
 
       await prisma.$transaction([

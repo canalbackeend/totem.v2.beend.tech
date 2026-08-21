@@ -23,7 +23,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { format, isToday, parseISO, addYears, isAfter, subDays } from 'date-fns';
+import { format, isToday, parseISO, addYears } from 'date-fns';
 
 interface TrackingTerminal {
   id: string;
@@ -96,7 +96,7 @@ export default function OnlineTracking() {
         }
         setCampaignsMap(cMap);
 
-        // 5. Set Responses
+        // 5. Set Responses (já agregadas por terminal no servidor: count + latest)
         if (data.responses) {
           setAllResponses(data.responses);
         }
@@ -111,38 +111,23 @@ export default function OnlineTracking() {
   }, [user, filter]);
 
   const trackingData = useMemo(() => {
-    // Determine the start date for filtering responses visually
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    let startDate: Date | null = null;
-    
-    if (filter === 'today') startDate = todayStart;
-    if (filter === '7d') startDate = subDays(todayStart, 7);
-    if (filter === '30d') startDate = subDays(todayStart, 30);
-    if (filter === '90d') startDate = subDays(todayStart, 90);
-
-    const responsesByTerminal: Record<string, any[]> = {};
-    const latestInteractionByTerminal: Record<string, any> = {};
-
-    allResponses.forEach(r => {
-      const respDate = parseISO(r.created_at);
-      
-      // Keep track of the absolute latest response for status calculation (Online = Today)
-      if (!latestInteractionByTerminal[r.terminal_id] || isAfter(respDate, parseISO(latestInteractionByTerminal[r.terminal_id].created_at))) {
-        latestInteractionByTerminal[r.terminal_id] = r;
-      }
-
-      // Filter responses by period
-      if (!startDate || respDate.getTime() >= startDate.getTime()) {
-        if (!responsesByTerminal[r.terminal_id]) responsesByTerminal[r.terminal_id] = [];
-        responsesByTerminal[r.terminal_id].push(r);
+    // O servidor já retorna, por terminal, a contagem e o último registro no
+    // período (agregação exata via groupBy). Não há mais sub-amostra (take) nem
+    // necessidade de re-filtrar por período aqui (range == filtro visual).
+    const statsByTerminal: Record<string, { count: number; latest: string }> = {};
+    allResponses.forEach((stat: any) => {
+      if (stat.terminal_id) {
+        statsByTerminal[stat.terminal_id] = {
+          count: stat.count || 0,
+          latest: stat.latest,
+        };
       }
     });
 
     const tData: TrackingTerminal[] = allTerminals.map(t => {
-      const filteredResps = responsesByTerminal[t.id] || [];
-      const absoluteLatest = latestInteractionByTerminal[t.id];
-      const isOnline = absoluteLatest ? isToday(parseISO(absoluteLatest.created_at)) : false;
+      const stat = statsByTerminal[t.id];
+      const absoluteLatest = stat?.latest || null;
+      const isOnline = absoluteLatest ? isToday(parseISO(absoluteLatest)) : false;
       
       const termCampaigns = t.campaigns ? t.campaigns.split(',').map((c: string) => c.trim()).filter(Boolean) : [];
       
@@ -160,13 +145,9 @@ export default function OnlineTracking() {
 
       const vencimento = companyInfo.vencimento || userProfile.vencimento || (t.created_at ? format(addYears(parseISO(t.created_at), 1), 'dd/MM/yyyy') : 'N/A');
 
-      // Sort responses in the period to show the latest for the "Visto em" column
-      filteredResps.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      const latestInPeriod = filteredResps[0];
-
       return {
         id: t.id,
-        qtdRegistro: filteredResps.length,
+        qtdRegistro: stat?.count || 0,
         responsavel,
         contato,
         plano: planStatus,
@@ -174,7 +155,7 @@ export default function OnlineTracking() {
         vencimento,
         campanhas: termCampaigns,
         terminal: t.name,
-        dataUltimoRegistro: latestInPeriod ? format(parseISO(latestInPeriod.created_at), 'dd/MM/yyyy HH:mm') : null,
+        dataUltimoRegistro: absoluteLatest ? format(parseISO(absoluteLatest), 'dd/MM/yyyy HH:mm') : null,
         status: (isOnline ? 'online' : 'offline') as 'online' | 'offline'
       };
     }).filter(t => {

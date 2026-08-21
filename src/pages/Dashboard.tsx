@@ -314,7 +314,7 @@ export default function Dashboard() {
     const fetchResponses = async () => {
       setResponsesLoading(true);
       try {
-        let endpoint = `/responses?campaign_id=${selectedCampaignId}`;
+        let endpoint = `/responses?campaign_id=${selectedCampaignId}&all=true`;
         if (startDate) endpoint += `&startDate=${startDate}`;
         if (endDate) endpoint += `&endDate=${endDate}`;
         if (selectedTerminalId !== 'all') endpoint += `&terminal_id=${selectedTerminalId}`;

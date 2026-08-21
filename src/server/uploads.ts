@@ -2,7 +2,8 @@ import crypto from "crypto";
 import { supabase, authenticateToken } from "./deps";
 
 // Helper to upload base64 to Supabase bucket "medias"
-const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+// SVG é vetor de stored-XSS (pode embutir scripts) e foi removido.
+const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB
 
 async function uploadBase64ToSupabase(base64Str: string, folder: string): Promise<string> {
@@ -24,7 +25,7 @@ async function uploadBase64ToSupabase(base64Str: string, folder: string): Promis
 
   const mimeType = matches[1];
   if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
-    throw new Error("Tipo de arquivo não permitido. Use apenas JPEG, PNG, GIF, WebP ou SVG.");
+    throw new Error("Tipo de arquivo não permitido. Use apenas JPEG, PNG, GIF ou WebP.");
   }
 
   const buffer = Buffer.from(matches[2], 'base64');
@@ -36,7 +37,6 @@ async function uploadBase64ToSupabase(base64Str: string, folder: string): Promis
   if (mimeType.includes("jpeg") || mimeType.includes("jpg")) ext = "jpg";
   else if (mimeType.includes("gif")) ext = "gif";
   else if (mimeType.includes("webp")) ext = "webp";
-  else if (mimeType.includes("svg")) ext = "svg";
 
   const filename = `${safeFolder}/${Date.now()}-${crypto.randomBytes(16).toString('hex')}.${ext}`;
 

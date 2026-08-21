@@ -160,7 +160,7 @@ async function handleCreateResponse(req: any, res: any) {
 
 export function registerResponseRoutes(app: any) {
   app.get("/api/responses", authenticateToken, async (req: any, res) => {
-    const { campaign_id, startDate, endDate, terminal_id, collaborator_name } = req.query;
+    const { campaign_id, startDate, endDate, terminal_id, collaborator_name, all } = req.query;
     const userId = req.user.id;
     const isMaster = isMasterAdmin(req);
     
@@ -205,7 +205,8 @@ export function registerResponseRoutes(app: any) {
 
       // Limit results to the most recent N to avoid loading the whole table
       // (huge payloads freeze the event loop with JSON.stringify and exhaust memory).
-      // TODO: move collaborator aggregation to the server for unbounded accuracy.
+      // Com `?all=true` (Dashboard, que calcula métricas no cliente) os dados são
+      // carregados por completo, garantindo métricas exatas em vez de amostra.
       const responses = await prisma.response.findMany({
         where,
         include: {
@@ -214,7 +215,7 @@ export function registerResponseRoutes(app: any) {
           user: { select: { empresa: true } }
         },
         orderBy: { created_at: "desc" },
-        take: 5000
+        ...(all === "true" ? {} : { take: 5000 })
       });
       res.json(responses);
     } catch (err: any) {

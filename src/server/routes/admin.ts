@@ -30,7 +30,7 @@ export function registerAdminTrackingRoute(app: any) {
         const cutoff = new Date();
         cutoff.setUTCDate(cutoff.getUTCDate() - rangeDays);
 
-        const [profiles, companies, terminals, campaigns, responses] =
+        const [profiles, companies, terminals, campaigns, responseStats] =
           await Promise.all([
             prisma.user.findMany({
               select: {
@@ -83,13 +83,21 @@ export function registerAdminTrackingRoute(app: any) {
               orderBy: { created_at: "desc" },
             }),
             prisma.campaign.findMany({ select: { id: true, name: true } }),
-            prisma.response.findMany({
+            // Agregação exata por terminal (contagem + último registro). Evita o
+            // take:100000 anterior, que sub-amostrava silenciosamente o tracking.
+            prisma.response.groupBy({
+              by: ["terminal_id"],
               where: { created_at: { gte: cutoff } },
-              select: { terminal_id: true, created_at: true },
-              orderBy: { created_at: "desc" },
-              take: 100000,
+              _count: { _all: true },
+              _max: { created_at: true },
             }),
           ]);
+
+        const responses = responseStats.map((stat) => ({
+          terminal_id: stat.terminal_id,
+          count: stat._count._all,
+          latest: stat._max.created_at,
+        }));
 
         res.json({ profiles, companies, terminals, campaigns, responses });
       } catch (err: any) {

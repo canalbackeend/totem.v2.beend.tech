@@ -19,6 +19,11 @@ export function registerEarlyAuthRoutes(app: any) {
         .status(400)
         .json({ error: "E-mail e senha são obrigatórios." });
     }
+    if (typeof password !== "string" || password.length < 8) {
+      return res
+        .status(400)
+        .json({ error: "A senha deve ter no mínimo 8 caracteres." });
+    }
     const cleanEmail = String(email).trim().toLowerCase();
     try {
       const hashedPassword = await bcrypt.hash(password, 10);

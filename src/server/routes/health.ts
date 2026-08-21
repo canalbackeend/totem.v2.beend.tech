@@ -43,6 +43,8 @@ export function registerHealthRoutes(app: any) {
       const [termCount, campaigns, responses, user] = await Promise.all([
         prisma.terminal.count({ where: terminalFilter }),
         prisma.campaign.findMany({ where: campaignFilter }),
+        // Seleciona apenas respostas + campaign_id (sem include pesado). A contagem
+        // de feedbacks é exata: sem take que transformava a métrica em amostra.
         prisma.response.findMany({ 
           where: {
             ...responseFilter,
@@ -51,11 +53,11 @@ export function registerHealthRoutes(app: any) {
               status: 'Ativo'
             }
           },
-          include: {
-            campaign: true
+          select: {
+            campaign_id: true,
+            answers: true
           },
-          orderBy: { created_at: "desc" },
-          take: 5000
+          orderBy: { created_at: "desc" }
         }),
         prisma.user.findUnique({ where: { id: userId } })
       ]);
@@ -80,9 +82,15 @@ export function registerHealthRoutes(app: any) {
         totalCollaborators += uniqueCollabs.size;
       });
 
+      // Mapa campanha -> perguntas (para detectar perguntas 'Texto Aberto')
+      const questionsByCampaign = new Map<string, any[]>();
+      campaigns.forEach((campaign: any) => {
+        questionsByCampaign.set(campaign.id, Array.isArray(campaign.questions) ? campaign.questions : []);
+      });
+
       const feedbackResponses = responses.filter((response: any) => {
         const answers = (Array.isArray(response.answers) ? response.answers : []) as any[];
-        const questions = (Array.isArray(response.campaign?.questions) ? response.campaign.questions : []) as any[];
+        const questions = questionsByCampaign.get(response.campaign_id) || [];
         return answers.some((answer: any) => {
           if (answer.comment && answer.comment.trim().length > 0) return true;
           const matchedQuestion = questions.find((question: any) => question.text === answer.question);

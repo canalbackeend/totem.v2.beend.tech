@@ -1,6 +1,12 @@
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { prisma, authenticateToken, whitelist, isMasterAdmin, ADMIN_EMAIL } from "../deps";
 import { normalizeEmail, isValidEmail, emailInUse, generateUniqueTerminalEmail } from "../terminal-email";
+
+// Senha aleatória quando o usuário não informa uma (evita senha fraca default).
+function generateRandomPassword(): string {
+  return crypto.randomBytes(4).toString("hex");
+}
 
 // Terminals
 export function registerTerminalRoutes(app: any) {
@@ -73,7 +79,7 @@ export function registerTerminalRoutes(app: any) {
       if (!rest.name || typeof rest.name !== "string" || !rest.name.trim()) {
         return res.status(400).json({ error: "Nome do terminal é obrigatório." });
       }
-      const plainPassword = password || "term123";
+      const plainPassword = password || generateRandomPassword();
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
       let email = normalizeEmail(rest.email || "");
@@ -152,7 +158,7 @@ export function registerTerminalRoutes(app: any) {
   app.post("/api/terminals/:id/reset-password", authenticateToken, async (req: any, res: any) => {
     try {
       if (req.user.terminal_id) return res.status(403).json({ error: "Access denied" });
-      const newPassword = req.body.password || "term123";
+      const newPassword = req.body.password || generateRandomPassword();
       const hashedPassword = await bcrypt.hash(newPassword, 10);
       const where: any = { id: req.params.id };
       if (!isMasterAdmin(req)) {

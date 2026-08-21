@@ -84,6 +84,32 @@ describe("Segurança: projeção pública de campanha", () => {
   });
 });
 
+describe("Segurança: validações de entrada", () => {
+  it("registro rejeita senha curta (mínimo 8 caracteres) sem criar usuário", async () => {
+    const email = `test-${Date.now()}@beend.test`;
+    const res = await request(app).post("/api/auth/register").send({
+      email,
+      password: "1234",
+      nome: "Teste",
+      empresa: "Teste",
+    });
+
+    expect(res.status).toBe(400);
+    const created = await prisma.user.findUnique({ where: { email } });
+    expect(created).toBeNull();
+  });
+
+  it("upload rejeita SVG (vetor de stored-XSS)", async () => {
+    const res = await request(app)
+      .post("/api/upload")
+      .set("Authorization", `Bearer ${terminalToken}`)
+      .send({ image: "data:image/svg+xml;base64,PHN2Zy8+", folder: "teste" });
+
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(String(res.body?.error || "")).toContain("não permitido");
+  });
+});
+
 describe("Segurança: token de relatório de uso único", () => {
   async function createToken() {
     const token = `test-sec-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;

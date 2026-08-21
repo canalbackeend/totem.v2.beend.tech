@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import cron from "node-cron";
 import bcrypt from "bcryptjs";
+import { PrismaClient } from "@prisma/client";
 import { prisma, ADMIN_EMAIL, ADMIN_PASSWORD, PORT } from "./deps";
 import { app } from "./app";
 import { sendDailyReports } from "./email";
@@ -36,7 +37,10 @@ async function ensureAdminExists() {
   }
 }
 
-// Sync all companies to users table to ensure everyone can login
+// Sync all companies to users table to ensure everyone can login.
+// Só cria Users que faltam (backfill de empresas legadas). NUNCA sobrescreve um
+// User existente: o boot sobrescrevia empresa/status/plano/vencimento a cada
+// start, descartando alterações feitas diretamente no User.
 async function syncCompaniesToUsers() {
   try {
     const companies = await prisma.company.findMany();
@@ -44,32 +48,13 @@ async function syncCompaniesToUsers() {
       const cleanEmail = String(comp.email).trim().toLowerCase();
       if (!cleanEmail) continue;
 
-      // Check if user already exists — preserve their password if so
       const existingUser = await prisma.user.findUnique({ where: { email: cleanEmail } });
+      if (existingUser) continue;
 
-      const hashedPassword = existingUser?.password || await bcrypt.hash("123456", 10);
-
-      await prisma.user.upsert({
-        where: { email: cleanEmail },
-        update: {
-          empresa: comp.empresa,
-          responsavel: comp.responsavel,
-          cnpj: comp.cnpj,
-          telefone: comp.telefone,
-          status: comp.status,
-          plano: comp.plano || "Mensal",
-          vencimento: comp.vencimento,
-          max_terminals: comp.max_terminals,
-          cep: comp.cep,
-          endereco: comp.endereco,
-          complemento: comp.complemento,
-          cidade: comp.cidade,
-          estado: comp.estado,
-          logo_url: comp.logo_url
-        },
-        create: {
+      await prisma.user.create({
+        data: {
           email: cleanEmail,
-          password: hashedPassword,
+          password: await bcrypt.hash("123456", 10),
           empresa: comp.empresa,
           responsavel: comp.responsavel,
           cnpj: comp.cnpj,
@@ -93,8 +78,21 @@ async function syncCompaniesToUsers() {
   }
 }
 
-// Cron concurrency guard
+// Cron concurrency guard (in-process)
 let cronRunning = false;
+
+// Lock distribuído para o cron de relatórios: `pg_advisory_lock` exige que o
+// unlock ocorra na MESMA conexão. Como o pool padrão do Prisma pode usar
+// conexões diferentes, usamos um client dedicado com connection_limit=1.
+// Isso impede que múltiplas instâncias (ex.: Coolify com replicas) enviem o
+// mesmo relatório diário em duplicado.
+const LOCK_DB_URL = (() => {
+  const url = process.env.DATABASE_URL || "";
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}connection_limit=1`;
+})();
+const reportLockClient = new PrismaClient({ datasourceUrl: LOCK_DB_URL });
+const DAILY_REPORTS_LOCK_KEY = 7248361;
 
 // Ability to disable daily reports via env var (useful for isolation tests)
 // Set ENABLE_DAILY_REPORTS=false in Coolify to turn the daily report cron off.
@@ -106,18 +104,26 @@ if (dailyReportsEnabled) {
     if (cronRunning) return;
     cronRunning = true;
     try {
-      const now = new Date();
-      
-      // Format as HH:mm in America/Sao_Paulo timezone
-      const formatter = new Intl.DateTimeFormat('pt-BR', {
-        timeZone: 'America/Sao_Paulo',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-      });
-      
-      const targetTimeStr = formatter.format(now);
-      await sendDailyReports(targetTimeStr);
+      // Tenta adquirir o lock global. Se outra instância estiver processando
+      // relatórios, pula este tick (evita envio duplicado).
+      const lockResult = await reportLockClient.$queryRaw<{ acquired: boolean }[]>`SELECT pg_try_advisory_lock(${DAILY_REPORTS_LOCK_KEY}) AS acquired`;
+      if (!lockResult[0]?.acquired) return;
+      try {
+        const now = new Date();
+        
+        // Format as HH:mm in America/Sao_Paulo timezone
+        const formatter = new Intl.DateTimeFormat('pt-BR', {
+          timeZone: 'America/Sao_Paulo',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: false
+        });
+        
+        const targetTimeStr = formatter.format(now);
+        await sendDailyReports(targetTimeStr);
+      } finally {
+        await reportLockClient.$queryRaw`SELECT pg_advisory_unlock(${DAILY_REPORTS_LOCK_KEY})`.catch(() => {});
+      }
     } finally {
       cronRunning = false;
     }
@@ -160,6 +166,7 @@ export async function startServer() {
     console.log(`Recebido ${signal}. Encerrando servidor graciosamente...`);
     server.close(async () => {
       await prisma.$disconnect();
+      await reportLockClient.$disconnect().catch(() => {});
       process.exit(0);
     });
     // Force exit if close hangs (e.g. open keep-alive connections)
