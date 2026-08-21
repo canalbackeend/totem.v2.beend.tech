@@ -3,6 +3,7 @@ import request from "supertest";
 import { app, parseCampaignList } from "../server.ts";
 import { getSatisfactionScore, getPerceptionKey } from "../src/lib/metrics.ts";
 import { calculateCampaignMetrics } from "../src/server/metrics.ts";
+import { toISODate } from "../src/server/deps.ts";
 
 describe("parseCampaignList", () => {
   it("retorna array vazio para valores vazios/indefinidos", () => {
@@ -120,5 +121,16 @@ describe("calculateCampaignMetrics", () => {
     const m = calculateCampaignMetrics(npsOnly, responses as any);
     expect(m.overallSatisfaction).toBe(0);
     expect(m.nps.neutros).toBe(1);
+  });
+});
+
+describe("toISODate (fuso de Brasília)", () => {
+  it("mantém o dia BRT mesmo quando o horário já passou da meia-noite em UTC", () => {
+    // 2026-08-02T00:30:00.000Z = 2026-08-01 21:30 em Brasília (UTC-3)
+    expect(toISODate("2026-08-02T00:30:00.000Z")).toBe("2026-08-01");
+  });
+
+  it("mantém o dia BRT para horários diurnos", () => {
+    expect(toISODate("2026-08-01T15:00:00.000Z")).toBe("2026-08-01");
   });
 });

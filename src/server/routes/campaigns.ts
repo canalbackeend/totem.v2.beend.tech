@@ -405,8 +405,14 @@ export function registerCampaignRoutes(app: any) {
 
       if (queryStartDate || queryEndDate) {
         endDate = queryEndDate ? new Date(queryEndDate + "T23:59:59.999-03:00") : new Date();
-        startDate = queryStartDate ? new Date(queryStartDate + "T00:00:00.000-03:00") : new Date(endDate.getTime() - 6 * 86400000);
-        startDate.setHours(0, 0, 0, 0);
+        if (queryStartDate) {
+          startDate = new Date(queryStartDate + "T00:00:00.000-03:00");
+        } else {
+          // Só endDate informado: começa 6 dias antes da meia-noite BRT do dia final.
+          // NOTA: não usar setHours/setUTCHours aqui — quebraria a âncora BRT em
+          // servidores com fuso diferente (ex.: UTC).
+          startDate = new Date(new Date(toISODate(endDate) + "T00:00:00.000-03:00").getTime() - 6 * 86400000);
+        }
         totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
       } else {
         // "Hoje" em BRT: ancora a janela na meia-noite BRT de hoje.
