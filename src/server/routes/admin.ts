@@ -77,7 +77,7 @@ export function registerAdminLogsRoute(app: any) {
     },
   );
 
-  // Lista de empresas que possuem registros de auditoria (para o filtro).
+  // Lista de empresas cadastradas (gestão de empresas) para o filtro do log.
   app.get(
     "/api/admin/logs/companies",
     authenticateToken,
@@ -88,19 +88,13 @@ export function registerAdminLogsRoute(app: any) {
             .status(403)
             .json({ error: "Only master admin can access logs" });
         }
-        const grouped = await prisma.auditLog.groupBy({
-          by: ["company_email"],
-          _max: { company_name: true },
-          where: { company_email: { not: null } },
-          orderBy: { company_email: "asc" },
+        const companies = await prisma.company.findMany({
+          select: { email: true, empresa: true },
+          orderBy: { empresa: "asc" },
         });
-        const companies = grouped
-          .filter((g) => g.company_email)
-          .map((g) => ({
-            email: g.company_email!,
-            name: g._max.company_name || g.company_email,
-          }));
-        res.json({ companies });
+        res.json({
+          companies: companies.map((c) => ({ email: c.email, name: c.empresa })),
+        });
       } catch (err: any) {
         res.status(500).json({ error: err.message });
       }
