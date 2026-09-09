@@ -676,7 +676,7 @@ const cardColors = [
 
     return (
       <div className="min-h-screen bg-black flex flex-col text-white" onTouchStart={handleTouch} onClick={handleTouch}>
-        <header className="p-6 md:p-10 flex items-center justify-between">
+        <header className="p-3 sm:p-6 md:p-10 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {availableCampaigns.length > 1 && (
               <button 
@@ -762,8 +762,8 @@ const cardColors = [
           </AnimatePresence>
         </main>
 
-        <footer className="fixed bottom-0 left-0 right-0 pt-4 pb-4 px-6 md:pt-6 md:pb-6 md:px-10 space-y-4 bg-black z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
-          <div className="relative h-3 w-full bg-zinc-900 rounded-full overflow-hidden shadow-inner">
+        <footer className="fixed bottom-0 left-0 right-0 pt-2 pb-2 px-3 sm:pt-4 sm:pb-4 sm:px-6 md:pt-6 md:pb-6 md:px-10 space-y-2 sm:space-y-4 bg-black z-50 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+          <div className="relative h-2 sm:h-3 w-full bg-zinc-900 rounded-full overflow-hidden shadow-inner">
             <motion.div 
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
@@ -771,37 +771,37 @@ const cardColors = [
             />
           </div>
           
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-4 bg-zinc-900 px-6 py-3 rounded-2xl border border-white/5">
+          <div className="flex flex-row flex-wrap items-center justify-between gap-2 sm:gap-6">
+            <div className="flex items-center gap-2 sm:gap-4 bg-zinc-900 px-3 sm:px-6 py-2 sm:py-3 rounded-2xl border border-white/5">
               <div 
-                className="w-10 h-10 bg-black rounded-xl flex items-center justify-center shadow-sm cursor-pointer"
+                className="w-8 h-8 sm:w-10 sm:h-10 bg-black rounded-xl flex items-center justify-center shadow-sm cursor-pointer"
                 onClick={handleSecretTap}
               >
-                <TerminalIcon className="text-blue-500 w-5 h-5" />
+                <TerminalIcon className="text-blue-500 w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">TERMINAL ATIVO</span>
-                <span className="text-sm font-black text-white uppercase">{terminal?.name}</span>
+                <span className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">TERMINAL ATIVO</span>
+                <span className="text-xs sm:text-sm font-black text-white uppercase">{terminal?.name}</span>
               </div>
             </div>
 
-            <div className="flex items-center gap-8">
-              <div className="flex items-center gap-4">
-                <div onClick={handleSecretTap} className={`w-12 h-12 rounded-2xl flex items-center justify-center cursor-pointer ${remainingTime < 15 ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-zinc-900 text-zinc-500'}`}>
-                  <Timer className="w-6 h-6" />
+            <div className="flex items-center gap-2 sm:gap-8">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div onClick={handleSecretTap} className={`w-10 h-10 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center cursor-pointer ${remainingTime < 15 ? 'bg-red-500/10 text-red-500 animate-pulse' : 'bg-zinc-900 text-zinc-500'}`}>
+                  <Timer className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
-                <div className="flex flex-col min-w-[60px]">
-                  <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">TIME OUT</span>
-                  <span className={`text-xl font-black tabular-nums ${remainingTime < 15 ? 'text-red-500' : 'text-white'}`}>{remainingTime}s</span>
+                <div className="flex flex-col min-w-[40px] sm:min-w-[60px]">
+                  <span className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">TIME OUT</span>
+                  <span className={`text-base sm:text-xl font-black tabular-nums ${remainingTime < 15 ? 'text-red-500' : 'text-white'}`}>{remainingTime}s</span>
                 </div>
               </div>
               
-              <div className="hidden md:block h-10 w-px bg-white/10" />
+              <div className="hidden sm:block h-8 sm:h-10 w-px bg-white/10" />
               
-              <div className="hidden md:flex flex-col items-end">
-                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">SISTEMA POR</span>
+              <div className="hidden sm:flex flex-col items-end">
+                <span className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">SISTEMA POR</span>
                 <div className="flex items-center gap-2 mt-1">
-                  <span className="text-lg font-logo text-white lowercase">beend.tech</span>
+                  <span className="text-sm sm:text-lg font-logo text-white lowercase">beend.tech</span>
                 </div>
               </div>
             </div>
@@ -1150,24 +1150,25 @@ const cardColors = [
   };
 
   const renderFooter = () => (
-    <footer className="fixed bottom-0 left-0 right-0 pt-4 pb-4 px-8 bg-black border-t border-white/5 text-white z-50">
-      <div className="max-w-6xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-4">
+    <footer className="fixed bottom-0 left-0 right-0 pt-2 pb-2 px-3 sm:pt-4 sm:pb-4 sm:px-8 bg-black border-t border-white/5 text-white z-50">
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <div 
-            className="w-10 h-10 bg-zinc-900 rounded-xl flex items-center justify-center cursor-pointer"
+            className="w-8 h-8 sm:w-10 sm:h-10 bg-zinc-900 rounded-xl flex items-center justify-center cursor-pointer"
             onClick={handleSecretTap}
           >
-            <TerminalIcon className="text-zinc-500 w-5 h-5" />
+            <TerminalIcon className="w-4 h-4 sm:w-5 sm:h-5 text-zinc-500" />
           </div>
           <div>
-            <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">TERMINAL</p>
-            <p className="text-sm font-black text-zinc-300 uppercase">{terminal?.name}</p>
+            <p className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">TERMINAL</p>
+            <p className="text-xs sm:text-sm font-black text-zinc-300 uppercase">{terminal?.name}</p>
           </div>
         </div>
+
         <div className="flex flex-col items-end">
-          <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">SISTEMA POR</span>
+          <span className="text-[8px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">SISTEMA POR</span>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-lg font-logo text-white lowercase">beend.tech</span>
+            <span className="text-sm sm:text-lg font-logo text-white lowercase">beend.tech</span>
           </div>
         </div>
       </div>
