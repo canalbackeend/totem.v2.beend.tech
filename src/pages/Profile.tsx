@@ -197,7 +197,7 @@ export default function Profile() {
       } catch (error: any) {
         toast.dismiss(loadingToast);
         console.error('Error uploading logo:', error);
-        toast.error('Erro ao salvar imagem no Supabase.');
+        toast.error(`Erro ao salvar imagem: ${error?.message || 'falha desconhecida'}`);
       }
     };
     reader.readAsDataURL(file);

@@ -103,7 +103,7 @@ export default function Shop() {
       } catch (error: any) {
         toast.dismiss(loadingToast);
         console.error('Error uploading product image:', error);
-        toast.error('Erro ao salvar imagem no Supabase.');
+        toast.error(`Erro ao salvar imagem: ${error?.message || 'falha desconhecida'}`);
       }
     };
     reader.readAsDataURL(file);

@@ -948,7 +948,7 @@ function EditorInner() {
       } catch (err) {
         toast.dismiss(loadingToast);
         console.error(err);
-        toast.error("Erro ao salvar imagem no Supabase.");
+        toast.error(`Erro ao salvar imagem: ${(err as any)?.message || 'falha desconhecida'}`);
       }
     };
     reader.readAsDataURL(file);

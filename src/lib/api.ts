@@ -43,7 +43,17 @@ function handleUnauthorized(response: Response, hadToken: boolean) {
 async function handleResponse(response: Response, hadToken: boolean) {
   if (!response.ok) {
     handleUnauthorized(response, hadToken);
-    throw new Error(await response.text());
+
+    const rawBody = await response.text();
+    let message = rawBody;
+    try {
+      const parsed = JSON.parse(rawBody);
+      if (parsed && typeof parsed.error === "string") message = parsed.error;
+    } catch {
+      // resposta não-JSON: mantém o texto original
+    }
+
+    throw new Error(message || `Erro HTTP ${response.status}`);
   }
   return response.status === 204 ? null : response.json();
 }

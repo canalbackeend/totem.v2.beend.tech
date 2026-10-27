@@ -10,8 +10,26 @@ dotenv.config();
 export const PORT = 3000;
 
 export const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
-export const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || "";
-export const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+// Chave "anon" (pública) - usada apenas como fallback. O backend deve preferir
+// a chave de serviço (service_role), que bypassa RLS e é segura no servidor.
+export const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || "";
+export const supabaseServiceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
+export const supabaseStorageBucket = process.env.SUPABASE_STORAGE_BUCKET || "uploads";
+
+export const supabaseKey = supabaseServiceKey || supabaseAnonKey;
+export const supabase = supabaseUrl && supabaseKey
+  ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
+  : null;
+
+if (!supabaseUrl) {
+  console.warn("AVISO: SUPABASE_URL não definido; upload de imagens (Supabase Storage) estará desativado.");
+} else if (!supabaseServiceKey) {
+  console.warn(
+    "AVISO: SUPABASE_SERVICE_ROLE_KEY não definido; usando chave anon. Uploads dependem das policies de RLS do bucket. Recomendado definir a chave de serviço no backend.",
+  );
+}
 
 // Validate Environment Variables (Optional for local testing)
 if (!process.env.DATABASE_URL && process.env.NODE_ENV === "production") {

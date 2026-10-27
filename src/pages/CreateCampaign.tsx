@@ -168,7 +168,7 @@ export default function CreateCampaign() {
       } catch (error: any) {
         toast.dismiss(loadingToast);
         console.error('Error uploading collaborator image:', error);
-        toast.error('Erro ao salvar imagem no Supabase.');
+        toast.error(`Erro ao salvar imagem: ${error?.message || 'falha desconhecida'}`);
       }
     };
     reader.readAsDataURL(file);
@@ -201,7 +201,7 @@ export default function CreateCampaign() {
       } catch (error: any) {
         toast.dismiss(loadingToast);
         console.error('Error uploading campaign image:', error);
-        toast.error('Erro ao salvar imagem no Supabase.');
+        toast.error(`Erro ao salvar imagem: ${error?.message || 'falha desconhecida'}`);
       }
     };
     reader.readAsDataURL(file);
