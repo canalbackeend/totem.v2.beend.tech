@@ -4,6 +4,7 @@ import {
   prisma,
   JWT_SECRET,
   authLimiter,
+  authIpLimiter,
   authenticateToken,
   publicUser,
   BLOCKED_ACCOUNT_ERROR,
@@ -89,7 +90,7 @@ function logTerminalLogin(
 
 // Must be registered BEFORE the global /api rate limiter (original ordering)
 export function registerEarlyAuthRoutes(app: any) {
-  app.post("/api/auth/register", authLimiter, async (req: any, res: any) => {
+  app.post("/api/auth/register", authIpLimiter, authLimiter, async (req: any, res: any) => {
     const { email, password, nome, empresa } = req.body;
     if (!email || !password) {
       return res
@@ -157,7 +158,7 @@ export function registerEarlyAuthRoutes(app: any) {
 }
 
 export function registerAuthRoutes(app: any) {
-  app.post("/api/auth/login", authLimiter, async (req: any, res: any) => {
+  app.post("/api/auth/login", authIpLimiter, authLimiter, async (req: any, res: any) => {
     const { email, password } = req.body;
     if (!email || !password) {
       return res
@@ -201,7 +202,7 @@ export function registerAuthRoutes(app: any) {
     }
   });
 
-  app.post("/api/terminals/login", authLimiter, async (req: any, res: any) => {
+  app.post("/api/terminals/login", authIpLimiter, authLimiter, async (req: any, res: any) => {
     const { email, password } = req.body;
     if (!email || !password) {
       return res

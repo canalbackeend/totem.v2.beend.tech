@@ -40,6 +40,18 @@ function handleUnauthorized(response: Response, hadToken: boolean) {
   }
 }
 
+export class ApiError extends Error {
+  status: number;
+  retryAfterSeconds: number | null;
+
+  constructor(message: string, status: number, retryAfterSeconds: number | null = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
 async function handleResponse(response: Response, hadToken: boolean) {
   if (!response.ok) {
     handleUnauthorized(response, hadToken);
@@ -53,7 +65,10 @@ async function handleResponse(response: Response, hadToken: boolean) {
       // resposta não-JSON: mantém o texto original
     }
 
-    throw new Error(message || `Erro HTTP ${response.status}`);
+    const retryAfterHeader = response.headers.get("retry-after");
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : null;
+
+    throw new ApiError(message || `Erro HTTP ${response.status}`, response.status, retryAfterSeconds);
   }
   return response.status === 204 ? null : response.json();
 }

@@ -17,7 +17,11 @@ import { registerSurveyRoutes } from "./routes/survey";
 
 function buildApp() {
   const app = express();
-  app.set('trust proxy', 1);
+  // Nº de proxies reversos confiáveis à frente da aplicação (CDN/load balancer).
+  // Precisa refletir a infraestrutura: com um valor menor que o real, req.ip vira
+  // o IP do proxy e todo o tráfego passa a dividir a mesma cota de rate limit.
+  const trustProxyHops = Number(process.env.TRUST_PROXY ?? 1);
+  app.set('trust proxy', Number.isFinite(trustProxyHops) ? trustProxyHops : 1);
 
   app.use(helmet({
     contentSecurityPolicy: process.env.NODE_ENV === "production" ? {

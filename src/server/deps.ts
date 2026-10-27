@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import jwt from "jsonwebtoken";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { createHash } from "node:crypto";
@@ -56,11 +56,92 @@ export const ADMIN_RESET_SECRET =
 export const prisma = new PrismaClient();
 
 // Limitadores de requisições (rate limiting) por endpoint:
-// - authLimiter: 10 tentativas / 15min (login e registro).
+// - authLimiter: falhas de login/registro por IP + e-mail (padrão: 20 / 15min).
+// - authIpLimiter: falhas de login/registro por IP (padrão: 200 / 15min).
 // - apiLimiter: 120 requisições / min para toda a API (exceto health check).
 // - publicResponseLimiter: 60 envios / min para o endpoint público de respostas.
-export const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: { error: "Muitas tentativas. Tente novamente mais tarde." } });
-export const apiLimiter = rateLimit({ windowMs: 60 * 1000, max: 120, skip: (req) => req.path.startsWith("/api/health"), message: { error: "Muitas requisições. Tente novamente mais tarde." } });
+//
+// A chave do authLimiter inclui o e-mail, não apenas o IP. Antes, 20 erros de
+// QUALQUER conta esgotavam a cota do IP inteiro por 15 min: em redes com NAT
+// (totens, escritórios, operadoras móveis) um usuário errando a senha bloqueava
+// todos os outros, mesmo com a senha correta. Agora cada conta tem sua própria
+// cota e o authIpLimiter (bem mais folgado) impede varredura de várias contas.
+const AUTH_WINDOW_MS = 15 * 60 * 1000;
+const AUTH_RATE_LIMIT_MAX = Math.max(1, Number(process.env.AUTH_RATE_LIMIT_MAX) || 20);
+const AUTH_IP_RATE_LIMIT_MAX = Math.max(
+  AUTH_RATE_LIMIT_MAX,
+  Number(process.env.AUTH_IP_RATE_LIMIT_MAX) || 200,
+);
+
+function authEmail(req: any): string {
+  const raw = req.body?.email;
+  return typeof raw === "string" ? raw.trim().toLowerCase() : "";
+}
+
+// IPv6 precisa ser agrupado por sub-rede (ipKeyGenerator) para não permitir
+// bypass trocando o sufixo do endereço.
+function authKey(req: any): string {
+  const ip = ipKeyGenerator(req.ip || "unknown");
+  const email = authEmail(req);
+  return email ? `${ip}|${email}` : ip;
+}
+
+// Só 401/403 contam como tentativa de adivinhar credencial. Erros de validação
+// (400), falhas do servidor/banco (5xx) e o próprio 429 não podem consumir a
+// cota — senão uma indisponibilidade momentânea do banco bloqueia o login de
+// todo mundo por 15 minutos.
+function isCredentialFailure(_req: any, res: any) {
+  return res.statusCode !== 401 && res.statusCode !== 403;
+}
+
+function authRateLimitHandler(label: string) {
+  return (req: any, res: any, _next: any, options: any) => {
+    console.warn(
+      `[rate-limit] ${label} bloqueado ip=${req.ip} email=${authEmail(req) || "-"} rota=${req.originalUrl}`,
+    );
+    res.status(options.statusCode).send(options.message);
+  };
+}
+
+const authLimiterBase = {
+  windowMs: AUTH_WINDOW_MS,
+  skipSuccessfulRequests: true,
+  requestWasSuccessful: isCredentialFailure,
+  skip: (req: any) => req.method === "OPTIONS",
+  standardHeaders: true,
+  legacyHeaders: false,
+};
+
+export const authLimiter = rateLimit({
+  ...authLimiterBase,
+  max: AUTH_RATE_LIMIT_MAX,
+  keyGenerator: authKey,
+  handler: authRateLimitHandler("login-conta"),
+  message: {
+    error: "Muitas tentativas de login para esta conta. Aguarde 15 minutos e tente novamente.",
+  },
+});
+
+export const authIpLimiter = rateLimit({
+  ...authLimiterBase,
+  max: AUTH_IP_RATE_LIMIT_MAX,
+  keyGenerator: (req: any) => ipKeyGenerator(req.ip || "unknown"),
+  handler: authRateLimitHandler("login-ip"),
+  message: {
+    error: "Muitas tentativas de login a partir desta rede. Aguarde 15 minutos e tente novamente.",
+  },
+});
+
+export const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 120,
+  // Montado em "/api", então req.path chega sem o prefixo.
+  skip: (req: any) => {
+    const path = req.path || "";
+    return path.startsWith("/health") || path.startsWith("/api/health");
+  },
+  message: { error: "Muitas requisições. Tente novamente mais tarde." },
+});
 export const publicResponseLimiter = rateLimit({ windowMs: 60 * 1000, max: 60, message: { error: "Muitas requisições. Tente novamente mais tarde." } });
 
 // Filtra um objeto, mantendo apenas as chaves permitidas (anti mass-assignment).

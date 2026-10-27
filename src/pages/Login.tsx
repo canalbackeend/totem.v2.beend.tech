@@ -118,6 +118,19 @@ export default function Login() {
     } catch (error: any) {
       console.error("Auth error:", error);
 
+      // 429 = bloqueio temporário por excesso de tentativas. Mostra o tempo de
+      // espera real (header Retry-After) em vez do erro genérico.
+      if (error?.status === 429) {
+        const minutes = error.retryAfterSeconds
+          ? Math.max(1, Math.ceil(error.retryAfterSeconds / 60))
+          : 15;
+        toast.error("Muitas tentativas de login", {
+          description: `Aguarde cerca de ${minutes} minuto(s) e tente novamente.`,
+          duration: 10000,
+        });
+        return;
+      }
+
       let errorMsg =
         error.message || "Verifique suas credenciais e tente novamente.";
       if (errorMsg.includes("Credenciais inválidas")) {
