@@ -4,37 +4,11 @@ import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
 import { createHash } from "node:crypto";
+import { inspectSupabaseConfig } from "./supabase-config";
 
 dotenv.config();
 
 export const PORT = 3000;
-
-// Normaliza o valor da env: espaços, aspas e barra final viram host inválido
-// ("A server with the specified hostname could not be found" no navegador).
-function normalizeSupabaseUrl(raw: string): string {
-  return (raw || "")
-    .trim()
-    .replace(/^["']|["']$/g, "")
-    .replace(/\/+$/, "");
-}
-
-export const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "");
-
-export const supabaseHost = (() => {
-  if (!supabaseUrl) return "";
-  try {
-    const parsed = new URL(supabaseUrl);
-    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.hostname : "";
-  } catch {
-    return "";
-  }
-})();
-
-if (supabaseUrl && !supabaseHost) {
-  console.error(
-    `ERRO: SUPABASE_URL inválida ("${supabaseUrl}"). Use o formato https://<project-ref>.supabase.co (sem espaços, aspas nem caminho).`,
-  );
-}
 
 // Chave "anon" (pública) - usada apenas como fallback. O backend deve preferir
 // a chave de serviço (service_role), que bypassa RLS e é segura no servidor.
@@ -43,18 +17,23 @@ export const supabaseServiceKey =
   process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 export const supabaseStorageBucket = process.env.SUPABASE_STORAGE_BUCKET || "uploads";
 
+// Normaliza/valida a configuração e avisa quando URL e chave são de projetos
+// diferentes (causa de "fetch failed" em produção).
+const supabaseConfig = inspectSupabaseConfig({
+  url: process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL,
+  anonKey: supabaseAnonKey,
+  serviceKey: supabaseServiceKey,
+});
+for (const message of supabaseConfig.errors) console.error(`ERRO: ${message}`);
+for (const message of supabaseConfig.warnings) console.warn(`AVISO: ${message}`);
+
+export const supabaseUrl = supabaseConfig.url;
+export const supabaseHost = supabaseConfig.host;
+
 export const supabaseKey = supabaseServiceKey || supabaseAnonKey;
 export const supabase = supabaseUrl && supabaseKey
   ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
   : null;
-
-if (!supabaseUrl) {
-  console.warn("AVISO: SUPABASE_URL não definido; upload de imagens (Supabase Storage) estará desativado.");
-} else if (!supabaseServiceKey) {
-  console.warn(
-    "AVISO: SUPABASE_SERVICE_ROLE_KEY não definido; usando chave anon. Uploads dependem das policies de RLS do bucket. Recomendado definir a chave de serviço no backend.",
-  );
-}
 
 // Validate Environment Variables (Optional for local testing)
 if (!process.env.DATABASE_URL && process.env.NODE_ENV === "production") {
