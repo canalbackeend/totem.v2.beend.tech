@@ -1,3 +1,4 @@
+import dns from "node:dns/promises";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -6,7 +7,11 @@ dotenv.config();
 // Uso: npx tsx scripts/check-supabase.ts
 // Lê SUPABASE_URL e SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY do .env ou do ambiente.
 
-const url = (process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "").replace(/\/+$/, "");
+const rawUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+if (rawUrl !== rawUrl.trim() || /["']/.test(rawUrl)) {
+  console.warn("⚠ SUPABASE_URL tem espaços ou aspas — isso quebra o upload. Corrija o valor no ambiente.");
+}
+const url = rawUrl.trim().replace(/^["']|["']$/g, "").replace(/\/+$/, "");
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || "";
 const anonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || "";
 const key = serviceKey || anonKey;
@@ -75,7 +80,23 @@ async function main() {
     console.error("✗ SUPABASE_URL não definido.");
     process.exit(1);
   }
-  console.log(`• projeto: ${new URL(url).hostname}`);
+  let host = "";
+  try {
+    host = new URL(url).hostname;
+  } catch {
+    console.error(`✗ SUPABASE_URL inválida: "${url}". Use https://<project-ref>.supabase.co (sem caminho).`);
+    process.exit(1);
+  }
+  console.log(`• projeto: ${host}`);
+
+  try {
+    await dns.lookup(host);
+    console.log("• DNS: host resolvido");
+  } catch (err: any) {
+    console.error(`✗ DNS: não foi possível resolver ${host} (${err?.code || "erro"}).`);
+    console.error("  O container/servidor não alcança esse host — confira a URL e a saída de rede.");
+    process.exit(1);
+  }
   if (!key) {
     console.error("✗ Nenhuma chave definida (SUPABASE_SERVICE_ROLE_KEY ou SUPABASE_ANON_KEY).");
     process.exit(1);

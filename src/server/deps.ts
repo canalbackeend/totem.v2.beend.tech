@@ -9,7 +9,32 @@ dotenv.config();
 
 export const PORT = 3000;
 
-export const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "";
+// Normaliza o valor da env: espaços, aspas e barra final viram host inválido
+// ("A server with the specified hostname could not be found" no navegador).
+function normalizeSupabaseUrl(raw: string): string {
+  return (raw || "")
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .replace(/\/+$/, "");
+}
+
+export const supabaseUrl = normalizeSupabaseUrl(process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || "");
+
+export const supabaseHost = (() => {
+  if (!supabaseUrl) return "";
+  try {
+    const parsed = new URL(supabaseUrl);
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.hostname : "";
+  } catch {
+    return "";
+  }
+})();
+
+if (supabaseUrl && !supabaseHost) {
+  console.error(
+    `ERRO: SUPABASE_URL inválida ("${supabaseUrl}"). Use o formato https://<project-ref>.supabase.co (sem espaços, aspas nem caminho).`,
+  );
+}
 
 // Chave "anon" (pública) - usada apenas como fallback. O backend deve preferir
 // a chave de serviço (service_role), que bypassa RLS e é segura no servidor.
