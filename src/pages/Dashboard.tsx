@@ -21,6 +21,7 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { useTheme } from '../contexts/ThemeContext';
+import { validateDateRange, quickRange, useDebouncedValue, DATE_INPUT_MIN, toLocalISODate } from '../lib/dateFilter';
 
 const drawSmileyFace = (doc: any, x: number, y: number, type: string) => {
   let color = [34, 197, 93]; // green
@@ -204,12 +205,9 @@ export default function Dashboard() {
   const [activeShortcut, setActiveShortcut] = useState<number | null>(null);
 
   const setQuickRange = (days: number) => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - days);
-    
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+    const { start, end } = quickRange(days);
+    setStartDate(start);
+    setEndDate(end);
     setActiveShortcut(days);
   };
 
@@ -224,6 +222,13 @@ export default function Dashboard() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [selectedTerminalId, setSelectedTerminalId] = useState<string>('all');
+
+  // Datas só seguem para a API depois que o usuário para de digitar e se forem
+  // válidas (máx. 120 dias). Ano parcial (0002, 0202...) travava o servidor.
+  const debouncedStartDate = useDebouncedValue(startDate);
+  const debouncedEndDate = useDebouncedValue(endDate);
+  const dateFilterError = validateDateRange(debouncedStartDate, debouncedEndDate);
+  const todayInput = toLocalISODate(new Date());
 
   useEffect(() => {
     if (isTerminal && user?.terminal_id) {
@@ -309,53 +314,61 @@ export default function Dashboard() {
   }, [user, location.pathname, selectedCampaignId]);
 
   useEffect(() => {
-    if (!selectedCampaignId) return;
-    
+    if (!selectedCampaignId || dateFilterError) return;
+    const controller = new AbortController();
+
     const fetchResponses = async () => {
       setResponsesLoading(true);
       try {
         let endpoint = `/responses?campaign_id=${selectedCampaignId}&all=true`;
-        if (startDate) endpoint += `&startDate=${startDate}`;
-        if (endDate) endpoint += `&endDate=${endDate}`;
+        if (debouncedStartDate) endpoint += `&startDate=${debouncedStartDate}`;
+        if (debouncedEndDate) endpoint += `&endDate=${debouncedEndDate}`;
         if (selectedTerminalId !== 'all') endpoint += `&terminal_id=${selectedTerminalId}`;
 
-        const data = await api.get(endpoint);
+        const data = await api.get(endpoint, undefined, { signal: controller.signal });
         setResponses(data || []);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         console.error('Error fetching responses:', err);
       } finally {
-        setResponsesLoading(false);
+        if (!controller.signal.aborted) setResponsesLoading(false);
       }
     };
 
     fetchResponses();
-  }, [selectedCampaignId, startDate, endDate, selectedTerminalId]);
+    // Troca de filtro cancela a busca anterior (sem rajada de requisições).
+    return () => controller.abort();
+  }, [selectedCampaignId, debouncedStartDate, debouncedEndDate, selectedTerminalId, dateFilterError]);
 
   useEffect(() => {
     if (!selectedCampaignId) {
       setEvolutionData([]);
       return;
     }
-    
+    if (dateFilterError) return;
+    const controller = new AbortController();
+
     const fetchEvolution = async () => {
       setEvolutionLoading(true);
       try {
         let evolutionEndpoint = `/campaigns/${selectedCampaignId}/evolution?days=7`;
-        if (startDate) evolutionEndpoint += `&startDate=${startDate}`;
-        if (endDate) evolutionEndpoint += `&endDate=${endDate}`;
+        if (debouncedStartDate) evolutionEndpoint += `&startDate=${debouncedStartDate}`;
+        if (debouncedEndDate) evolutionEndpoint += `&endDate=${debouncedEndDate}`;
         if (selectedTerminalId !== 'all') evolutionEndpoint += `&terminal_id=${selectedTerminalId}`;
-        const data = await api.get(evolutionEndpoint);
+        const data = await api.get(evolutionEndpoint, undefined, { signal: controller.signal });
         setEvolutionData(data.evolution || []);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         console.error('Error fetching evolution:', err);
         setEvolutionData([]);
       } finally {
-        setEvolutionLoading(false);
+        if (!controller.signal.aborted) setEvolutionLoading(false);
       }
     };
 
     fetchEvolution();
-  }, [selectedCampaignId, startDate, endDate, selectedTerminalId]);
+    return () => controller.abort();
+  }, [selectedCampaignId, debouncedStartDate, debouncedEndDate, selectedTerminalId, dateFilterError]);
 
   const handleExportConsolidado = () => {
     if (!selectedCampaign) {
@@ -1340,6 +1353,8 @@ export default function Dashboard() {
                  <input 
                   type="date" 
                   value={startDate}
+                  min={DATE_INPUT_MIN}
+                  max={endDate || todayInput}
                   onChange={(e) => setStartDate(e.target.value)}
                   className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
                     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
@@ -1351,11 +1366,16 @@ export default function Dashboard() {
                 <input 
                   type="date" 
                   value={endDate}
+                  min={startDate || DATE_INPUT_MIN}
+                  max={todayInput}
                   onChange={(e) => setEndDate(e.target.value)}
                   className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
                     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
                   }`}
                 />
+                {dateFilterError && (
+                  <span role="alert" className="text-xs font-semibold text-red-500">{dateFilterError}</span>
+                )}
               </div>
 
               <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">

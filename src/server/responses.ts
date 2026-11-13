@@ -1,6 +1,7 @@
 import { prisma, authenticateToken, publicResponseLimiter, whitelist, isMasterAdmin, BLOCKED_ACCOUNT_ERROR } from "./deps";
 import { getPerceptionKey } from "../lib/metrics";
 import { parseAnswers, stableStringify, sanitizeAnswers } from "../lib/answers";
+import { validateDateRange } from "./date-range";
 
 // Handler central de criação de respostas, usado pelo endpoint público
 // (terminal web/kiosk) e pelo endpoint autenticado (sync offline).
@@ -163,7 +164,10 @@ export function registerResponseRoutes(app: any) {
     const { campaign_id, startDate, endDate, terminal_id, collaborator_name, all } = req.query;
     const userId = req.user.id;
     const isMaster = isMasterAdmin(req);
-    
+
+    const rangeError = validateDateRange(startDate, endDate);
+    if (rangeError) return res.status(400).json({ error: rangeError });
+
     try {
       const profile = await prisma.user.findUnique({ where: { id: userId } });
       const isAdmin = profile?.role === "Administrador" && !req.user.terminal_id;

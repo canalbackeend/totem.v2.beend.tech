@@ -3,6 +3,7 @@ import { getSatisfactionScore } from "../../lib/metrics";
 import { parseAnswers } from "../../lib/answers";
 import { calculateCampaignMetrics } from "../metrics";
 import { logUserAction, buildDiff } from "../audit";
+import { validateDateRange } from "../date-range";
 
 const CAMPAIGN_FIELDS = ["name", "type", "status", "description", "privacy_text", "questions", "report_email", "report_time", "thank_you_message", "start_image", "end_image", "flow_layout"];
 
@@ -12,6 +13,8 @@ export function registerCampaignMetricsRoutes(app: any) {
   app.get("/api/campaigns/:id/metrics", authenticateToken, async (req: any, res: any) => {
     const { id } = req.params;
     const { start, end } = req.query;
+    const rangeError = validateDateRange(start, end);
+    if (rangeError) return res.status(400).json({ error: rangeError });
 
     try {
       const userId = req.user.id;
@@ -413,6 +416,11 @@ export function registerCampaignRoutes(app: any) {
 
   app.get("/api/campaigns/:id/evolution", authenticateToken, async (req: any, res: any) => {
     try {
+      // Valida antes de qualquer consulta: um intervalo gigante aqui travava o
+      // event loop (um bucket por dia) e derrubava o servidor inteiro.
+      const rangeError = validateDateRange(req.query.startDate, req.query.endDate);
+      if (rangeError) return res.status(400).json({ error: rangeError });
+
       const days = Math.min(Math.max(parseInt(req.query.days as string) || 7, 1), 365);
       const where: any = { id: req.params.id };
       if (!isMasterAdmin(req)) {

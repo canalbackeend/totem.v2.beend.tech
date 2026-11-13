@@ -74,7 +74,7 @@ async function handleResponse(response: Response, hadToken: boolean) {
 }
 
 export const api = {
-  async get(endpoint: string, params?: Record<string, string>) {
+  async get(endpoint: string, params?: Record<string, string>, options?: { signal?: AbortSignal }) {
     let url = `${API_URL}/api${endpoint}`;
     if (params) {
       const searchParams = new URLSearchParams();
@@ -90,7 +90,7 @@ export const api = {
     }
     const headers = await getAuthHeader();
     const hadToken = !!getAuthToken();
-    const response = await fetch(url, { headers });
+    const response = await fetch(url, { headers, signal: options?.signal });
     return handleResponse(response, hadToken);
   },
   async post(endpoint: string, data: any) {

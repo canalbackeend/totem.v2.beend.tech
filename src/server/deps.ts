@@ -228,13 +228,17 @@ export const BLOCKED_ACCOUNT_ERROR = { error: "Conta bloqueada, impossível sinc
 // Converte uma Date (ou string de data) em "YYYY-MM-DD" (formato de chave de dia)
 // no fuso de Brasília. Usar UTC aqui fazia respostas das 21h BRT (00h UTC do dia
 // seguinte) caírem no bucket do dia errado nos relatórios/evolução.
+// O formatter é criado uma única vez: instanciar Intl.DateTimeFormat a cada
+// chamada custava ~90µs e dominava os laços por dia (evolução/relatórios).
+const brtDateFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "America/Sao_Paulo",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 export function toISODate(date: Date | string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/Sao_Paulo",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(date));
+  return brtDateFormatter.format(new Date(date));
 }
 
 // Auth Middleware — re-validates the user against the DB so blocked/deleted
