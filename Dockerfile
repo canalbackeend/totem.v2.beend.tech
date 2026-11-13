@@ -46,4 +46,7 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
-CMD ["sh", "-c", "(npx prisma db push --accept-data-loss || echo 'AVISO: prisma db push falhou (duplicados em terminals.email?). Rode: node dist/dedupe-terminals.cjs e depois npx prisma db push --accept-data-loss') && node dist/server.cjs"]
+# Antes do db push, o dedupe de e-mails de terminais roda em modo simulação
+# (só reporta). Com DEDUPE_TERMINALS=apply no ambiente ele corrige os duplicados,
+# permitindo que o db push crie o índice único em terminals.email.
+CMD ["sh", "-c", "(node dist/dedupe-terminals.cjs || echo 'AVISO: dedupe de terminais falhou') && (npx prisma db push --accept-data-loss || echo 'AVISO: prisma db push falhou (duplicados em terminals.email?). Defina DEDUPE_TERMINALS=apply e reinicie.') && node dist/server.cjs"]

@@ -5,7 +5,11 @@ dotenv.config();
 
 const prisma = new PrismaClient();
 
-const DRY_RUN = process.argv.includes("--dry-run");
+// Padrão SEGURO: só simula. Para aplicar, use `--apply` ou DEDUPE_TERMINALS=apply
+// (no boot do container o script roda sempre; sem a variável, apenas reporta).
+const APPLY =
+  process.argv.includes("--apply") || process.env.DEDUPE_TERMINALS === "apply";
+const DRY_RUN = process.argv.includes("--dry-run") || !APPLY;
 
 const rand = (digits: number) =>
   Array.from({ length: digits }, () => Math.floor(Math.random() * 10)).join("");

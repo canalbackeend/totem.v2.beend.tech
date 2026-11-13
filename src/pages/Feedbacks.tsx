@@ -78,6 +78,13 @@ export default function Feedbacks() {
   const dateFilterError = validateDateRange(debouncedStartDate, debouncedEndDate);
   const todayInput = toLocalISODate(new Date());
 
+  // Aviso em toast (não ocupa espaço no layout dos filtros). O id fixo evita
+  // empilhar vários toasts iguais enquanto o usuário ajusta as datas.
+  useEffect(() => {
+    if (dateFilterError) toast.error(dateFilterError, { id: 'date-filter-error' });
+    else toast.dismiss('date-filter-error');
+  }, [dateFilterError]);
+
   useEffect(() => {
     if (!user || dateFilterError) return;
     const controller = new AbortController();
@@ -372,7 +379,7 @@ export default function Feedbacks() {
                   onChange={(e) => setStartDate(e.target.value)}
                   className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
                     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
-                  }`}
+                  }${dateFilterError ? ' border-red-500! ring-1 ring-red-500/40' : ''}`}
                 />
               </div>
               <div className="flex flex-col space-y-1.5 min-w-[140px] flex-1 lg:flex-none">
@@ -385,11 +392,8 @@ export default function Feedbacks() {
                   onChange={(e) => setEndDate(e.target.value)}
                   className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
                     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
-                  }`}
+                  }${dateFilterError ? ' border-red-500! ring-1 ring-red-500/40' : ''}`}
                 />
-                {dateFilterError && (
-                  <span role="alert" className="text-xs font-semibold text-red-500">{dateFilterError}</span>
-                )}
               </div>
               <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
                 <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Terminal:</label>
