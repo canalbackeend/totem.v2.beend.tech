@@ -1,0 +1,23 @@
+name: Tests
+
+# Roda os testes que não dependem de banco/rede. São eles que pegam as
+# regressões de produção: Supabase com URL/chave de projetos diferentes,
+# bucket errado e rate limit bloqueando todas as contas de um mesmo IP.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run test:critical

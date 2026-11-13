@@ -9,7 +9,8 @@
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:critical": "vitest run tests/supabase-config.test.ts tests/supabase-upload.test.ts tests/auth-rate-limit.test.ts tests/date-range.test.ts"
   },
   "dependencies": {
     "@prisma/client": "6.2.1",

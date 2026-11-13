@@ -28,6 +28,7 @@ import { api } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { toast } from 'sonner';
+import { validateDateRange, quickRange, useDebouncedValue, DATE_INPUT_MIN, toLocalISODate } from '../lib/dateFilter';
 
 interface ResponseAnswer {
   question: string;
@@ -70,30 +71,40 @@ export default function Feedbacks() {
   const [visibleCount, setVisibleCount] = useState(5);
   const sentinelRef = useRef<HTMLDivElement>(null);
 
+  // Datas só seguem para a API depois que o usuário para de digitar e se forem
+  // válidas (máx. 120 dias). Ano parcial (0002, 0202...) travava o servidor.
+  const debouncedStartDate = useDebouncedValue(startDate);
+  const debouncedEndDate = useDebouncedValue(endDate);
+  const dateFilterError = validateDateRange(debouncedStartDate, debouncedEndDate);
+  const todayInput = toLocalISODate(new Date());
+
   useEffect(() => {
-    if (!user) return;
-    
+    if (!user || dateFilterError) return;
+    const controller = new AbortController();
+
     const fetchFeedbacks = async () => {
       setLoading(true);
       try {
         let query = '?';
         if (selectedCampaignId) query += `&campaign_id=${selectedCampaignId}`;
-        if (startDate) query += `&startDate=${startDate}`;
-        if (endDate) query += `&endDate=${endDate}`;
+        if (debouncedStartDate) query += `&startDate=${debouncedStartDate}`;
+        if (debouncedEndDate) query += `&endDate=${debouncedEndDate}`;
         if (selectedTerminalId !== 'all') query += `&terminal_id=${selectedTerminalId}`;
         if (isTerminal && user.terminal_id) query += `&terminal_id=${user.terminal_id}`;
-        
-        const data = await api.get(`/responses${query}`);
+
+        const data = await api.get(`/responses${query}`, undefined, { signal: controller.signal });
         setFeedbacks(data || []);
-      } catch (err) {
+      } catch (err: any) {
+        if (err?.name === 'AbortError') return;
         console.error('Error fetching feedbacks:', err);
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     };
 
     fetchFeedbacks();
-  }, [user, selectedCampaignId, startDate, endDate, selectedTerminalId]);
+    return () => controller.abort();
+  }, [user, selectedCampaignId, debouncedStartDate, debouncedEndDate, selectedTerminalId, dateFilterError]);
 
   useEffect(() => {
     if (!user) return;
@@ -264,11 +275,9 @@ export default function Feedbacks() {
   };
 
   const setQuickRange = (days: number) => {
-    const end = new Date();
-    const start = new Date();
-    start.setDate(end.getDate() - days);
-    setStartDate(start.toISOString().split('T')[0]);
-    setEndDate(end.toISOString().split('T')[0]);
+    const { start, end } = quickRange(days);
+    setStartDate(start);
+    setEndDate(end);
     setActiveShortcut(days);
   };
 
@@ -358,6 +367,8 @@ export default function Feedbacks() {
                 <input 
                   type="date" 
                   value={startDate}
+                  min={DATE_INPUT_MIN}
+                  max={endDate || todayInput}
                   onChange={(e) => setStartDate(e.target.value)}
                   className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
                     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
@@ -369,11 +380,16 @@ export default function Feedbacks() {
                 <input 
                   type="date" 
                   value={endDate}
+                  min={startDate || DATE_INPUT_MIN}
+                  max={todayInput}
                   onChange={(e) => setEndDate(e.target.value)}
                   className={`w-full border rounded-md px-2 py-2 text-sm outline-none h-10 transition-colors ${
                     isDarkMode ? 'bg-black border-white/10 text-white focus:border-blue-500' : 'bg-[#f8fafb] border-slate-200 text-slate-600 focus:border-slate-400'
                   }`}
                 />
+                {dateFilterError && (
+                  <span role="alert" className="text-xs font-semibold text-red-500">{dateFilterError}</span>
+                )}
               </div>
               <div className="flex flex-col space-y-1.5 min-w-[160px] flex-1 lg:flex-none">
                 <label className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? 'text-zinc-500' : 'text-slate-500'}`}>Terminal:</label>

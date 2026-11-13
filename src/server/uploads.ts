@@ -84,7 +84,7 @@ async function assertSupabaseReachable(): Promise<void> {
   }
 }
 
-async function uploadBase64ToSupabase(base64Str: string, folder: string): Promise<string> {
+export async function uploadBase64ToSupabase(base64Str: string, folder: string): Promise<string> {
   if (!supabase) {
     throw new Error(
       "Supabase não está configurado. Defina SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_ANON_KEY) nas variáveis de ambiente.",
